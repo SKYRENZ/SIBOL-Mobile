@@ -11,13 +11,14 @@
   "dependencies": {
     "expo": "~54.0.10",
     "expo-status-bar": "~3.0.8",
-    "react": "18.2.0",
+        "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-native": "0.76.6",
-    "react-native-web": "~0.19.10"
+    "react-native-web": "~0.19.10",
+    "twrnc": "^4.10.1"
   },
   "devDependencies": {
-    "@types/react": "~18.2.46",
+    "@types/react": "^19.1.10",
     "typescript": "~5.9.2"
   },
   "private": true
