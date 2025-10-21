@@ -4,7 +4,7 @@ import tw from '../utils/tailwind';
 
 export default function BottomNavbar() {
   return (
-    <View style={tw`h-20 flex-row justify-around items-end bg-primary relative pb-4`}>
+    <View style={tw`h-18 flex-row justify-around items-end bg-primary relative pb-4`}>
       <TouchableOpacity style={tw`items-center min-w-[60px]`}>
         <Image 
           source={require('../../assets/menu.png')}

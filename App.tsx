@@ -1,13 +1,33 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Dashboard from './lib/Pages/Dashboard';
+import LandingPage from './lib/Pages/LandingPage';
+import SignIn from './lib/Pages/SignIn';
+import SignUp from './lib/Pages/SignUp';
+import { ResponsiveProvider } from './lib/utils/ResponsiveContext';
+
+const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Dashboard />
-      <StatusBar style="auto" />
-    </View>
+    <ResponsiveProvider>
+      <NavigationContainer>
+        <Stack.Navigator 
+          initialRouteName="Landing"
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
+          <Stack.Screen name="Landing" component={LandingPage} />
+          <Stack.Screen name="SignIn" component={SignIn} />
+          <Stack.Screen name="SignUp" component={SignUp} />
+          <Stack.Screen name="Dashboard" component={Dashboard} />
+        </Stack.Navigator>
+        <StatusBar style="auto" />
+      </NavigationContainer>
+    </ResponsiveProvider>
   );
 }
 

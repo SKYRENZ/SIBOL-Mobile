@@ -1,74 +1,177 @@
 import React, { useState } from 'react';
-import { StatusBar } from 'expo-status-bar';
 import { 
   Text, 
   View, 
   ScrollView, 
   Image, 
   TextInput, 
-  TouchableOpacity 
+  TouchableOpacity,
+  Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native';
-import BottomNavbar from '../components/bottom_navbar';
+import BottomNavbar from '../components/BottomNavbar';
 import tw from '../utils/tailwind';
+import { createResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from '../utils/responsiveStyles';
+import Container from '../components/primitives/Container';
+import CarbonRichContent from '../components/categories/CarbonRichContent';
+import NitrogenRichContent from '../components/categories/NitrogenRichContent';
+import SibolBinContent from '../components/categories/SibolBinContent';
 
 export default function Dashboard() {
   const [selectedCategory, setSelectedCategory] = useState('Carbon-rich');
+  const scrollViewRef = React.useRef<ScrollView>(null);
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ x: 0, y: 0, animated: true });
+    }
+  };
+
+  const styles = createResponsiveStyle(({ isSm, isMd, isLg }) => ({
+    safeArea: {
+      flex: 1,
+      backgroundColor: 'white',
+      paddingTop: isSm ? 25 : 40,
+    },
+    staticContainer: {
+      flexShrink: 0,
+    },
+    scrollArea: {
+      flex: 1,
+      minHeight: 200,
+    },
+    headerContainer: {
+      marginBottom: isSm ? useResponsiveSpacing('xs') : useResponsiveSpacing('sm'),
+    },
+    heading: {
+      fontSize: isSm ? useResponsiveFontSize('sm') : useResponsiveFontSize('xl'),
+      marginBottom: isSm ? 2 : useResponsiveSpacing('xs'),
+    },
+    subheading: {
+      fontSize: isSm ? useResponsiveFontSize('xs') : useResponsiveFontSize('sm'),
+    },
+    bannerContainer: {
+      backgroundColor: 'transparent',
+      marginBottom: isSm ? useResponsiveSpacing('xs') : useResponsiveSpacing('md'),
+      alignSelf: 'stretch',
+      width: '100%',
+      overflow: 'hidden',
+      borderRadius: 15,
+      height: isSm ? 80 : isMd ? 150 : 90,
+      aspectRatio: 15.5,
+    },
+    bannerImage: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 15,
+      resizeMode: 'contain',
+      transform: [{ scale: 0.95 }],
+    },
+    sectionTitle: {
+      fontSize: isSm ? useResponsiveFontSize('lg') : isMd ? useResponsiveFontSize('xl') : useResponsiveFontSize('2xl'),
+      fontWeight: 'bold',
+      color: '#2E523A',
+      textAlign: 'center',
+      marginBottom: isSm ? useResponsiveSpacing('sm') : useResponsiveSpacing('md'),
+    },
+    scheduleContainer: {
+      backgroundColor: 'white',
+      borderRadius: 15,
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.25)',
+      padding: isSm ? 10 : 15,
+      marginBottom: useResponsiveSpacing('md'),
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 3,
+      elevation: 3,
+    },
+    scheduleText: {
+      fontSize: isSm ? 11 : 13,
+    },
+    mapButton: {
+      backgroundColor: '#2E523A',
+      borderRadius: 15,
+      paddingVertical: isSm ? 6 : 8,
+      paddingHorizontal: isSm ? 12 : 16,
+    },
+    categoryGrid: {
+      flexDirection: 'row',
+      flexWrap: isSm ? 'nowrap' : 'wrap',
+      justifyContent: 'center',
+      gap: useResponsiveSpacing('md'),
+      alignSelf: 'center',
+      width: '100%',
+      maxWidth: isSm ? '100%' : 900,
+    },
+    categoryItem: {
+      width: isSm ? 110 : isMd ? 160 : 180,
+      height: isSm ? 129 : isMd ? 150 : 170,
+      marginHorizontal: isSm ? 0 : useResponsiveSpacing('sm'),
+    },
+    searchBar: {
+      height: isSm ? 38 : 45,
+      marginBottom: useResponsiveSpacing('sm'),
+    },
+  }));
 
   const categories = [
-  {
-    key: 'Carbon-rich',
-    label: 'Carbon-rich\nfoods',
-    icon: require('../../assets/carbon-rich.png'),
-    large: false,
-  },
-  {
-    key: 'Nitrogen-rich',
-    label: 'Nitrogen-rich\nfoods',
-    icon: require('../../assets/nitrogen-rich.png'),
-    large: false,
-  },
-  {
-    key: 'SIBOL',
-    label: 'All about SIBOL\nBin',
-    icon: require('../../assets/sibol-bin.png'),
-    large: true,
-  },
-];
-
+    {
+      key: 'Carbon-rich',
+      label: 'Carbon-rich\nfoods',
+      icon: require('../../assets/carbon-rich.png'),
+      large: false,
+    },
+    {
+      key: 'Nitrogen-rich',
+      label: 'Nitrogen-rich\nfoods',
+      icon: require('../../assets/nitrogen-rich.png'),
+      large: false,
+    },
+    {
+      key: 'SIBOL',
+      label: 'All about SIBOL\nBin',
+      icon: require('../../assets/sibol-bin.png'),
+      large: true,
+    },
+  ];
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-white pt-[50px]`}>
-      <StatusBar style="dark" />
-      <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
-        <View style={tw`px-5 pt-5`}>
-          <View style={tw`mb-5`}>
-            <Text style={tw`text-[20px] font-bold text-[#2E523A] mb-1`}>Hi, User#39239!</Text>
-            <Text style={tw`text-[11px] font-bold text-[#2E523A]`}>Welcome to SIBOL Community.</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={[tw`flex-1`]}>
+        <Container style={styles.staticContainer}>
+          <View style={styles.headerContainer}>
+            <Text style={[tw`font-bold text-[#2E523A]`, styles.heading]}>Hi, User#39239!</Text>
+            <Text style={[tw`font-bold text-[#2E523A]`, styles.subheading]}>Welcome to SIBOL Community.</Text>
           </View>
 
-          <View style={tw`bg-transparent mb-5 items-center justify-center w-[345px] h-[117px] self-center`}>
+          <View style={styles.bannerContainer}>
             <Image
               source={require('../../assets/segregation.png')}
-              style={tw`w-[380px] h-[133px]`}
-              resizeMode="contain"
+              style={styles.bannerImage}
+              resizeMode="cover"
             />
           </View>
 
-          <View style={tw`bg-white rounded-[15px] border border-[rgba(0,0,0,0.25)] p-[15px] mb-5 flex-row justify-between items-center shadow-md`}>
-            <Text style={tw`text-[13px] font-semibold text-[#6C8770] flex-1`}>
+          <View style={styles.scheduleContainer}>
+            <Text style={[tw`font-semibold text-[#6C8770] flex-1`, styles.scheduleText]}>
               You don't have a schedule{'\n'}for collection today!
             </Text>
-            <TouchableOpacity style={tw`bg-[#2E523A] rounded-[15px] py-2 px-4`}>
+            <TouchableOpacity style={styles.mapButton}>
               <Text style={tw`text-[11px] font-semibold text-white font-inter`}>View Map</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={tw`text-[20px] font-bold text-[#2E523A] text-center mb-4`}>What to put in SIBOL Bin?</Text>
+          <Text style={styles.sectionTitle}>What to put in SIBOL Bin?</Text>
 
-          <View style={tw`bg-[rgba(217,217,217,0.65)] rounded-[15px] flex-row items-center px-[15px] mb-6 h-[44px]`}>
+          <View style={[tw`bg-[rgba(217,217,217,0.65)] rounded-[15px] flex-row items-center px-[15px]`, styles.searchBar]}>
             <TextInput
-              style={tw`flex-1 text-[11px] font-semibold text-black`}
+              style={[tw`flex-1 font-semibold text-black`, { fontSize: useResponsiveFontSize('xs') }]}
               placeholder="Search your food waste's category"
               placeholderTextColor="rgba(0, 0, 0, 0.3)"
             />
@@ -78,17 +181,20 @@ export default function Dashboard() {
             />
           </View>
 
-          <View style={tw`flex-row justify-between mb-6 gap-[3]`}>
+          <View style={[tw`mb-6`, styles.categoryGrid]}>
             {categories.map((category) => {
               const isSelected = selectedCategory === category.key;
               return (
                 <TouchableOpacity
                   key={category.key}
-                  onPress={() => setSelectedCategory(category.key)}
-                  style={tw.style(
-                    'flex-1 items-center bg-white rounded-[20px] w-[110px] h-[129px] py-[10px]',
-                    isSelected && 'shadow-lg border border-[rgba(175,200,173,0.61)]'
-                  )}
+                  onPress={() => handleCategoryChange(category.key)}
+                  style={[
+                    tw.style(
+                      'items-center bg-white rounded-[20px] py-[10px]',
+                      isSelected && 'shadow-lg border border-[rgba(175,200,173,0.61)]'
+                    ),
+                    styles.categoryItem
+                  ]}
                 >
                   <View
                     style={tw.style(
@@ -111,83 +217,23 @@ export default function Dashboard() {
           </View>
 
           <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-5`} />
+        </Container>
 
-          <View style={tw`flex-row justify-between mb-5 mx-5`}>
-            <View style={tw`items-center`}>
-              <TouchableOpacity style={tw`bg-white rounded-[15px] border border-[#2E523A] w-[89px] h-[77px] justify-center items-center`}>
-                <Image
-                  source={require('../../assets/bread.png')}
-                  style={tw`w-[41px] h-[41px]`}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-              <Text style={tw`text-[11px] font-semibold text-[#2E523A] text-center mt-[6px]`}>Bread</Text>
-            </View>
-
-            <View style={tw`items-center`}>
-              <TouchableOpacity style={tw`bg-white rounded-[15px] border border-[#2E523A] w-[89px] h-[77px] justify-center items-center`}>
-                <Image
-                  source={require('../../assets/pasta.png')}
-                  style={tw`w-[41px] h-[41px]`}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-              <Text style={tw`text-[11px] font-semibold text-[#2E523A] text-center mt-[6px]`}>Pasta</Text>
-            </View>
-
-            <View style={tw`items-center`}>
-              <TouchableOpacity style={tw`bg-white rounded-[15px] border border-[#2E523A] w-[89px] h-[77px] justify-center items-center`}>
-                <Image
-                  source={require('../../assets/rice.png')}
-                  style={tw`w-[51px] h-[51px]`}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-              <Text style={tw`text-[11px] font-semibold text-[#2E523A] text-center mt-[6px]`}>Rice</Text>
-            </View>
-          </View>
-
-          <View style={tw`flex-row justify-between mb-5 mx-5`}>
-            <View style={tw`items-center`}>
-              <TouchableOpacity style={tw`bg-white rounded-[15px] border border-[#2E523A] w-[89px] h-[77px] justify-center items-center`}>
-                <Image
-                  source={require('../../assets/fruits.png')}
-                  style={tw`w-[51px] h-[51px]`}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-              <Text style={tw`text-[11px] font-semibold text-[#2E523A] text-center mt-[6px]`}>Fruits</Text>
-            </View>
-
-            <View style={tw`items-center`}>
-              <TouchableOpacity style={tw`bg-white rounded-[15px] border border-[#2E523A] w-[89px] h-[77px] justify-center items-center`}>
-                <Image
-                  source={require('../../assets/cereal.png')}
-                  style={tw`w-[41px] h-[41px]`}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-              <Text style={tw`text-[11px] font-semibold text-[#2E523A] text-center mt-[6px]`}>Cereal</Text>
-            </View>
-
-            <View style={tw`items-center`}>
-              <TouchableOpacity style={tw`bg-white rounded-[15px] border border-[#2E523A] w-[89px] h-[77px] justify-center items-center`}>
-                <Image
-                  source={require('../../assets/potato.png')}
-                  style={tw`w-[41px] h-[41px]`}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-              <Text style={tw`text-[11px] font-semibold text-[#2E523A] text-center mt-[6px]`}>Potato</Text>
-            </View>
-          </View>
-
-          <View style={tw`h-10`} />
+        <View style={[styles.scrollArea]}>
+          <ScrollView 
+            ref={scrollViewRef}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={tw`pb-[80px]`} // Added padding to account for bottom navbar
+          >
+            {selectedCategory === 'Carbon-rich' && <CarbonRichContent />}
+            {selectedCategory === 'Nitrogen-rich' && <NitrogenRichContent />}
+            {selectedCategory === 'SIBOL' && <SibolBinContent />}
+          </ScrollView>
         </View>
-      </ScrollView>
-      <BottomNavbar />
+      </View>
+      <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
+        <BottomNavbar />
+      </View>
     </SafeAreaView>
   );
 }
-
-
