@@ -9,9 +9,9 @@ import {
   Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native';
-import BottomNavbar from '../components/BottomNavbar';
+import BottomNavbar from '../components/hBotNav';
 import tw from '../utils/tailwind';
-import { createResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from '../utils/responsiveStyles';
+import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from '../utils/responsiveStyles';
 import Container from '../components/primitives/Container';
 import CarbonRichContent from '../components/categories/CarbonRichContent';
 import NitrogenRichContent from '../components/categories/NitrogenRichContent';
@@ -28,7 +28,7 @@ export default function Dashboard() {
     }
   };
 
-  const styles = createResponsiveStyle(({ isSm, isMd, isLg }) => ({
+  const styles = useResponsiveStyle (({ isSm, isMd, isLg }) => ({
     safeArea: {
       flex: 1,
       backgroundColor: 'white',

@@ -151,11 +151,12 @@ export default function SignUp({ navigation }: Props) {
             </Text>
 
             <View style={tw`items-center mb-6`}>
+
               <ResponsiveImage
-                source={require('../../assets/sibol-green-logo.png')}
-                aspectRatio={2}
-                maxWidthPercent={60}
-              />
+  source={require('../../assets/sibol-green-logo.png')}
+  aspectRatio={4}
+  maxWidthPercent={60}
+/>
             </View>
 
             <Text style={[tw`text-center font-bold text-primary mb-4`, styles.subheading]}>
