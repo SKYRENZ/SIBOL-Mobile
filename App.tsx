@@ -7,6 +7,7 @@ import LandingPage from './lib/Pages/LandingPage';
 import SignIn from './lib/Pages/SignIn';
 import SignUp from './lib/Pages/SignUp';
 import oDashboard from './lib/Pages/oDashboard';
+import ORequest from './lib/Pages/oRequest';
 import { ResponsiveProvider } from './lib/utils/ResponsiveContext';
 
 const Stack = createNativeStackNavigator();
@@ -16,7 +17,7 @@ export default function App() {
     <ResponsiveProvider>
       <NavigationContainer>
         <Stack.Navigator 
-          initialRouteName="ODashboard"
+          initialRouteName="HDashboard"
           screenOptions={{
             headerShown: false,
           }}
@@ -26,6 +27,7 @@ export default function App() {
           <Stack.Screen name="SignUp" component={SignUp} />
           <Stack.Screen name="HDashboard" component={hDashboard} />
           <Stack.Screen name="ODashboard" component={oDashboard} />
+          <Stack.Screen name="ORequest" component={ORequest} />
         </Stack.Navigator>
         <StatusBar style="auto" />
       </NavigationContainer>
