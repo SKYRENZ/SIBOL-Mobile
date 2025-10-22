@@ -2,10 +2,11 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import Dashboard from './lib/Pages/Dashboard';
+import hDashboard from './lib/Pages/hDashboard';
 import LandingPage from './lib/Pages/LandingPage';
 import SignIn from './lib/Pages/SignIn';
 import SignUp from './lib/Pages/SignUp';
+import oDashboard from './lib/Pages/oDashboard';
 import { ResponsiveProvider } from './lib/utils/ResponsiveContext';
 
 const Stack = createNativeStackNavigator();
@@ -15,7 +16,7 @@ export default function App() {
     <ResponsiveProvider>
       <NavigationContainer>
         <Stack.Navigator 
-          initialRouteName="Landing"
+          initialRouteName="ODashboard"
           screenOptions={{
             headerShown: false,
           }}
@@ -23,7 +24,8 @@ export default function App() {
           <Stack.Screen name="Landing" component={LandingPage} />
           <Stack.Screen name="SignIn" component={SignIn} />
           <Stack.Screen name="SignUp" component={SignUp} />
-          <Stack.Screen name="Dashboard" component={Dashboard} />
+          <Stack.Screen name="HDashboard" component={hDashboard} />
+          <Stack.Screen name="ODashboard" component={oDashboard} />
         </Stack.Navigator>
         <StatusBar style="auto" />
       </NavigationContainer>

@@ -98,11 +98,11 @@ export default function SignIn({ navigation }: Props) {
         >
           <View style={[tw`flex-1 justify-center py-8`, styles.container]}>
             <View style={tw`items-center mb-8`}>
-              <ResponsiveImage
-                source={require('../../assets/sibol-green-logo.png')}
-                aspectRatio={2}
-                maxWidthPercent={60}
-              />
+               <ResponsiveImage
+  source={require('../../assets/sibol-green-logo.png')}
+  aspectRatio={4}
+  maxWidthPercent={60}
+/>
             </View>
 
             <View style={tw`gap-8`}>
