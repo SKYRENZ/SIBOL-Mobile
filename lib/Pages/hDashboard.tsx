@@ -16,6 +16,7 @@ import Container from '../components/primitives/Container';
 import CarbonRichContent from '../components/categories/CarbonRichContent';
 import NitrogenRichContent from '../components/categories/NitrogenRichContent';
 import SibolBinContent from '../components/categories/SibolBinContent';
+import { Search } from 'lucide-react-native';
 
 export default function Dashboard() {
   const [selectedCategory, setSelectedCategory] = useState('Carbon-rich');
@@ -160,7 +161,7 @@ export default function Dashboard() {
 
           <View style={styles.scheduleContainer}>
             <Text style={[tw`font-semibold text-[#6C8770] flex-1`, styles.scheduleText]}>
-              You don't have a schedule{'\n'}for collection today!
+              View available waste containers near you!
             </Text>
             <TouchableOpacity style={styles.mapButton}>
               <Text style={tw`text-[11px] font-semibold text-white font-inter`}>View Map</Text>
@@ -169,17 +170,22 @@ export default function Dashboard() {
 
           <Text style={styles.sectionTitle}>What to put in SIBOL Bin?</Text>
 
-          <View style={[tw`bg-[rgba(217,217,217,0.65)] rounded-[15px] flex-row items-center px-[15px]`, styles.searchBar]}>
-            <TextInput
-              style={[tw`flex-1 font-semibold text-black`, { fontSize: useResponsiveFontSize('xs') }]}
-              placeholder="Search your food waste's category"
-              placeholderTextColor="rgba(0, 0, 0, 0.3)"
-            />
-            <Image
-              source={require('../../assets/search.png')}
-              style={tw`w-4 h-4`}
-            />
-          </View>
+           <View
+      style={[
+        tw`bg-[rgba(217,217,217,0.65)] rounded-[15px] flex-row items-center px-[15px]`,
+        styles.searchBar,
+      ]}
+    >
+        <TextInput
+          style={[
+          tw`flex-1 font-semibold text-black`,
+          { fontSize: useResponsiveFontSize('xs') },
+        ]}
+        placeholder="Search your food waste's category"
+        placeholderTextColor="rgba(0, 0, 0, 0.3)"
+        />
+           <Search size={16} color="black" strokeWidth={2} />
+  </View>
 
           <View style={[tw`mb-6`, styles.categoryGrid]}>
             {categories.map((category) => {

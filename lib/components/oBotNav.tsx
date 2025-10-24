@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, TouchableOpacity, Image, Text } from 'react-native';
+import { View, TouchableOpacity, Text } from 'react-native';
 import tw from '../utils/tailwind';
 import { useNavigation } from '@react-navigation/native';
+import { Menu, FileText, Home as HomeIcon, Bell, ArrowLeft } from 'lucide-react-native';
 
 interface BottomNavbarProps {
   currentPage?: 'Menu' | 'Request' | 'Home' | 'Notifications' | 'Back';
@@ -54,10 +55,7 @@ export default function BottomNavbar({ currentPage, onRefresh }: BottomNavbarPro
           style={tw`items-center flex-1`}
           onPress={() => handleNavigation('Menu')}
         >
-          <Image 
-            source={require('../../assets/menu.png')}
-            style={tw`w-[22px] h-[22px]`}
-          />
+          <Menu color="white" size={22} />
           <Text style={tw`text-white font-semibold text-[11px] mt-1`}>Menu</Text>
         </TouchableOpacity>
 
@@ -65,10 +63,7 @@ export default function BottomNavbar({ currentPage, onRefresh }: BottomNavbarPro
           style={tw`items-center flex-1`}
           onPress={() => handleNavigation('Request')}
         >
-          <Image 
-            source={require('../../assets/request.png')}
-            style={tw`w-[22px] h-[22px]`}
-          />
+          <FileText color="white" size={22} />
           <Text style={tw`text-white font-semibold text-[11px] mt-1`}>Request</Text>
         </TouchableOpacity>
 
@@ -77,10 +72,7 @@ export default function BottomNavbar({ currentPage, onRefresh }: BottomNavbarPro
             style={tw`w-18 h-18 rounded-full bg-primary border-2 border-white items-center justify-center`}
             onPress={() => handleNavigation('Home')}
           >
-            <Image 
-              source={require('../../assets/home.png')}
-              style={tw`w-[25px] h-[25px]`}
-            />
+            <HomeIcon color="white" size={25} />
           </TouchableOpacity>
           <Text style={tw`text-white font-semibold text-[11px] mt-1`}>Home</Text>
         </View>
@@ -89,10 +81,7 @@ export default function BottomNavbar({ currentPage, onRefresh }: BottomNavbarPro
           style={tw`items-center flex-1`}
           onPress={() => handleNavigation('Notifications')}
         >
-          <Image 
-            source={require('../../assets/notifications.png')}
-            style={tw`w-[22px] h-[22px]`}
-          />
+          <Bell color="white" size={22} />
           <Text style={tw`text-white font-semibold text-[11px] mt-1`}>Notifications</Text>
         </TouchableOpacity>
 
@@ -100,10 +89,7 @@ export default function BottomNavbar({ currentPage, onRefresh }: BottomNavbarPro
           style={tw`items-center flex-1`}
           onPress={() => handleNavigation('Back')}
         >
-          <Image 
-            source={require('../../assets/back.png')}
-            style={tw`w-[22px] h-[22px]`}
-          />
+          <ArrowLeft color="white" size={22} />
           <Text style={tw`text-white font-semibold text-[11px] mt-1`}>Back</Text>
         </TouchableOpacity>
       </View>
