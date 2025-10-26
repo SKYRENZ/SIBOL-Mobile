@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Text, 
   View, 
@@ -6,7 +6,11 @@ import {
   Image, 
   TextInput, 
   TouchableOpacity,
-  Dimensions
+  Dimensions,
+  Modal,
+  Alert,
+  Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native';
 import BottomNavbar from '../components/hBotNav';
@@ -16,10 +20,16 @@ import Container from '../components/primitives/Container';
 import CarbonRichContent from '../components/categories/CarbonRichContent';
 import NitrogenRichContent from '../components/categories/NitrogenRichContent';
 import SibolBinContent from '../components/categories/SibolBinContent';
-import { Search } from 'lucide-react-native';
+import { Search, Bell } from 'lucide-react-native';
+
+// pang camera yung react-native-vision-camera
+import { Camera, useCameraDevices } from 'react-native-vision-camera';
 
 export default function Dashboard() {
   const [selectedCategory, setSelectedCategory] = useState('Carbon-rich');
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannerActive, setScannerActive] = useState(false);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const scrollViewRef = React.useRef<ScrollView>(null);
 
   const handleCategoryChange = (category: string) => {
@@ -28,6 +38,66 @@ export default function Dashboard() {
       scrollViewRef.current.scrollTo({ x: 0, y: 0, animated: true });
     }
   };
+
+  const devices = useCameraDevices();
+  const device = devices?.find(d => d.position === 'back') ?? devices?.[0];
+
+  // checking ng camera permission upon load ng app
+    useEffect(() => {
+      checkPermission();
+    }, []);
+  
+    // logs pangdebug lang this
+    const checkPermission = async () => {
+      const statusRaw = await Camera.getCameraPermissionStatus();
+      const status = String(statusRaw);
+      console.log('Current camera permission status:', statusRaw);
+      setHasPermission(status === 'granted' || status === 'authorized');
+    };
+
+  const openDeviceSettings = async () => {
+    if (Platform.OS === 'android') {
+      // pangopen ng settings sa android
+      await Linking.openSettings();
+    }
+  };
+
+    const handleOpenScanner = async () => {
+      console.log('Opening scanner...');
+      const currentStatusRaw = await Camera.getCameraPermissionStatus();
+      const currentStatus = String(currentStatusRaw);
+      console.log('Permission status:', currentStatusRaw);
+  
+      if (currentStatus === 'granted' || currentStatus === 'authorized') {
+        console.log('Opening camera...');
+        setShowScanner(true);
+        setScannerActive(true);
+        return;
+      }
+  
+      if (currentStatus === 'not-determined') {
+        const newStatusRaw = await Camera.requestCameraPermission();
+        const newStatus = String(newStatusRaw);
+        console.log('New permission status:', newStatusRaw);
+        
+        if (newStatus === 'granted' || newStatus === 'authorized') {
+          setHasPermission(true);
+          setShowScanner(true);
+          setScannerActive(true);
+          return;
+        }
+      }
+  
+      // if denied yung permission
+      Alert.alert(
+        'Permission Required',
+        'Camera access is needed. Please enable it in your device settings.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: openDeviceSettings }
+        ]
+      );
+    };
 
   const styles = useResponsiveStyle (({ isSm, isMd, isLg }) => ({
     safeArea: {
@@ -147,8 +217,15 @@ export default function Dashboard() {
       <View style={[tw`flex-1`]}>
         <Container style={styles.staticContainer}>
           <View style={styles.headerContainer}>
-            <Text style={[tw`font-bold text-[#2E523A]`, styles.heading]}>Hi, User#39239!</Text>
-            <Text style={[tw`font-bold text-[#2E523A]`, styles.subheading]}>Welcome to SIBOL Community.</Text>
+            <View style={tw`flex-row justify-between items-center`}>
+              <View>
+                <Text style={[tw`font-bold text-[#2E523A]`, styles.heading]}>Hi, User#39239!</Text>
+                <Text style={[tw`font-bold text-[#2E523A]`, styles.subheading]}>Welcome to SIBOL Community.</Text>
+              </View>
+              <TouchableOpacity style={tw`p-2`} accessibilityLabel="Notifications">
+                <Bell color="#2E523A" size={22} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.bannerContainer}>
@@ -185,7 +262,7 @@ export default function Dashboard() {
         placeholderTextColor="rgba(0, 0, 0, 0.3)"
         />
            <Search size={16} color="black" strokeWidth={2} />
-  </View>
+        </View>
 
           <View style={[tw`mb-6`, styles.categoryGrid]}>
             {categories.map((category) => {
@@ -225,11 +302,48 @@ export default function Dashboard() {
           <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-5`} />
         </Container>
 
+        <Modal 
+          visible={showScanner} 
+          animationType="slide" 
+          onRequestClose={() => {
+            console.log('Closing scanner modal');
+            setShowScanner(false);
+            setScannerActive(false);
+          }}
+        >
+          <View style={tw`flex-1 bg-black`}>
+            {device ? (
+              <Camera
+                style={tw`flex-1`}
+                device={device}
+                isActive={scannerActive}
+                enableZoomGesture
+              />
+            ) : (
+              <View style={tw`flex-1 justify-center items-center p-4`}>
+                <Text style={tw`text-white text-center mb-4`}>
+                  Camera initializing...
+                </Text>
+              </View>
+            )}
+            
+            <TouchableOpacity 
+              onPress={() => {
+                setShowScanner(false);
+                setScannerActive(false);
+              }}
+              style={tw`absolute top-6 right-6 bg-white p-2 rounded-full`}
+            >
+              <Text style={tw`text-[14px] font-semibold`}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </Modal>
+
         <View style={[styles.scrollArea]}>
           <ScrollView 
             ref={scrollViewRef}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={tw`pb-[80px]`} // Added padding to account for bottom navbar
+            contentContainerStyle={tw`pb-[80px]`} 
           >
             {selectedCategory === 'Carbon-rich' && <CarbonRichContent />}
             {selectedCategory === 'Nitrogen-rich' && <NitrogenRichContent />}
@@ -237,8 +351,9 @@ export default function Dashboard() {
           </ScrollView>
         </View>
       </View>
+
       <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
-        <BottomNavbar />
+        <BottomNavbar onScan={handleOpenScanner} />
       </View>
     </SafeAreaView>
   );
