@@ -8,6 +8,7 @@ import SignIn from './lib/Pages/SignIn';
 import SignUp from './lib/Pages/SignUp';
 import oDashboard from './lib/Pages/oDashboard';
 import ORequest from './lib/Pages/oRequest';
+import ApiConnectiontester from './lib/Pages/TestApiConnection';
 import { ResponsiveProvider } from './lib/utils/ResponsiveContext';
 
 const Stack = createNativeStackNavigator();
@@ -17,7 +18,7 @@ export default function App() {
     <ResponsiveProvider>
       <NavigationContainer>
         <Stack.Navigator 
-          initialRouteName="HDashboard"
+          initialRouteName="ApiConnectiontester"
           screenOptions={{
             headerShown: false,
           }}
@@ -28,6 +29,7 @@ export default function App() {
           <Stack.Screen name="HDashboard" component={hDashboard} />
           <Stack.Screen name="ODashboard" component={oDashboard} />
           <Stack.Screen name="ORequest" component={ORequest} />
+          <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
         </Stack.Navigator>
         <StatusBar style="auto" />
       </NavigationContainer>
