@@ -21,9 +21,7 @@ import CarbonRichContent from '../components/categories/CarbonRichContent';
 import NitrogenRichContent from '../components/categories/NitrogenRichContent';
 import SibolBinContent from '../components/categories/SibolBinContent';
 import { Search, Bell } from 'lucide-react-native';
-
-// pang camera yung react-native-vision-camera
-import { Camera, useCameraDevices } from 'react-native-vision-camera';
+import CameraWrapper from '../components/CameraWrapper';
 
 export default function Dashboard() {
   const [selectedCategory, setSelectedCategory] = useState('Carbon-rich');
@@ -39,20 +37,29 @@ export default function Dashboard() {
     }
   };
 
-  const devices = useCameraDevices();
-  const device = devices?.find(d => d.position === 'back') ?? devices?.[0];
-
-  // checking ng camera permission upon load ng app
-    useEffect(() => {
+  // do not import/use VisionCamera at top-level — CameraWrapper lazy-loads native module
+  // keep hasPermission state for UI if you need it; on web we won't call VisionCamera APIs
+  useEffect(() => {
       checkPermission();
     }, []);
   
-    // logs pangdebug lang this
     const checkPermission = async () => {
-      const statusRaw = await Camera.getCameraPermissionStatus();
-      const status = String(statusRaw);
-      console.log('Current camera permission status:', statusRaw);
-      setHasPermission(status === 'granted' || status === 'authorized');
+      if (Platform.OS === 'web') {
+        setHasPermission(false);
+        return;
+      }
+      try {
+        // lazy-require native API
+        // @ts-ignore
+        const VC = require('react-native-vision-camera');
+        const statusRaw = await VC.Camera.getCameraPermissionStatus();
+        const status = String(statusRaw);
+        console.log('Current camera permission status:', statusRaw);
+        setHasPermission(status === 'granted' || status === 'authorized');
+      } catch (e) {
+        console.warn('Camera permission check failed', e);
+        setHasPermission(false);
+      }
     };
 
   const openDeviceSettings = async () => {
@@ -63,40 +70,43 @@ export default function Dashboard() {
   };
 
     const handleOpenScanner = async () => {
-      console.log('Opening scanner...');
-      const currentStatusRaw = await Camera.getCameraPermissionStatus();
-      const currentStatus = String(currentStatusRaw);
-      console.log('Permission status:', currentStatusRaw);
-  
-      if (currentStatus === 'granted' || currentStatus === 'authorized') {
-        console.log('Opening camera...');
+      if (Platform.OS === 'web') {
         setShowScanner(true);
         setScannerActive(true);
         return;
       }
-  
-      if (currentStatus === 'not-determined') {
-        const newStatusRaw = await Camera.requestCameraPermission();
-        const newStatus = String(newStatusRaw);
-        console.log('New permission status:', newStatusRaw);
-        
-        if (newStatus === 'granted' || newStatus === 'authorized') {
-          setHasPermission(true);
+      try {
+        // @ts-ignore
+        const VC = require('react-native-vision-camera');
+        const currentStatusRaw = await VC.Camera.getCameraPermissionStatus();
+        const currentStatus = String(currentStatusRaw);
+        if (currentStatus === 'granted' || currentStatus === 'authorized') {
           setShowScanner(true);
           setScannerActive(true);
           return;
         }
+        if (currentStatus === 'not-determined') {
+          const newStatusRaw = await VC.Camera.requestCameraPermission();
+          const newStatus = String(newStatusRaw);
+          if (newStatus === 'granted' || newStatus === 'authorized') {
+            setHasPermission(true);
+            setShowScanner(true);
+            setScannerActive(true);
+            return;
+          }
+        }
+        Alert.alert(
+          'Permission Required',
+          'Camera access is needed. Please enable it in your device settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: openDeviceSettings }
+          ]
+        );
+      } catch (err) {
+        console.warn('Error checking/requesting camera permission', err);
+        Alert.alert('Camera Error', 'Unable to access camera on this device.');
       }
-  
-      // if denied yung permission
-      Alert.alert(
-        'Permission Required',
-        'Camera access is needed. Please enable it in your device settings.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Settings', onPress: openDeviceSettings }
-        ]
-      );
     };
 
   const styles = useResponsiveStyle (({ isSm, isMd, isLg }) => ({
@@ -312,20 +322,7 @@ export default function Dashboard() {
           }}
         >
           <View style={tw`flex-1 bg-black`}>
-            {device ? (
-              <Camera
-                style={tw`flex-1`}
-                device={device}
-                isActive={scannerActive}
-                enableZoomGesture
-              />
-            ) : (
-              <View style={tw`flex-1 justify-center items-center p-4`}>
-                <Text style={tw`text-white text-center mb-4`}>
-                  Camera initializing...
-                </Text>
-              </View>
-            )}
+          <CameraWrapper isActive={scannerActive} onClose={() => { setShowScanner(false); setScannerActive(false); }} />
             
             <TouchableOpacity 
               onPress={() => {
