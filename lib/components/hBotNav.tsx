@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, TouchableOpacity, Text } from 'react-native';
+import { View, TouchableOpacity, Text, Platform } from 'react-native';
 import tw from '../utils/tailwind';
 import { Menu, MessageSquare, Home as HomeIcon, ArrowLeft, QrCode } from 'lucide-react-native';
 
 export default function BottomNavbar({ onScan }: { onScan?: () => void }) {
 	return (
-		<View style={tw`h-18 flex-row justify-around items-end bg-primary relative pb-4`}>
+		<View style={tw.style(`h-22 flex-row justify-around items-end bg-primary relative`, Platform.OS === 'android' ? 'pb-8' : 'pb-4')}>
 			<TouchableOpacity style={tw`items-center min-w-[60px]`}>
 				<Menu color="white" size={22} />
 				<Text style={tw`text-[11px] font-semibold text-white mt-1 font-inter`}>Menu</Text>
