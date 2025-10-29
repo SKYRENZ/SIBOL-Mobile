@@ -15,8 +15,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "$(PRODUCT_NAME) needs access to your Camera."
-        }
+        "NSCameraUsageDescription": "$(PRODUCT_NAME) needs access to your Camera.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.sprout.SIBOLmobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +27,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.SIBOLmobile"
+      "package": "com.sprout.SIBOLmobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -13,6 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native';
+import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import BottomNavbar from '../components/hBotNav';
 import tw from '../utils/tailwind';
 import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from '../utils/responsiveStyles';
@@ -69,44 +70,47 @@ export default function Dashboard() {
     }
   };
 
+  const requestCameraPermission = async () => {
+    try {
+      const result = await request(PERMISSIONS.ANDROID.CAMERA);
+      
+      if (result === RESULTS.GRANTED) {
+        setHasPermission(true);
+        setShowScanner(true);
+        setScannerActive(true);
+        return true;
+      } else if (result === RESULTS.DENIED) {
+
+        setHasPermission(false);
+        return false;
+      } else if (result === RESULTS.BLOCKED) {
+
+        Alert.alert(
+          'Permission Required',
+          'Camera access is blocked. Please enable it in your device settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() }
+          ]
+        );
+        return false;
+      }
+    } catch (error) {
+      console.log('Permission request error:', error);
+      return false;
+    }
+  };
+
     const handleOpenScanner = async () => {
-      if (Platform.OS === 'web') {
+      console.log('Opening scanner...');
+      
+      if (hasPermission === true) {
         setShowScanner(true);
         setScannerActive(true);
         return;
       }
-      try {
-        // @ts-ignore
-        const VC = require('react-native-vision-camera');
-        const currentStatusRaw = await VC.Camera.getCameraPermissionStatus();
-        const currentStatus = String(currentStatusRaw);
-        if (currentStatus === 'granted' || currentStatus === 'authorized') {
-          setShowScanner(true);
-          setScannerActive(true);
-          return;
-        }
-        if (currentStatus === 'not-determined') {
-          const newStatusRaw = await VC.Camera.requestCameraPermission();
-          const newStatus = String(newStatusRaw);
-          if (newStatus === 'granted' || newStatus === 'authorized') {
-            setHasPermission(true);
-            setShowScanner(true);
-            setScannerActive(true);
-            return;
-          }
-        }
-        Alert.alert(
-          'Permission Required',
-          'Camera access is needed. Please enable it in your device settings.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: openDeviceSettings }
-          ]
-        );
-      } catch (err) {
-        console.warn('Error checking/requesting camera permission', err);
-        Alert.alert('Camera Error', 'Unable to access camera on this device.');
-      }
+      
+      await requestCameraPermission();
     };
 
   const styles = useResponsiveStyle (({ isSm, isMd, isLg }) => ({
