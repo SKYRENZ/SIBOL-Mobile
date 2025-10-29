@@ -23,7 +23,7 @@ import SibolBinContent from '../components/categories/SibolBinContent';
 import { Search, Bell } from 'lucide-react-native';
 
 // pang camera yung react-native-vision-camera
-import { Camera, useCameraDevices } from 'react-native-vision-camera';
+import { Camera, useCameraDevices } from '../components/CameraWrapper';
 
 export default function Dashboard() {
   const [selectedCategory, setSelectedCategory] = useState('Carbon-rich');
@@ -39,8 +39,9 @@ export default function Dashboard() {
     }
   };
 
-  const devices = useCameraDevices();
-  const device = devices?.find(d => d.position === 'back') ?? devices?.[0];
+  const devicesRaw = useCameraDevices();
+  const devices = Array.isArray(devicesRaw) ? devicesRaw : (devicesRaw ? Object.values(devicesRaw) : []);
+  const device = devices.find((d: any) => d.position === 'back') ?? devices[0];
 
   // checking ng camera permission upon load ng app
     useEffect(() => {
