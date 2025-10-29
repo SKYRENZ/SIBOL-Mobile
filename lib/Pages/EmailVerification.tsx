@@ -7,12 +7,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  NativeSyntheticEvent,
+  TextInputKeyPressEventData,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import tw from '../utils/tailwind';
 import { useResponsiveStyle } from '../utils/responsiveStyles';
+import { useEmailVerification } from '../hooks/signup/useEmailVerification';
 
 type RootStackParamList = {
   SignUp: undefined;
@@ -31,33 +34,49 @@ interface Props {
 }
 
 export default function VerifyEmail({ navigation, route }: Props) {
-  const email = route?.params?.email ?? '';
+  const initialEmail = route?.params?.email ?? '';
+  const {
+    email,
+    setEmail,
+    status,
+    message,
+    isResending,
+    resendCooldown,
+    canResend,
+    verifyCode: verifyCodeApi,
+    sendVerificationCode,
+  } = useEmailVerification(initialEmail);
   const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
   const inputsRef = useRef<Array<TextInput | null>>([]);
-  const [timer, setTimer] = useState(60);
+  const [timer, setTimer] = useState(resendCooldown || 0);
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
   const styles = useResponsiveStyle(({ isSm }) => ({
     container: { paddingHorizontal: isSm ? 20 : 40 },
     heading: { fontSize: isSm ? 22 : 26 },
-    input: { width: isSm ? 44 : 52, height: isSm ? 52 : 60, fontSize: isSm ? 20 : 22 },
+    // ensure digits are visible and consistent
+    input: { width: isSm ? 44 : 52, height: isSm ? 52 : 60, fontSize: isSm ? 20 : 22, color: '#000' },
   }));
 
   useEffect(() => {
     inputsRef.current[0]?.focus();
-    let interval: NodeJS.Timeout | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     if (timer > 0) {
       interval = setInterval(() => setTimer((t) => t - 1), 1000);
     }
     return () => {
-      if (interval) clearInterval(interval);
+      if (interval !== null) clearInterval(interval as any);
     };
   }, [timer]);
 
+  // normalize digits (convert full-width digits and strip non-digits)
+  const normalizeDigits = (s: string) =>
+    (s || '').replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 65248)).replace(/\D/g, '');
+
   const handleChange = (text: string, index: number) => {
-    // allow only single digit numeric
-    const digit = text.replace(/[^0-9]/g, '').slice(-1);
+    // allow only single digit numeric (normalize full-width too)
+    const digit = normalizeDigits(text).slice(-1);
     const newOtp = [...otp];
     newOtp[index] = digit;
     setOtp(newOtp);
@@ -66,13 +85,13 @@ export default function VerifyEmail({ navigation, route }: Props) {
       inputsRef.current[index + 1]?.focus();
     }
     if (!digit && index > 0) {
-      // keep cursor in this field if user deleted, but move focus back
       inputsRef.current[index - 1]?.focus();
     }
   };
 
-  const handleKeyPress = ({ nativeEvent }: any, index: number) => {
-    if (nativeEvent.key === 'Backspace' && otp[index] === '' && index > 0) {
+  const handleKeyPress = (e: NativeSyntheticEvent<TextInputKeyPressEventData>, index: number) => {
+    const key = e.nativeEvent.key;
+    if (key === 'Backspace' && otp[index] === '' && index > 0) {
       inputsRef.current[index - 1]?.focus();
     }
   };
@@ -97,24 +116,31 @@ export default function VerifyEmail({ navigation, route }: Props) {
       return;
     }
     setVerifying(true);
-    // TODO: replace with real verification API call
-    setTimeout(() => {
-      setVerifying(false);
-      // fake success
-      Alert.alert('Success', 'Email verified.');
-      navigation.navigate('Dashboard');
-    }, 1000);
+    verifyCodeApi(code, email)
+      .then((res) => {
+        setVerifying(false);
+        Alert.alert('Success', 'Email verified.');
+        navigation.navigate('AdminPending' as any, { email });
+      })
+      .catch((err: any) => {
+        setVerifying(false);
+        Alert.alert('Verification failed', err?.message || 'Invalid code');
+      });
   };
 
   const resendCode = () => {
-    if (timer > 0) return;
+    if (!canResend) return;
     setSending(true);
-    // TODO: replace with real resend API call
-    setTimeout(() => {
-      setSending(false);
-      setTimer(60);
-      Alert.alert('Sent', `A new code was sent to ${email || 'your email'}.`);
-    }, 800);
+    sendVerificationCode(email)
+      .then(() => {
+        setSending(false);
+        setTimer(60);
+        Alert.alert('Sent', `A new code was sent to ${email || 'your email'}.`);
+      })
+      .catch((err: any) => {
+        setSending(false);
+        Alert.alert('Failed to send', err?.message || 'Could not send code');
+      });
   };
 
   const isComplete = otp.every((d) => d !== '');
@@ -136,37 +162,40 @@ export default function VerifyEmail({ navigation, route }: Props) {
           <Text style={tw`text-center text-primary font-bold mb-6`}>{email || 'your email'}</Text>
 
           <View style={tw`flex-row justify-center gap-3 mb-6`}>
-            {otp.map((digit, i) => (
-              <TextInput
-                key={i}
-                ref={(ref) => (inputsRef.current[i] = ref)}
-                value={digit}
-                onChangeText={(text) => handleChange(text, i)}
-                onKeyPress={(e) => handleKeyPress(e, i)}
-                keyboardType="number-pad"
-                maxLength={1}
-                style={[
-                  tw`border-2 border-text-gray rounded-md text-center bg-white`,
-                  styles.input,
-                ]}
-                selectionColor="#000"
-                onSelectionChange={() => {}}
-                onFocus={() => {
-                  // clear current on focus so user can replace
-                  const newOtp = [...otp];
-                  newOtp[i] = '';
-                  setOtp(newOtp);
-                }}
-                // support paste by listening onChangeText for multiple chars
-                onChange={() => {}}
-                // fallback paste support via onTextInput (some RN versions)
-                onTextInput={({ nativeEvent }) => {
-                  if (nativeEvent && nativeEvent.text && nativeEvent.text.length > 1) {
-                    handlePaste(nativeEvent.text);
-                  }
-                }}
-              />
-            ))}
+            {otp.map((digit, i) => {
+              const extraProps = Platform.OS === 'web' ? ({ name: `verification-${i}` } as any) : {};
+              return (
+                <TextInput
+                  key={i}
+                  ref={(ref) => { inputsRef.current[i] = ref; }}
+                  nativeID={`verification-${i}`}
+                  {...extraProps}
+                  accessibilityLabel={`Verification code digit ${i + 1}`}
+                  value={digit}
+                  // handle paste (multi-char) here and single-digit normally
+                  onChangeText={(text) => {
+                    if (text && text.length > 1) {
+                      handlePaste(text);
+                    } else {
+                      handleChange(text, i);
+                    }
+                  }}
+                  onKeyPress={(e) => handleKeyPress(e, i)}
+                  keyboardType={Platform.OS === 'android' ? 'numeric' : 'number-pad'}
+                  textContentType="oneTimeCode"
+                  autoComplete="sms-otp"
+                  importantForAutofill="yes"
+                  inputMode="numeric"
+                  maxLength={1}
+                  style={[
+                    tw`border-2 border-text-gray rounded-md text-center bg-white`,
+                    styles.input,
+                  ]}
+                  selectionColor="#000"
+                  // do not clear on focus — preserving value prevents flicker and lost digits
+                />
+              );
+            })}
           </View>
 
           <TouchableOpacity
@@ -185,8 +214,8 @@ export default function VerifyEmail({ navigation, route }: Props) {
             </Text>
             <TouchableOpacity
               onPress={resendCode}
-              disabled={timer > 0 || sending}
-              style={tw`${timer > 0 ? 'opacity-40' : ''}`}
+              disabled={!canResend || sending}
+              style={tw`${!canResend ? 'opacity-40' : ''}`}
             >
               <Text style={tw`text-primary font-bold`}>{sending ? 'Sending...' : 'Resend'}</Text>
             </TouchableOpacity>

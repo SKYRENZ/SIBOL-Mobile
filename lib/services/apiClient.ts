@@ -58,7 +58,27 @@ export async function setToken(token: string | null) {
 
 // Convenience helpers (adjust endpoints if needed)
 export async function fetchBarangays() {
-  return get('/api/auth/barangays');
+  try {
+    const data = await get('/api/auth/barangays');
+    // Normalize common shapes:
+    // - { success: true, barangays: [...] }
+    // - [...] (array directly)
+    // - { data: [...] }
+    if (data && Array.isArray((data as any).barangays)) {
+      return { barangays: (data as any).barangays };
+    }
+    if (Array.isArray(data)) {
+      return { barangays: data };
+    }
+    if (data && Array.isArray((data as any).data)) {
+      return { barangays: (data as any).data };
+    }
+    console.warn('[mobile api] fetchBarangays - unexpected response shape', data);
+    return { barangays: [] };
+  } catch (err) {
+    console.error('[mobile api] fetchBarangays error', err);
+    return { barangays: [] };
+  }
 }
 export async function ping() {
   return get('/api/health') /* optional; if not exposed backend, call a public endpoint like /api/auth/barangays */;
