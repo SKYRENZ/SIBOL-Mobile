@@ -18,7 +18,7 @@ export default function App() {
     <ResponsiveProvider>
       <NavigationContainer>
         <Stack.Navigator 
-          initialRouteName="ApiConnectiontester"
+          initialRouteName="SignIn"
           screenOptions={{
             headerShown: false,
           }}

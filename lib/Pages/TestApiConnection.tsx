@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Button, ActivityIndicator, Alert } from 'react-native';
-import * as api from '../utils/api';
+import * as api from '../services/apiClient';
 
 export default function TestApiConnection() {
   const [loading, setLoading] = useState(false);
