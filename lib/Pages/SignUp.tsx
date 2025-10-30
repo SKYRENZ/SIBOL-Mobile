@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, Modal, FlatList, TouchableWithoutFeedback } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,6 +7,8 @@ import tw from '../utils/tailwind';
 import { useResponsiveStyle } from '../utils/responsiveStyles';
 import ResponsiveImage from '../components/primitives/ResponsiveImage';
 import Svg, { Path, G, Defs, ClipPath, Rect } from 'react-native-svg';
+import { post } from '../services/apiClient';
+import { useSignUp } from '../hooks/signup/useSignUp';
 
 type RootStackParamList = {
   Landing: undefined;
@@ -64,25 +66,35 @@ const validateEmail = (email: string) => {
 };
 
 export default function SignUp({ navigation }: Props) {
-  const [role, setRole] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
+  // form state and submit logic from hook
+  const {
+    role,
+    setRole,
+    firstName,
+    setFirstName,
+    lastName,
+    setLastName,
+    email,
+    setEmail,
+    barangay,
+    setBarangay,
+    barangays,
+    errors,
+    loading,
+    serverError,
+    pendingEmail,
+    handleSignUp,
+  } = useSignUp();
+
+  // small local helpers / UI state
   const [emailError, setEmailError] = useState('');
-  const [barangay, setBarangay] = useState('');
   const [idImage, setIdImage] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showRolePicker, setShowRolePicker] = useState(false);
   const [showBarangayPicker, setShowBarangayPicker] = useState(false);
 
+  // define roles (was missing)
   const roles = ['Household', 'Operator'];
-  const barangays = [
-    'Barangay 171',
-    'Barangay 172',
-    'Barangay 173',
-    'Barangay 174',
-    'Barangay 175',
-  ];
 
   const styles = useResponsiveStyle(({ isSm }) => ({
     container: {
@@ -122,16 +134,24 @@ export default function SignUp({ navigation }: Props) {
     }
   };
 
-  const handleCreateAccount = () => {
-    if (!role || !firstName || !lastName || !email || !barangay || !idImage || !acceptedTerms) {
-      Alert.alert('Missing Information', 'Please fill in all fields and accept the terms');
+  const handleCreateAccount = async () => {
+    if (!acceptedTerms || !idImage) {
+      Alert.alert('Missing Information', 'Please upload an ID and accept terms.');
       return;
     }
-    if (!validateEmail(email)) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address');
-      return;
+
+    try {
+      // delegate validation + API call to hook
+      const result = await handleSignUp();
+
+      // backend sends verification code for mobile registrations (no extra call needed)
+      // (removed duplicate call to /api/auth/send-verification-code)
+      
+      navigation.navigate('VerifyEmail' as any, { email });
+    } catch (err: any) {
+      const message = err?.message || 'Sign up failed';
+      Alert.alert('Sign up failed', message);
     }
-    navigation.navigate('Dashboard');
   };
 
   return (
@@ -249,29 +269,43 @@ export default function SignUp({ navigation }: Props) {
                 <Text style={[tw`text-primary mb-2`, styles.label]}>Barangay</Text>
                 <TouchableOpacity
                   style={tw`border-2 border-text-gray rounded-[10px] px-4 py-3 bg-white bg-opacity-80`}
-                  onPress={() => setShowBarangayPicker(!showBarangayPicker)}
+                  onPress={() => setShowBarangayPicker(true)}
                 >
                   <Text style={[tw`text-[#686677]`, styles.input]}>
-                    {barangay || 'Select Barangay'}
+                    {barangays.find((b) => String(b.id) === String(barangay))?.name || 'Select Barangay'}
                   </Text>
                 </TouchableOpacity>
 
-                {showBarangayPicker && (
-                  <View style={tw`border border-text-gray rounded-[10px] bg-white mt-2`}>
-                    {barangays.map((b) => (
-                      <TouchableOpacity
-                        key={b}
-                        style={tw`px-4 py-3 border-b border-gray-200`}
-                        onPress={() => {
-                          setBarangay(b);
-                          setShowBarangayPicker(false);
-                        }}
-                      >
-                        <Text style={[tw`text-primary`, styles.input]}>{b}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
+                {/* Modal picker so dropdown isn't clipped inside ScrollView */}
+                <Modal
+                  visible={showBarangayPicker}
+                  transparent
+                  animationType="fade"
+                  onRequestClose={() => setShowBarangayPicker(false)}
+                >
+                  <TouchableWithoutFeedback onPress={() => setShowBarangayPicker(false)}>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 20 }}>
+                      <View style={{ backgroundColor: '#fff', borderRadius: 10, maxHeight: '60%' }}>
+                        <FlatList
+                          data={barangays}
+                          keyExtractor={(item) => String(item.id)}
+                          renderItem={({ item }) => (
+                            <TouchableOpacity
+                              onPress={() => {
+                                setBarangay(String(item.id));
+                                setShowBarangayPicker(false);
+                              }}
+                              style={{ paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                            >
+                              <Text style={{ color: '#2e7d32', fontSize: 16 }}>{item.name}</Text>
+                            </TouchableOpacity>
+                          )}
+                          ListEmptyComponent={<Text style={{ padding: 16, color: '#666' }}>No barangays available</Text>}
+                        />
+                      </View>
+                    </View>
+                  </TouchableWithoutFeedback>
+                </Modal>
               </View>
 
               <View style={tw`flex-row items-center justify-center gap-2 mt-2`}>
@@ -320,11 +354,16 @@ export default function SignUp({ navigation }: Props) {
               <TouchableOpacity
                 style={tw`bg-primary py-4 rounded-[10px] items-center justify-center mt-4 border-2 border-primary`}
                 onPress={handleCreateAccount}
+                disabled={loading}
               >
                 <Text style={[tw`text-[#FFFDF4] font-bold`, { fontSize: 16 }]}>
-                  Create account
+                  {loading ? 'Creating account...' : 'Create account'}
                 </Text>
               </TouchableOpacity>
+
+              {serverError ? (
+                <Text style={tw`text-red-500 text-center mt-4`}>{serverError}</Text>
+              ) : null}
 
               <TouchableOpacity onPress={() => navigation.navigate('SignIn')} style={tw`mt-4`}>
                 <Text style={[tw`text-center text-primary`, { fontSize: 16, fontWeight: '600' }]}>
