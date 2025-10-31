@@ -35,7 +35,10 @@
     "extra": {
       "eas": {
         "projectId": "8777f215-b2e9-4cb1-81d9-99bf195eebe1"
-      }
-    }
+      },
+      "GOOGLE_ANDROID_CLIENT_ID": "468111289151-cek1q15ivejbhitrj59mkhroe81u909u.apps.googleusercontent.com",
+      "GOOGLE_WEB_CLIENT_ID": "468111289151-6oidklhqga4mi3lr8k2eitn2fqcglfgn.apps.googleusercontent.com"
+    },
+    "scheme": "sibol"
   }
 }
