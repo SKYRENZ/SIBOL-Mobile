@@ -20,7 +20,7 @@ export default function App() {
     <ResponsiveProvider>
       <NavigationContainer>
         <Stack.Navigator 
-          initialRouteName="VerifyEmail"
+          initialRouteName="SignIn"
           screenOptions={{
             headerShown: false,
           }}
