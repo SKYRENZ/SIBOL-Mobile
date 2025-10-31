@@ -6,12 +6,15 @@ import tw from '../utils/tailwind';
 import { useResponsiveStyle } from '../utils/responsiveStyles';
 import ResponsiveImage from '../components/primitives/ResponsiveImage';
 import Svg, { Path } from 'react-native-svg';
+import { login as apiLogin } from '../services/authService'; // <-- added
 
 type RootStackParamList = {
   Landing: undefined;
   SignIn: undefined;
   SignUp: undefined;
   Dashboard: undefined;
+  ODashboard: undefined;   // operator (matches App.tsx)
+  HDashboard: undefined;   // household (matches App.tsx)
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'SignIn'>;
@@ -55,18 +58,30 @@ const validateEmail = (email: string) => {
   return emailRegex.test(email);
 };
 
+const validateUsername = (username: string) => {
+  // treat anything with "@" as an email (reject) and require non-empty
+  return username.trim().length > 0 && !username.includes('@');
+};
+
 export default function SignIn({ navigation }: Props) {
-  const [email, setEmail] = useState('');
+  // Role id constants — confirm these values match your DB
+  const ROLE_ADMIN = 1;
+  const ROLE_OPERATOR = 2;
+  const ROLE_HOUSEHOLD = 3;
+
+  const [username, setUsername] = useState('');           // changed from email
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [emailError, setEmailError] = useState('');
+  const [usernameError, setUsernameError] = useState(''); // changed from emailError
+  const [loading, setLoading] = useState(false); // added
+  const [serverError, setServerError] = useState<string | null>(null); // added
 
-  const handleEmailChange = (text: string) => {
-    setEmail(text);
-    if (text && !validateEmail(text)) {
-      setEmailError('Please enter a valid email address');
+  const handleUsernameChange = (text: string) => {
+    setUsername(text);
+    if (text && !validateUsername(text)) {
+      setUsernameError('Please enter a valid username');
     } else {
-      setEmailError('');
+      setUsernameError('');
     }
   };
 
@@ -127,20 +142,19 @@ export default function SignIn({ navigation }: Props) {
                 <View style={tw`gap-2`}>
                   <Text style={[tw`text-[#9794AA]`, styles.label]}>Username</Text>
                   <TextInput
-                    style={[
+                    style={[ 
                       tw`border border-[#CBCAD7] rounded-md px-5 py-4.5 text-[#686677]`,
-                      emailError ? tw`border-red-500` : null,
+                      usernameError ? tw`border-red-500` : null,
                       styles.input,
                     ]}
-                    placeholder="Enter your email address"
+                    placeholder="Enter your username"
                     placeholderTextColor="#686677"
-                    value={email}
-                    onChangeText={handleEmailChange}
-                    keyboardType="email-address"
+                    value={username}
+                    onChangeText={handleUsernameChange}
                     autoCapitalize="none"
                   />
-                  {emailError ? (
-                    <Text style={tw`text-red-500 text-xs mt-1`}>{emailError}</Text>
+                  {usernameError ? (
+                    <Text style={tw`text-red-500 text-xs mt-1`}>{usernameError}</Text>
                   ) : null}
                 </View>
 
@@ -176,15 +190,47 @@ export default function SignIn({ navigation }: Props) {
               <View style={tw`gap-5 mt-4`}>
                 <TouchableOpacity
                   style={tw`bg-primary py-4.5 rounded-[40px] items-center justify-center`}
-                  onPress={() => {
-                    if (!validateEmail(email)) {
-                      setEmailError('Please enter a valid email address');
+                  onPress={async () => {
+                    setServerError(null);
+
+                    if (!validateUsername(username)) {
+                      setUsernameError('Please enter a valid username');
                       return;
                     }
-                    navigation.navigate('Dashboard');
+                    if (!password || password.length === 0) {
+                      setServerError('Password is required');
+                      return;
+                    }
+
+                    try {
+                      setLoading(true);
+                      const data = await apiLogin(username.trim(), password);
+                      const token = data?.token ?? data?.accessToken;
+                      const user = data?.user ?? (data as any);
+  
+                      if (!token && !user) {
+                        setServerError('Login failed');
+                        return;
+                      }
+  
+                      // determine destination by numeric Roles field from backend
+                      const roleVal = Number(user?.Roles ?? user?.roleId ?? user?.role ?? user?.roles);
+                      // For now send admin to household dashboard as requested
+                      let dest: keyof RootStackParamList = 'HDashboard';
+                      if (roleVal === ROLE_OPERATOR) dest = 'ODashboard';
+                      // all others (including admin) go to hDashboard
+  
+                      navigation.navigate(dest);
+                    } catch (err: any) {
+                      setServerError(err?.message ?? 'Login failed');
+                    } finally {
+                      setLoading(false);
+                    }
                   }}
                 >
-                  <Text style={[tw`text-white font-medium`, { fontSize: 20 }]}>Sign In</Text>
+                  <Text style={[tw`text-white font-medium`, { fontSize: 20 }]}>
+                    {loading ? 'Signing in…' : 'Sign In'}
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
@@ -194,6 +240,7 @@ export default function SignIn({ navigation }: Props) {
                   </Text>
                 </TouchableOpacity>
               </View>
+              {serverError ? <Text style={tw`text-red-500 mt-2`}>{serverError}</Text> : null}
             </View>
           </View>
         </ScrollView>

@@ -20,9 +20,7 @@ import tw from '../utils/tailwind';
 import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from '../utils/responsiveStyles';
 import Container from '../components/primitives/Container';
 import { Search, Bell } from 'lucide-react-native';
-
-// pang camera yung react-native-vision-camera
-import { Camera, useCameraDevices } from 'react-native-vision-camera';
+import CameraWrapper from '../components/CameraWrapper';
 
 export default function Dashboard() {
   const [showScanner, setShowScanner] = useState(false);
@@ -30,20 +28,41 @@ export default function Dashboard() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const scrollViewRef = React.useRef<ScrollView>(null);
 
-  const devices = useCameraDevices();
-  const device = devices?.find(d => d.position === 'back') ?? devices?.[0];
+  // track which reward/category is selected (used by handleCategoryChange)
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
-  // checking ng camera permission upon load ng app
-    useEffect(() => {
+  // Note: do NOT call useCameraDevices at top-level here — CameraWrapper handles native-only camera logic.
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ x: 0, y: 0, animated: true });
+    }
+  };
+
+  // do not import/use VisionCamera at top-level — CameraWrapper lazy-loads native module
+  // keep hasPermission state for UI if you need it; on web we won't call VisionCamera APIs
+  useEffect(() => {
       checkPermission();
     }, []);
   
-    // logs pangdebug lang this
     const checkPermission = async () => {
-      const statusRaw = await Camera.getCameraPermissionStatus();
-      const status = String(statusRaw);
-      console.log('Current camera permission status:', statusRaw);
-      setHasPermission(status === 'granted' || status === 'authorized');
+      if (Platform.OS === 'web') {
+        setHasPermission(false);
+        return;
+      }
+      try {
+        // lazy-require native API
+        // @ts-ignore
+        const VC = require('react-native-vision-camera');
+        const statusRaw = await VC.Camera.getCameraPermissionStatus();
+        const status = String(statusRaw);
+        console.log('Current camera permission status:', statusRaw);
+        setHasPermission(status === 'granted' || status === 'authorized');
+      } catch (e) {
+        console.warn('Camera permission check failed', e);
+        setHasPermission(false);
+      }
     };
 
   const openDeviceSettings = async () => {
@@ -401,20 +420,7 @@ export default function Dashboard() {
           }}
         >
           <View style={tw`flex-1 bg-black`}>
-            {device ? (
-              <Camera
-                style={tw`flex-1`}
-                device={device}
-                isActive={scannerActive}
-                enableZoomGesture
-              />
-            ) : (
-              <View style={tw`flex-1 justify-center items-center p-4`}>
-                <Text style={tw`text-white text-center mb-4`}>
-                  Camera initializing...
-                </Text>
-              </View>
-            )}
+          <CameraWrapper isActive={scannerActive} onClose={() => { setShowScanner(false); setScannerActive(false); }} />
             
             <TouchableOpacity 
               onPress={() => {
