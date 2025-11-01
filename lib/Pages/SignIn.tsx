@@ -68,9 +68,9 @@ const validateUsername = (username: string) => {
 };
 
 export default function SignIn({ navigation }: Props) {
-  // Role id constants — confirm these values match your DB
+  // Role id constants — **FIX: match your actual DB values**
   const ROLE_ADMIN = 1;
-  const ROLE_OPERATOR = 2;
+  const ROLE_OPERATOR = 3;  // operators have Roles=3 in your DB (see operatorController)
   const ROLE_HOUSEHOLD = 3;
 
   const [username, setUsername] = useState('');           // changed from email
@@ -156,8 +156,10 @@ export default function SignIn({ navigation }: Props) {
                     if (resp?.token || resp?.user) {
                       const user = resp.user ?? (resp as any);
                       const roleVal = Number(user?.Roles ?? user?.role ?? 0);
+                      console.warn('[SignIn] SSO success, role:', roleVal, 'user:', user);
                       let dest: keyof RootStackParamList = 'HDashboard';
                       if (roleVal === ROLE_OPERATOR) dest = 'ODashboard';
+                      // admin (ROLE_ADMIN=1) also goes to HDashboard per your requirement
                       navigation.navigate(dest);
                       return;
                     }
