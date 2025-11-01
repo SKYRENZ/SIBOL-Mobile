@@ -38,11 +38,16 @@ export default {
       eas: {
         projectId: "8777f215-b2e9-4cb1-81d9-99bf195eebe1"
       },
-      // Read from .env (note: use EXPO_PUBLIC_ prefix for web compatibility)
       EXPO_PUBLIC_API_BASE: process.env.EXPO_PUBLIC_API_BASE,
       GOOGLE_ANDROID_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
       GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
     },
-    scheme: "sibol"
+    scheme: "sibol",
+    plugins: [
+      [
+        "@react-native-google-signin/google-signin",
+        {}
+      ]
+    ]
   }
 };

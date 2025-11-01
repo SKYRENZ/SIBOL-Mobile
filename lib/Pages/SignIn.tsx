@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,7 +7,8 @@ import { useResponsiveStyle } from '../utils/responsiveStyles';
 import ResponsiveImage from '../components/primitives/ResponsiveImage';
 import Svg, { Path } from 'react-native-svg';
 import { login as apiLogin } from '../services/authService'; // <-- added
-import { startGoogleSignIn, getGoogleRedirectUri } from '../services/googleauthService';
+import { startGoogleSignIn } from '../services/googleauthService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type RootStackParamList = {
   Landing: undefined;
@@ -89,6 +90,46 @@ export default function SignIn({ navigation }: Props) {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      console.log('[SignIn] Starting Google sign-in...');
+      
+      const result = await startGoogleSignIn();
+
+      if (result.status === 'success' && result.token) {
+        await AsyncStorage.setItem('token', result.token);
+        await AsyncStorage.setItem('user', JSON.stringify(result.user));
+
+        // Backend returns role as lowercase string: "admin" or "operator"
+        // Map to the correct screen names in your RootStackParamList
+        if (result.user.role === 'admin') {
+          navigation.replace('HDashboard'); // Capital H
+        } else if (result.user.role === 'operator') {
+          navigation.replace('ODashboard'); // Capital O
+        } else {
+          // Default fallback
+          navigation.replace('HDashboard');
+        }
+      } else if (result.status === 'pending') {
+        navigation.navigate('AdminPending', { email: result.email });
+      } else if (result.status === 'signup') {
+        navigation.navigate('SignUp', {
+          email: result.email,
+          firstName: result.firstName || '',
+          lastName: result.lastName || '',
+        });
+      }
+    } catch (error: any) {
+      console.error('[SignIn] Google error:', error);
+      if (error.message !== 'Sign-in cancelled') {
+        Alert.alert('Error', error.message || 'Google sign-in failed');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const styles = useResponsiveStyle(({ isSm }) => ({
     container: {
       paddingHorizontal: isSm ? 20 : 40,
@@ -131,46 +172,8 @@ export default function SignIn({ navigation }: Props) {
 
               <TouchableOpacity
                 style={tw`flex-row items-center justify-center gap-4 py-4.5 px-5 border border-[#CBCAD7] rounded-[10px]`}
-                onPress={async () => {
-                  try {
-                    setServerError(null);
-                    setLoading(true);
-                    const resp = await startGoogleSignIn(); // posts idToken -> /api/auth/sso-google
-
-                    // backend mobile SSO returns shapes like:
-                    // { success: true, redirectTo: 'pending-approval', email: 'x@y' }
-                    // { success: true, redirectTo: 'signup', email, firstName, lastName }
-                    // { success: true, token, user } (logged-in)
-
-                    if (resp?.redirectTo === 'signup') {
-                      navigation.navigate('SignUp', { email: resp.email, firstName: resp.firstName, lastName: resp.lastName });
-                      return;
-                    }
-
-                    if (resp?.redirectTo === 'pending-approval' || resp?.status === 'pending') {
-                      // account exists in pending_accounts_tbl (email verified but admin not approved)
-                      navigation.navigate('AdminPending', { email: resp.email || '' });
-                      return;
-                    }
-
-                    if (resp?.token || resp?.user) {
-                      const user = resp.user ?? (resp as any);
-                      const roleVal = Number(user?.Roles ?? user?.role ?? 0);
-                      console.warn('[SignIn] SSO success, role:', roleVal, 'user:', user);
-                      let dest: keyof RootStackParamList = 'HDashboard';
-                      if (roleVal === ROLE_OPERATOR) dest = 'ODashboard';
-                      // admin (ROLE_ADMIN=1) also goes to HDashboard per your requirement
-                      navigation.navigate(dest);
-                      return;
-                    }
-
-                    setServerError('Google sign-in failed: unexpected response');
-                  } catch (err: any) {
-                    setServerError(err?.message ?? 'Google sign-in failed');
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
+                onPress={handleGoogleSignIn}
+                disabled={loading}
               >
                 <Text style={[tw`text-[#19181F]`, styles.input]}>Sign In with Google</Text>
                 <GoogleIcon />
