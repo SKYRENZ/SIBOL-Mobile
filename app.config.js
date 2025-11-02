@@ -1,0 +1,57 @@
+import 'dotenv/config'; // This loads your .env file
+
+export default {
+  expo: {
+    name: "SIBOL-mobile",
+    slug: "SIBOL-mobile",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/icon.png",
+    userInterfaceStyle: "light",
+    newArchEnabled: true,
+    splash: {
+      image: "./assets/splash-icon.png",
+      resizeMode: "contain",
+      backgroundColor: "#ffffff"
+    },
+    ios: {
+      supportsTablet: true,
+      infoPlist: {
+        NSCameraUsageDescription: "$(PRODUCT_NAME) needs access to your Camera.",
+        ITSAppUsesNonExemptEncryption: false
+      },
+      bundleIdentifier: "com.sprout.SIBOLmobile"
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#ffffff"
+      },
+      edgeToEdgeEnabled: true,
+      predictiveBackGestureEnabled: false,
+      package: "com.sprout.SIBOLmobile"
+    },
+    web: {
+      favicon: "./assets/favicon.png"
+    },
+    extra: {
+      eas: {
+        projectId: "8777f215-b2e9-4cb1-81d9-99bf195eebe1"
+      },
+      EXPO_PUBLIC_API_BASE: process.env.EXPO_PUBLIC_API_BASE,
+      GOOGLE_ANDROID_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+      GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+    },
+    scheme: "sibol",
+    plugins: [
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          // Dummy iOS URL scheme (required by plugin even if not building for iOS)
+          // When you create an iOS OAuth client, replace this with the actual reversed client ID
+          iosUrlScheme: "com.googleusercontent.apps.placeholder"
+        }
+      ]
+    ]
+  }
+};

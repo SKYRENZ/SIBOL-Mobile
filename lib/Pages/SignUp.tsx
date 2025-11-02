@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, Modal, FlatList, TouchableWithoutFeedback } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import tw from '../utils/tailwind';
 import { useResponsiveStyle } from '../utils/responsiveStyles';
@@ -13,14 +14,17 @@ import { useSignUp } from '../hooks/signup/useSignUp';
 type RootStackParamList = {
   Landing: undefined;
   SignIn: undefined;
-  SignUp: undefined;
+  // allow prefilled SSO fields when navigated from SignIn
+  SignUp: { email?: string; firstName?: string; lastName?: string } | undefined;
   Dashboard: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'SignUp'>;
+type SignUpRouteProp = RouteProp<RootStackParamList, 'SignUp'>;
 
 interface Props {
   navigation: NavigationProp;
+  route: SignUpRouteProp;
 }
 
 const HelpCircleIcon = () => (
@@ -65,7 +69,7 @@ const validateEmail = (email: string) => {
   return emailRegex.test(email);
 };
 
-export default function SignUp({ navigation }: Props) {
+export default function SignUp({ navigation, route }: Props) {
   // form state and submit logic from hook
   const {
     role,
@@ -84,7 +88,22 @@ export default function SignUp({ navigation }: Props) {
     serverError,
     pendingEmail,
     handleSignUp,
+    isSSO,
+    setIsSSO,
   } = useSignUp();
+
+  // If navigated from SSO, prefill email and mark signup as SSO (email verified)
+  useEffect(() => {
+    const sso = route?.params;
+    if (sso?.email) {
+      setEmail(sso.email);
+      // Important: mark this as an SSO registration so backend will NOT require email verification
+      setIsSSO(true);
+    } else {
+      setIsSSO(false);
+    }
+    // Do NOT pass or set username from SSO (only email)
+  }, [route?.params, setEmail, setIsSSO]);
 
   // small local helpers / UI state
   const [emailError, setEmailError] = useState('');
@@ -141,13 +160,17 @@ export default function SignUp({ navigation }: Props) {
     }
 
     try {
-      // delegate validation + API call to hook
       const result = await handleSignUp();
 
-      // backend sends verification code for mobile registrations (no extra call needed)
-      // (removed duplicate call to /api/auth/send-verification-code)
-      
-      navigation.navigate('VerifyEmail' as any, { email });
+      // SSO users skip email verification and go directly to AdminPending
+      if (isSSO) {
+        console.log('[SignUp] SSO registration complete, going to AdminPending');
+        navigation.navigate('AdminPending' as any, { email });
+      } else {
+        // Regular users need email verification first
+        console.log('[SignUp] Regular registration complete, going to VerifyEmail');
+        navigation.navigate('VerifyEmail' as any, { email });
+      }
     } catch (err: any) {
       const message = err?.message || 'Sign up failed';
       Alert.alert('Sign up failed', message);
@@ -242,14 +265,22 @@ export default function SignUp({ navigation }: Props) {
                 <Text style={[tw`text-primary mb-2`, styles.label]}>Email</Text>
                 <TextInput
                   style={[
-                    tw`border-2 border-text-gray rounded-[10px] px-4 py-3 bg-white bg-opacity-80 text-[#686677]`,
+                    tw`border-2 border-text-gray rounded-[10px] px-4 py-3 text-[#686677]`,
+                    // when SSO-provided make background green and darker text
+                    route?.params?.email
+                      ? { backgroundColor: '#E8F6EA', color: '#22543D' } // light green bg + dark green text
+                      : { backgroundColor: '#FFFFFF' },
                     emailError ? tw`border-red-500` : null,
                     styles.input,
                   ]}
                   placeholder="Email"
                   placeholderTextColor="#686677"
                   value={email}
+                  // if email was provided by SSO, make it readonly / not editable
+                  editable={!route?.params?.email}
                   onChangeText={(text) => {
+                    // don't allow editing when SSO-provided
+                    if (route?.params?.email) return;
                     setEmail(text);
                     if (text && !validateEmail(text)) {
                       setEmailError('Please enter a valid email address');

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import tw from '../utils/tailwind';
@@ -7,14 +7,20 @@ import { useResponsiveStyle } from '../utils/responsiveStyles';
 import ResponsiveImage from '../components/primitives/ResponsiveImage';
 import Svg, { Path } from 'react-native-svg';
 import { login as apiLogin } from '../services/authService'; // <-- added
+import { startGoogleSignIn } from '../services/googleauthService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type RootStackParamList = {
   Landing: undefined;
   SignIn: undefined;
-  SignUp: undefined;
+  // allow passing prefilled signup fields when coming from SSO
+  SignUp: { email?: string; firstName?: string; lastName?: string } | undefined;
   Dashboard: undefined;
-  ODashboard: undefined;   // operator (matches App.tsx)
-  HDashboard: undefined;   // household (matches App.tsx)
+  ODashboard: undefined; // operator (matches App.tsx)
+  HDashboard: undefined; // household (matches App.tsx)
+  // admin pending page accepts optional email
+  AdminPending: { email?: string } | undefined;
+  ForgotPassword: undefined; // ADD THIS
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'SignIn'>;
@@ -64,9 +70,9 @@ const validateUsername = (username: string) => {
 };
 
 export default function SignIn({ navigation }: Props) {
-  // Role id constants — confirm these values match your DB
+  // Role id constants — **FIX: match your actual DB values**
   const ROLE_ADMIN = 1;
-  const ROLE_OPERATOR = 2;
+  const ROLE_OPERATOR = 3;  // operators have Roles=3 in your DB (see operatorController)
   const ROLE_HOUSEHOLD = 3;
 
   const [username, setUsername] = useState('');           // changed from email
@@ -82,6 +88,46 @@ export default function SignIn({ navigation }: Props) {
       setUsernameError('Please enter a valid username');
     } else {
       setUsernameError('');
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      console.log('[SignIn] Starting Google sign-in...');
+      
+      const result = await startGoogleSignIn();
+
+      if (result.status === 'success' && result.token) {
+        await AsyncStorage.setItem('token', result.token);
+        await AsyncStorage.setItem('user', JSON.stringify(result.user));
+
+        if (result.user.role === 'admin') {
+          navigation.replace('HDashboard');
+        } else if (result.user.role === 'operator') {
+          navigation.replace('ODashboard');
+        } else {
+          navigation.replace('HDashboard');
+        }
+      } else if (result.status === 'pending') {
+        // SSO account registered but pending admin approval
+        // Go directly to AdminPending (skip email verification)
+        navigation.navigate('AdminPending', { email: result.email });
+      } else if (result.status === 'signup') {
+        // No account found - redirect to signup with prefilled data
+        navigation.navigate('SignUp', {
+          email: result.email,
+          firstName: result.firstName || '',
+          lastName: result.lastName || '',
+        });
+      }
+    } catch (error: any) {
+      console.error('[SignIn] Google error:', error);
+      if (error.message !== 'Sign-in cancelled') {
+        Alert.alert('Error', error.message || 'Google sign-in failed');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -127,6 +173,8 @@ export default function SignIn({ navigation }: Props) {
 
               <TouchableOpacity
                 style={tw`flex-row items-center justify-center gap-4 py-4.5 px-5 border border-[#CBCAD7] rounded-[10px]`}
+                onPress={handleGoogleSignIn}
+                disabled={loading}
               >
                 <Text style={[tw`text-[#19181F]`, styles.input]}>Sign In with Google</Text>
                 <GoogleIcon />
@@ -182,7 +230,10 @@ export default function SignIn({ navigation }: Props) {
                   </View>
                 </View>
 
-                <TouchableOpacity style={tw`self-end`}>
+                <TouchableOpacity 
+                  style={tw`self-end`}
+                  onPress={() => navigation.navigate('ForgotPassword')}
+                >
                   <Text style={[tw`text-[#686677]`, styles.label]}>Forgot Password?</Text>
                 </TouchableOpacity>
               </View>
