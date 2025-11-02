@@ -46,7 +46,11 @@ export default {
     plugins: [
       [
         "@react-native-google-signin/google-signin",
-        {}
+        {
+          // Dummy iOS URL scheme (required by plugin even if not building for iOS)
+          // When you create an iOS OAuth client, replace this with the actual reversed client ID
+          iosUrlScheme: "com.googleusercontent.apps.placeholder"
+        }
       ]
     ]
   }

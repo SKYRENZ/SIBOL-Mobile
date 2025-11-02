@@ -2,17 +2,17 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
-const DEFAULT_PORT = 5000;
-
 // Read from env if available, otherwise use emulator defaults
 const extras = (Constants as any).expoConfig?.extra ?? process.env;
 const envApiBase = extras?.EXPO_PUBLIC_API_BASE;
 
+// Define DEFAULT_HOST before using it
+const DEFAULT_HOST = Platform.OS === 'android' ? 'http://10.0.2.2' : 'http://localhost';
+const DEFAULT_PORT = 5000;
+
 // If env provided a full URL (with port), don't append :5000
 export const API_BASE = (global as any).API_BASE_OVERRIDE ?? 
   (envApiBase || `${DEFAULT_HOST}:${DEFAULT_PORT}`);
-
-const DEFAULT_HOST = envApiBase || (Platform.OS === 'android' ? 'http://10.0.2.2' : 'http://localhost');
 
 console.log('[mobile api] API_BASE =', API_BASE);
 
