@@ -11,6 +11,7 @@ import ORequest from './lib/Pages/oRequest';
 import ApiConnectiontester from './lib/Pages/TestApiConnection';
 import EmailVerification from './lib/Pages/EmailVerification';
 import AdminPending from './lib/Pages/AdminPending';
+import ForgotPassword from './lib/Pages/ForgotPassword';
 import { ResponsiveProvider } from './lib/utils/ResponsiveContext';
 
 const Stack = createNativeStackNavigator();
@@ -34,6 +35,7 @@ export default function App() {
           <Stack.Screen name="ODashboard" component={oDashboard} />
           <Stack.Screen name="ORequest" component={ORequest} />
           <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         </Stack.Navigator>
         <StatusBar style="auto" />
       </NavigationContainer>

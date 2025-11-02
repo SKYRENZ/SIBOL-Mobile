@@ -20,6 +20,7 @@ type RootStackParamList = {
   HDashboard: undefined; // household (matches App.tsx)
   // admin pending page accepts optional email
   AdminPending: { email?: string } | undefined;
+  ForgotPassword: undefined; // ADD THIS
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'SignIn'>;
@@ -229,7 +230,10 @@ export default function SignIn({ navigation }: Props) {
                   </View>
                 </View>
 
-                <TouchableOpacity style={tw`self-end`}>
+                <TouchableOpacity 
+                  style={tw`self-end`}
+                  onPress={() => navigation.navigate('ForgotPassword')}
+                >
                   <Text style={[tw`text-[#686677]`, styles.label]}>Forgot Password?</Text>
                 </TouchableOpacity>
               </View>
