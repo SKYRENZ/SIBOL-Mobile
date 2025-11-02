@@ -160,16 +160,15 @@ export default function SignUp({ navigation, route }: Props) {
     }
 
     try {
-      // delegate validation + API call to hook
       const result = await handleSignUp();
 
-      // If SSO or backend indicates admin-pending, go straight to AdminPending.
-      // The web frontend navigates to pending-approval for SSO flows; follow same behavior.
-      const backendSso = (result && (result.isSSO || result.redirectTo === 'pending-approval' || /admin approval/i.test(String(result?.message || ''))));
-      if (isSSO || backendSso) {
+      // SSO users skip email verification and go directly to AdminPending
+      if (isSSO) {
+        console.log('[SignUp] SSO registration complete, going to AdminPending');
         navigation.navigate('AdminPending' as any, { email });
       } else {
-        // backend sends verification code for mobile registrations (no extra call needed)
+        // Regular users need email verification first
+        console.log('[SignUp] Regular registration complete, going to VerifyEmail');
         navigation.navigate('VerifyEmail' as any, { email });
       }
     } catch (err: any) {

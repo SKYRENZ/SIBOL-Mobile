@@ -101,19 +101,19 @@ export default function SignIn({ navigation }: Props) {
         await AsyncStorage.setItem('token', result.token);
         await AsyncStorage.setItem('user', JSON.stringify(result.user));
 
-        // Backend returns role as lowercase string: "admin" or "operator"
-        // Map to the correct screen names in your RootStackParamList
         if (result.user.role === 'admin') {
-          navigation.replace('HDashboard'); // Capital H
+          navigation.replace('HDashboard');
         } else if (result.user.role === 'operator') {
-          navigation.replace('ODashboard'); // Capital O
+          navigation.replace('ODashboard');
         } else {
-          // Default fallback
           navigation.replace('HDashboard');
         }
       } else if (result.status === 'pending') {
+        // SSO account registered but pending admin approval
+        // Go directly to AdminPending (skip email verification)
         navigation.navigate('AdminPending', { email: result.email });
       } else if (result.status === 'signup') {
+        // No account found - redirect to signup with prefilled data
         navigation.navigate('SignUp', {
           email: result.email,
           firstName: result.firstName || '',
