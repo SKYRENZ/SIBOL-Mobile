@@ -352,10 +352,10 @@ export default function Dashboard() {
 
           <View style={styles.scheduleContainer}>
             <Text style={[tw`font-semibold text-[#6C8770] flex-1`, styles.scheduleText]}>
-              Practice Food Waste Segregation
+              View the waste containers near you
             </Text>
             <TouchableOpacity style={styles.mapButton}>
-              <Text style={tw`text-[11px] font-semibold text-white font-inter`}>Go Now</Text>
+              <Text style={tw`text-[11px] font-semibold text-white font-inter`}>View Map</Text>
             </TouchableOpacity>
           </View>
 
@@ -388,11 +388,13 @@ export default function Dashboard() {
             </View>
           </View>
 
+          <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-1 mt-4`} />
+
           <Text style={styles.sectionTitle}>Claim your rewards</Text>
 
           <View
             style={[
-              tw`bg-[rgba(217,217,217,0.65)] rounded-[15px] flex-row items-center px-[15px]`,
+              tw`bg-[rgba(217,217,217,0.65)] rounded-[10px] flex-row items-center px-[15px]`,
               styles.searchBar,
             ]}
           >
