@@ -110,11 +110,8 @@ export default function SignIn({ navigation }: Props) {
           navigation.replace('HDashboard');
         }
       } else if (result.status === 'pending') {
-        // SSO account registered but pending admin approval
-        // Go directly to AdminPending (skip email verification)
         navigation.navigate('AdminPending', { email: result.email });
       } else if (result.status === 'signup') {
-        // No account found - redirect to signup with prefilled data
         navigation.navigate('SignUp', {
           email: result.email,
           firstName: result.firstName || '',
@@ -123,9 +120,16 @@ export default function SignIn({ navigation }: Props) {
       }
     } catch (error: any) {
       console.error('[SignIn] Google error:', error);
-      if (error.message !== 'Sign-in cancelled') {
-        Alert.alert('Error', error.message || 'Google sign-in failed');
+      
+      // ✅ Only show alert for non-cancellation errors
+      if (error.code === 'SIGN_IN_CANCELLED' || error.message === 'Sign-in cancelled') {
+        console.log('[SignIn] User cancelled sign-in');
+        // Don't show error - user intentionally cancelled
+        return;
       }
+      
+      // Show alert for actual errors
+      Alert.alert('Error', error.message || 'Google sign-in failed');
     } finally {
       setLoading(false);
     }

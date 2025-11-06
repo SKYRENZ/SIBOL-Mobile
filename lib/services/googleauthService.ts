@@ -13,7 +13,7 @@ console.log('  Web Client ID:', WEB_CLIENT_ID);
 
 // Configure Google Sign-In
 GoogleSignin.configure({
-  webClientId: WEB_CLIENT_ID, // Use web client ID for token verification
+  webClientId: WEB_CLIENT_ID,
   offlineAccess: false,
   forceCodeForRefreshToken: false,
 });
@@ -26,10 +26,21 @@ export async function startGoogleSignIn() {
     console.log('[GoogleAuth] Starting sign-in...');
     const userInfo = await GoogleSignin.signIn();
 
+    // ✅ Check if sign-in was cancelled
+    if (!userInfo || !userInfo.data) {
+      throw new Error('SIGN_IN_CANCELLED');
+    }
+
     console.log('[GoogleAuth] Sign-in successful, getting tokens...');
     const tokens = await GoogleSignin.getTokens();
 
     const idToken = tokens.idToken;
+    
+    // ✅ Validate token exists before sending
+    if (!idToken) {
+      throw new Error('SIGN_IN_CANCELLED');
+    }
+
     console.log('[GoogleAuth] Got idToken (first 50 chars):', idToken.substring(0, 50) + '...');
 
     console.log('[GoogleAuth] Sending to backend...');
@@ -51,8 +62,11 @@ export async function startGoogleSignIn() {
   } catch (error: any) {
     console.error('[GoogleAuth] Error:', error);
     
-    if (error.code === 'SIGN_IN_CANCELLED') {
-      throw new Error('Sign-in cancelled');
+    // ✅ Handle cancellation errors gracefully
+    if (error.code === 'SIGN_IN_CANCELLED' || error.message === 'SIGN_IN_CANCELLED') {
+      const cancelError = new Error('Sign-in cancelled');
+      (cancelError as any).code = 'SIGN_IN_CANCELLED';
+      throw cancelError;
     } else if (error.code === 'IN_PROGRESS') {
       throw new Error('Sign-in already in progress');
     } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
@@ -63,7 +77,6 @@ export async function startGoogleSignIn() {
   }
 }
 
-// Legacy exports for compatibility
 export function useGoogleAuth() {
   return { request: null, response: null, promptAsync: startGoogleSignIn };
 }
