@@ -1,60 +1,110 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Platform } from 'react-native';
-import tw from '../utils/tailwind';
+import { Platform, View, TouchableOpacity, Text } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
 
-type Props = {
-  isActive: boolean;
-  onClose: () => void;
-};
+interface CameraWrapperProps {
+  onCapture: (imageData: string) => void;
+}
 
-function CameraNative({ isActive }: { isActive: boolean }) {
-  // lazy-require so this module isn't imported on web
-  // @ts-ignore
-  const VC = require('react-native-vision-camera');
-  const Camera = VC.Camera;
-  const useCameraDevices = VC.useCameraDevices;
-  const devices = useCameraDevices();
-  const device = devices?.back ?? devices?.[0];
+export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [hasPermission, setHasPermission] = useState(false);
 
-  if (!device) {
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      requestWebCameraAccess();
+    }
+  }, []);
+
+  const requestWebCameraAccess = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+      if (videoRef.current) {
+        (videoRef.current as HTMLVideoElement).srcObject = stream;
+        setHasPermission(true);
+      }
+    } catch (err: any) {
+      console.error('Camera access error:', err?.name, err?.message);
+      
+      if (err?.name === 'NotAllowedError') {
+        alert('Camera permission denied. Please allow camera access in browser settings.');
+      } else if (err?.name === 'NotFoundError') {
+        alert('No camera found on this device.');
+      } else if (err?.name === 'NotReadableError') {
+        alert('Camera is already in use by another application.');
+      }
+      
+      setHasPermission(false);
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = (videoRef.current as HTMLVideoElement).videoWidth;
+      canvas.height = (videoRef.current as HTMLVideoElement).videoHeight;
+      
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(videoRef.current as HTMLVideoElement, 0, 0);
+        const imageData = canvas.toDataURL('image/jpeg');
+        onCapture(imageData);
+      }
+    }
+  };
+
+  if (Platform.OS === 'web') {
     return (
-      <View style={tw`flex-1 justify-center items-center p-4`}>
-        <Text style={tw`text-white`}>Camera initializing...</Text>
-      </View>
+      <div style={{ 
+        width: '100%', 
+        height: '100%',
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#000'
+      }}>
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          style={{ 
+            width: '100%', 
+            height: '100%',
+            objectFit: 'cover'
+          }}
+        />
+        <button 
+          onClick={capturePhoto}
+          style={{ 
+            position: 'absolute',
+            bottom: '30px',
+            padding: '12px 24px',
+            backgroundColor: '#2E523A',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: 'pointer'
+          }}
+        >
+          Capture
+        </button>
+      </div>
     );
   }
 
-  // @ts-ignore
-  return <Camera style={tw`flex-1`} device={device} isActive={isActive} enableZoomGesture />;
-}
+  // Mobile - return null, let native camera handle it
+  return null;
+};
 
-function CameraWeb({ onClose }: { onClose: () => void }) {
-  return (
-    <View style={tw`flex-1 justify-center items-center p-6 bg-black`}>
-      <Text style={tw`text-white mb-4 text-center`}>
-        Camera not available via VisionCamera on web. Use the button below to take or upload a photo.
-      </Text>
-      {/* @ts-ignore: using native DOM input in react-native-web */}
-      <input
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={(e: any) => {
-          console.log('selected file', e?.target?.files?.[0]);
-          // forward file to app logic if needed
-        }}
-        style={{ display: 'block', marginBottom: 12 }}
-      />
-      <TouchableOpacity onPress={onClose} style={tw`bg-white p-2 rounded`}>
-        <Text style={tw`font-semibold`}>Close</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-export default function CameraWrapper({ isActive, onClose }: Props) {
-  if (Platform.OS === 'web') {
-    return <CameraWeb onClose={onClose} />;
-  }
-  return <CameraNative isActive={isActive} />;
-}
+// Export stubs for mobile
+export const Camera = null;
+export const getCameraPermissionStatus = async () => 'denied';
+export const requestCameraPermission = async () => 'denied';

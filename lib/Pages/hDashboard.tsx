@@ -20,12 +20,10 @@ import tw from '../utils/tailwind';
 import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from '../utils/responsiveStyles';
 import Container from '../components/primitives/Container';
 import { Search, Bell } from 'lucide-react-native';
-import CameraWrapper from '../components/CameraWrapper';
+import { CameraWrapper } from '../components/CameraWrapper';
 
 export default function Dashboard() {
   const [showScanner, setShowScanner] = useState(false);
-  const [scannerActive, setScannerActive] = useState(false);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const scrollViewRef = React.useRef<ScrollView>(null);
 
   // track which reward/category is selected (used by handleCategoryChange)
@@ -40,80 +38,21 @@ export default function Dashboard() {
     }
   };
 
-  // do not import/use VisionCamera at top-level — CameraWrapper lazy-loads native module
-  // keep hasPermission state for UI if you need it; on web we won't call VisionCamera APIs
-  useEffect(() => {
-      checkPermission();
-    }, []);
-  
-    const checkPermission = async () => {
-      if (Platform.OS === 'web') {
-        setHasPermission(false);
-        return;
-      }
-      try {
-        // lazy-require native API
-        // @ts-ignore
-        const VC = require('react-native-vision-camera');
-        const statusRaw = await VC.Camera.getCameraPermissionStatus();
-        const status = String(statusRaw);
-        console.log('Current camera permission status:', statusRaw);
-        setHasPermission(status === 'granted' || status === 'authorized');
-      } catch (e) {
-        console.warn('Camera permission check failed', e);
-        setHasPermission(false);
-      }
-    };
-
-  const openDeviceSettings = async () => {
-    if (Platform.OS === 'android') {
-      // pangopen ng settings sa android
-      await Linking.openSettings();
-    }
+  const handleOpenScanner = () => {
+    console.log('Opening scanner...');
+    setShowScanner(true);
   };
 
-  const requestCameraPermission = async () => {
-    try {
-      const result = await request(PERMISSIONS.ANDROID.CAMERA);
-      
-      if (result === RESULTS.GRANTED) {
-        setHasPermission(true);
-        setShowScanner(true);
-        setScannerActive(true);
-        return true;
-      } else if (result === RESULTS.DENIED) {
-
-        setHasPermission(false);
-        return false;
-      } else if (result === RESULTS.BLOCKED) {
-
-        Alert.alert(
-          'Permission Required',
-          'Camera access is blocked. Please enable it in your device settings.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => Linking.openSettings() }
-          ]
-        );
-        return false;
-      }
-    } catch (error) {
-      console.log('Permission request error:', error);
-      return false;
-    }
+  const handleCloseScanner = () => {
+    console.log('Closing scanner modal');
+    setShowScanner(false);
   };
 
-    const handleOpenScanner = async () => {
-      console.log('Opening scanner...');
-      
-      if (hasPermission === true) {
-        setShowScanner(true);
-        setScannerActive(true);
-        return;
-      }
-      
-      await requestCameraPermission();
-    };
+  const handleCapture = (imageData: string) => {
+    console.log('Captured:', imageData);
+    // Process image for scanning
+    handleCloseScanner();
+  };
 
   const styles = useResponsiveStyle (({ isSm, isMd, isLg }) => ({
     safeArea: {
@@ -412,29 +351,25 @@ export default function Dashboard() {
           <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-8`} />
         </Container>
 
-        <Modal 
-          visible={showScanner} 
-          animationType="slide" 
-          onRequestClose={() => {
-            console.log('Closing scanner modal');
-            setShowScanner(false);
-            setScannerActive(false);
-          }}
-        >
-          <View style={tw`flex-1 bg-black`}>
-          <CameraWrapper isActive={scannerActive} onClose={() => { setShowScanner(false); setScannerActive(false); }} />
-            
-            <TouchableOpacity 
-              onPress={() => {
-                setShowScanner(false);
-                setScannerActive(false);
-              }}
-              style={tw`absolute top-6 right-6 bg-white p-2 rounded-full`}
-            >
-              <Text style={tw`text-[14px] font-semibold`}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </Modal>
+        {/* Web Camera Modal */}
+        {Platform.OS === 'web' && (
+          <Modal 
+            visible={showScanner} 
+            animationType="slide" 
+            onRequestClose={handleCloseScanner}
+          >
+            <View style={tw`flex-1 bg-black`}>
+              <CameraWrapper onCapture={handleCapture} />
+              
+              <TouchableOpacity 
+                onPress={handleCloseScanner}
+                style={tw`absolute top-6 right-6 bg-white px-4 py-2 rounded-full z-50`}
+              >
+                <Text style={tw`text-[14px] font-semibold text-black`}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </Modal>
+        )}
 
         <ScrollView 
           ref={scrollViewRef}
