@@ -1,5 +1,6 @@
 import { Platform, View, TouchableOpacity, Text } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
+import jsQR from 'jsqr';
 
 interface CameraWrapperProps {
   onCapture: (imageData: string) => void;
@@ -44,19 +45,55 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
   };
 
   const capturePhoto = () => {
-    if (videoRef.current) {
-      const canvas = document.createElement('canvas');
-      canvas.width = (videoRef.current as HTMLVideoElement).videoWidth;
-      canvas.height = (videoRef.current as HTMLVideoElement).videoHeight;
-      
-      const context = canvas.getContext('2d');
-      if (context) {
-        context.drawImage(videoRef.current as HTMLVideoElement, 0, 0);
-        const imageData = canvas.toDataURL('image/jpeg');
-        onCapture(imageData);
-      }
-    }
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    const width = video.videoWidth || video.clientWidth;
+    const height = video.videoHeight || video.clientHeight;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, width, height);
+    const dataUrl = canvas.toDataURL('image/png');
+    onCapture(dataUrl);
   };
+
+  useEffect(() => {
+    let rafId: number | null = null;
+    const scanFrame = () => {
+      if (!hasPermission || !videoRef.current) {
+        rafId = requestAnimationFrame(scanFrame);
+        return;
+      }
+
+      const video = videoRef.current;
+      if (video.readyState < 2) {
+        rafId = requestAnimationFrame(scanFrame);
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || video.clientWidth;
+      canvas.height = video.videoHeight || video.clientHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, canvas.width, canvas.height);
+        if (code?.data) {
+          onCapture(canvas.toDataURL('image/png'));
+          return;
+        }
+      }
+      rafId = requestAnimationFrame(scanFrame);
+    };
+
+    rafId = requestAnimationFrame(scanFrame);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [hasPermission, onCapture]);
 
   if (Platform.OS === 'web') {
     return (
@@ -79,23 +116,6 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
             objectFit: 'cover'
           }}
         />
-        <button 
-          onClick={capturePhoto}
-          style={{ 
-            position: 'absolute',
-            bottom: '30px',
-            padding: '12px 24px',
-            backgroundColor: '#2E523A',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            cursor: 'pointer'
-          }}
-        >
-          Capture
-        </button>
       </div>
     );
   }

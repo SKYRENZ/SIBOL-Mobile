@@ -21,9 +21,12 @@ import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from 
 import Container from '../components/primitives/Container';
 import { Search, Bell } from 'lucide-react-native';
 import { CameraWrapper } from '../components/CameraWrapper';
+import { scanQr } from '../services/apiClient';
+import { decodeQrFromImage } from '../utils/qrDecoder';
 
 export default function Dashboard() {
   const [showScanner, setShowScanner] = useState(false);
+  const [scanResult, setScanResult] = useState<{ awarded: number; totalPoints: number } | null>(null);
   const scrollViewRef = React.useRef<ScrollView>(null);
 
   // track which reward/category is selected (used by handleCategoryChange)
@@ -48,10 +51,18 @@ export default function Dashboard() {
     setShowScanner(false);
   };
 
-  const handleCapture = (imageData: string) => {
-    console.log('Captured:', imageData);
-    // Process image for scanning
-    handleCloseScanner();
+  const handleCapture = async (imageData: string) => {
+    try {
+      const decodedQr = await decodeQrFromImage(imageData);
+      const response = await scanQr(decodedQr, 5);
+      setScanResult({ awarded: response.awarded, totalPoints: response.totalPoints });
+      Alert.alert('Points awarded', `${response.awarded} points added. Total ${response.totalPoints}.`);
+      handleCloseScanner();
+    } catch (error: any) {
+      console.error('QR scan failed', error);
+      Alert.alert('Scan failed', error?.message || 'Unable to process QR code.');
+      // keep modal open so the loop can keep scanning
+    }
   };
 
   const styles = useResponsiveStyle (({ isSm, isMd, isLg }) => ({
@@ -330,6 +341,12 @@ export default function Dashboard() {
           <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-1 mt-4`} />
 
           <Text style={styles.sectionTitle}>Claim your rewards</Text>
+
+          {scanResult && (
+            <View style={tw`px-4 mb-4`}>
+              <Text style={tw`font-semibold text-[#2E523A]`}>Last scan: +{scanResult.awarded} pts (total {scanResult.totalPoints})</Text>
+            </View>
+          )}
 
           <View
             style={[

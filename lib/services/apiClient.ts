@@ -86,3 +86,6 @@ export async function fetchBarangays() {
 export async function ping() {
   return get('/api/health') /* optional; if not exposed backend, call a public endpoint like /api/auth/barangays */;
 }
+export async function scanQr(qr: string, weight: number) {
+  return post('/api/qr/scan', { qr, weight });
+}
