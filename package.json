@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "dev": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "web": "expo start --web",
-    "prebuild": "expo prebuild",
-    "build:android": "eas build --platform android",
-    "build:ios": "eas build --platform ios"
+    "dev": "bun expo start",
+    "android": "bun expo run:android",
+    "ios": "bun expo run:ios",
+    "web": "bun expo start --web",
+    "prebuild": "bun expo prebuild",
+    "build:android": "bun eas build --platform android",
+    "build:ios": "bun eas build --platform ios"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -26,7 +26,7 @@
     "react-dom": "19.1.0",
     "react-native": "^0.81.4",
     "react-native-permissions": "^5.4.2",
-    "react-native-reanimated": "^3.8.0",
+    "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "^5.6.1",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
