@@ -18,6 +18,7 @@
     "@react-navigation/native-stack": "^7.3.28",
     "expo": "~54.0.13",
     "expo-auth-session": "~7.0.8",
+    "expo-camera": "^17.0.9",
     "expo-image-picker": "^17.0.8",
     "expo-status-bar": "~3.0.8",
     "jsqr": "^1.4.0",

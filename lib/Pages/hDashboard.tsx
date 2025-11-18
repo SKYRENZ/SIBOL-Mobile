@@ -32,8 +32,6 @@ export default function Dashboard() {
   // track which reward/category is selected (used by handleCategoryChange)
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
-  // Note: do NOT call useCameraDevices at top-level here — CameraWrapper handles native-only camera logic.
-
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
     if (scrollViewRef.current) {
@@ -41,8 +39,18 @@ export default function Dashboard() {
     }
   };
 
-  const handleOpenScanner = () => {
+  const handleOpenScanner = async () => {
     console.log('Opening scanner...');
+    
+    // Request camera permission on Android
+    if (Platform.OS === 'android') {
+      const result = await request(PERMISSIONS.ANDROID.CAMERA);
+      if (result !== RESULTS.GRANTED) {
+        Alert.alert('Permission Required', 'Camera permission is needed to scan QR codes.');
+        return;
+      }
+    }
+    
     setShowScanner(true);
   };
 
@@ -368,25 +376,23 @@ export default function Dashboard() {
           <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-8`} />
         </Container>
 
-        {/* Web Camera Modal */}
-        {Platform.OS === 'web' && (
-          <Modal 
-            visible={showScanner} 
-            animationType="slide" 
-            onRequestClose={handleCloseScanner}
-          >
-            <View style={tw`flex-1 bg-black`}>
-              <CameraWrapper onCapture={handleCapture} />
-              
-              <TouchableOpacity 
-                onPress={handleCloseScanner}
-                style={tw`absolute top-6 right-6 bg-white px-4 py-2 rounded-full z-50`}
-              >
-                <Text style={tw`text-[14px] font-semibold text-black`}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </Modal>
-        )}
+        {/* Camera Modal for ALL platforms */}
+        <Modal 
+          visible={showScanner} 
+          animationType="slide" 
+          onRequestClose={handleCloseScanner}
+        >
+          <View style={tw`flex-1 bg-black`}>
+            <CameraWrapper onCapture={handleCapture} />
+            
+            <TouchableOpacity 
+              onPress={handleCloseScanner}
+              style={tw`absolute top-12 right-6 bg-white px-4 py-2 rounded-full z-50`}
+            >
+              <Text style={tw`text-[14px] font-semibold text-black`}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </Modal>
 
         <ScrollView 
           ref={scrollViewRef}

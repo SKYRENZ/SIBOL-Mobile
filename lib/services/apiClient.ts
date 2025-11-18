@@ -10,14 +10,25 @@ const envApiBase = extras?.EXPO_PUBLIC_API_BASE;
 const DEFAULT_HOST = Platform.OS === 'android' ? 'http://10.0.2.2' : 'http://localhost';
 const DEFAULT_PORT = 5000;
 
-// If env provided a full URL (with port), don't append :5000
-export const API_BASE = (global as any).API_BASE_OVERRIDE ?? 
-  (envApiBase || `${DEFAULT_HOST}:${DEFAULT_PORT}`);
+// Remove trailing slash to prevent double slashes
+const normalizeUrl = (url: string) => url.replace(/\/$/, '');
 
+// If env provided a full URL (with port), don't append :5000
+export const API_BASE = normalizeUrl(
+  (global as any).API_BASE_OVERRIDE ?? 
+  (envApiBase || `${DEFAULT_HOST}:${DEFAULT_PORT}`)
+);
+
+console.log('[mobile api] Platform:', Platform.OS);
 console.log('[mobile api] API_BASE =', API_BASE);
 
 async function request(path: string, opts: RequestInit = {}) {
-  const url = path.startsWith('http') ? path : `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+  // Ensure path starts with /
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = path.startsWith('http') ? path : `${API_BASE}${normalizedPath}`;
+  
+  console.log(`[API Request] ${opts.method || 'GET'} ${url}`);
+  
   const headers: Record<string,string> = { ...(opts.headers as Record<string,string> || {}) };
 
   // attach token if available
@@ -47,6 +58,8 @@ async function request(path: string, opts: RequestInit = {}) {
     err.payload = data;
     throw err;
   }
+  
+  console.log(`[API Success] ${method} ${url}`);
   return data;
 }
 

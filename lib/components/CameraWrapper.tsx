@@ -1,14 +1,22 @@
-import { Platform, View, TouchableOpacity, Text } from 'react-native';
+import { Platform, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
+
+// Import expo-camera for native platforms
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
 interface CameraWrapperProps {
   onCapture: (imageData: string) => void;
 }
 
 export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
+  // Web refs
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [hasPermission, setHasPermission] = useState(false);
+  const [hasWebPermission, setHasWebPermission] = useState(false);
+
+  // Native camera refs
+  const cameraRef = useRef<CameraView>(null);
+  const [permission, requestPermission] = useCameraPermissions();
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -27,7 +35,7 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
       });
       if (videoRef.current) {
         (videoRef.current as HTMLVideoElement).srcObject = stream;
-        setHasPermission(true);
+        setHasWebPermission(true);
       }
     } catch (err: any) {
       console.error('Camera access error:', err?.name, err?.message);
@@ -40,7 +48,7 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
         alert('Camera is already in use by another application.');
       }
       
-      setHasPermission(false);
+      setHasWebPermission(false);
     }
   };
 
@@ -59,10 +67,13 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
     onCapture(dataUrl);
   };
 
+  // Web QR scanning loop
   useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
     let rafId: number | null = null;
     const scanFrame = () => {
-      if (!hasPermission || !videoRef.current) {
+      if (!hasWebPermission || !videoRef.current) {
         rafId = requestAnimationFrame(scanFrame);
         return;
       }
@@ -93,8 +104,25 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [hasPermission, onCapture]);
+  }, [hasWebPermission, onCapture]);
 
+  // Native camera handler
+  const takePicture = async () => {
+    if (cameraRef.current) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync({ 
+          base64: true 
+        });
+        if (photo?.base64) {
+          onCapture(`data:image/jpeg;base64,${photo.base64}`);
+        }
+      } catch (error) {
+        console.error('Failed to take picture:', error);
+      }
+    }
+  };
+
+  // WEB PLATFORM
   if (Platform.OS === 'web') {
     return (
       <div style={{ 
@@ -120,11 +148,99 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
     );
   }
 
-  // Mobile - return null, let native camera handle it
-  return null;
+  // NATIVE PLATFORM (Android/iOS)
+  if (!permission) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.text}>Requesting camera permission...</Text>
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.text}>Camera permission is required</Text>
+        <TouchableOpacity 
+          onPress={requestPermission}
+          style={styles.button}
+        >
+          <Text style={styles.buttonText}>Grant Permission</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <CameraView
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        facing="back"
+      />
+      
+      <TouchableOpacity
+        style={styles.captureButton}
+        onPress={takePicture}
+      >
+        <View style={styles.captureButtonInner} />
+      </TouchableOpacity>
+    </View>
+  );
 };
 
-// Export stubs for mobile
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  text: {
+    color: '#fff',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  button: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  buttonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  captureButton: {
+    position: 'absolute',
+    bottom: 80,
+    alignSelf: 'center',
+    backgroundColor: '#fff',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  captureButtonInner: {
+    width: 56,
+    height: 56,
+    borderWidth: 4,
+    borderColor: '#e0e0e0',
+    borderRadius: 28,
+    backgroundColor: '#fff',
+  },
+});
+
+// Export stubs for backwards compatibility
 export const Camera = null;
 export const getCameraPermissionStatus = async () => 'denied';
 export const requestCameraPermission = async () => 'denied';
