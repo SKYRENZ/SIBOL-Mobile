@@ -27,6 +27,7 @@ import { decodeQrFromImage } from '../utils/qrDecoder';
 export default function Dashboard() {
   const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<{ awarded: number; totalPoints: number } | null>(null);
+  const [isProcessingScan, setIsProcessingScan] = useState(false); // ✅ Add this
   const scrollViewRef = React.useRef<ScrollView>(null);
 
   // track which reward/category is selected (used by handleCategoryChange)
@@ -60,16 +61,44 @@ export default function Dashboard() {
   };
 
   const handleCapture = async (imageData: string) => {
+    setIsProcessingScan(true); // ✅ Show loading
     try {
       const decodedQr = await decodeQrFromImage(imageData);
       const response = await scanQr(decodedQr, 5);
+      
       setScanResult({ awarded: response.awarded, totalPoints: response.totalPoints });
-      Alert.alert('Points awarded', `${response.awarded} points added. Total ${response.totalPoints}.`);
+      
+      // ✅ Close scanner first, THEN show alert
       handleCloseScanner();
+      
+      // ✅ Use setTimeout to ensure modal closes before alert shows
+      setTimeout(() => {
+        Alert.alert(
+          'Success! 🎉', 
+          `+${response.awarded} points awarded!\n\nTotal: ${response.totalPoints} points`,
+          [{ text: 'OK' }]
+        );
+      }, 300);
+      
     } catch (error: any) {
       console.error('QR scan failed', error);
-      Alert.alert('Scan failed', error?.message || 'Unable to process QR code.');
-      // keep modal open so the loop can keep scanning
+      handleCloseScanner(); // ✅ Close on error too
+      
+      setTimeout(() => {
+        // ✅ Check for duplicate QR error specifically
+        const isDuplicate = error?.message?.includes('already scanned') || 
+                           error?.payload?.message?.includes('already scanned');
+        
+        Alert.alert(
+          isDuplicate ? 'Already Scanned' : 'Scan Failed',
+          isDuplicate 
+            ? 'This QR code has already been used. Each QR can only be scanned once.'
+            : error?.message || 'Unable to process QR code. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }, 300);
+    } finally {
+      setIsProcessingScan(false); // ✅ Hide loading
     }
   };
 
