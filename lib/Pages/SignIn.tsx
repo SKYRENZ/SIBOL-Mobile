@@ -9,6 +9,7 @@ import Svg, { Path } from 'react-native-svg';
 import { login as apiLogin } from '../services/authService'; // <-- added
 import { startGoogleSignIn } from '../services/googleauthService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Button from '../components/commons/Button';
 
 type RootStackParamList = {
   Landing: undefined;
@@ -239,8 +240,10 @@ export default function SignIn({ navigation }: Props) {
               </View>
 
               <View style={tw`gap-5 mt-4`}>
-                <TouchableOpacity
-                  style={tw`bg-primary py-4.5 rounded-[40px] items-center justify-center`}
+                <Button
+                  title={loading ? 'Signing in…' : 'Sign In'}
+                  loading={loading}
+                  textStyle={{ fontSize: 20 }}
                   onPress={async () => {
                     setServerError(null);
 
@@ -269,7 +272,6 @@ export default function SignIn({ navigation }: Props) {
                       // For now send admin to household dashboard as requested
                       let dest: keyof RootStackParamList = 'HDashboard';
                       if (roleVal === ROLE_OPERATOR) dest = 'ODashboard';
-                      // all others (including admin) go to hDashboard
   
                       navigation.navigate(dest);
                     } catch (err: any) {
@@ -278,11 +280,7 @@ export default function SignIn({ navigation }: Props) {
                       setLoading(false);
                     }
                   }}
-                >
-                  <Text style={[tw`text-white font-medium`, { fontSize: 20 }]}>
-                    {loading ? 'Signing in…' : 'Sign In'}
-                  </Text>
-                </TouchableOpacity>
+                />
 
                 <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
                   <Text style={[tw`text-center`, styles.input]}>

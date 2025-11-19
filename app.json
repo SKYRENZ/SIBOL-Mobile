@@ -25,7 +25,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.SIBOLmobile"
+      "package": "com.sprout.SIBOLmobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
