@@ -23,20 +23,22 @@ console.log('[mobile api] Platform:', Platform.OS);
 console.log('[mobile api] API_BASE =', API_BASE);
 
 async function request(path: string, opts: RequestInit = {}) {
-  // Ensure path starts with /
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const url = path.startsWith('http') ? path : `${API_BASE}${normalizedPath}`;
   
-  console.log(`[API Request] ${opts.method || 'GET'} ${url}`);
-  
   const headers: Record<string,string> = { ...(opts.headers as Record<string,string> || {}) };
 
-  // attach token if available
+  // Attach token if available
   try {
     const token = await AsyncStorage.getItem('token');
-    if (token) headers.Authorization = `Bearer ${token}`;
-  } catch {
-    /* ignore */
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+      console.log(`[API] Token attached: ${token.substring(0, 20)}...`); // ✅ Log this
+    } else {
+      console.warn(`[API] No token found in AsyncStorage`); // ✅ Log this
+    }
+  } catch (err) {
+    console.error('[API] Failed to get token:', err);
   }
 
   // default JSON header for non-multipart bodies
