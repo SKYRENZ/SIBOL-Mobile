@@ -61,31 +61,37 @@ export default function Dashboard() {
   };
 
   const handleCapture = async (imageData: string) => {
-    setIsProcessingScan(true); // ✅ Show loading
+    setIsProcessingScan(true);
     try {
       const decodedQr = await decodeQrFromImage(imageData);
-      const response = await scanQr(decodedQr, 5);
+      
+      // ✅ Parse weight from QR code
+      const weight = parseFloat(decodedQr);
+      
+      if (isNaN(weight) || weight <= 0) {
+        throw new Error('Invalid QR code: must contain a positive number');
+      }
+      
+      const response = await scanQr(decodedQr, weight);
       
       setScanResult({ awarded: response.awarded, totalPoints: response.totalPoints });
       
-      // ✅ Close scanner first, THEN show alert
       handleCloseScanner();
       
-      // ✅ Use setTimeout to ensure modal closes before alert shows
       setTimeout(() => {
         Alert.alert(
           'Success! 🎉', 
-          `+${response.awarded} points awarded!\n\nTotal: ${response.totalPoints} points`,
+          // ✅ Format to 2 decimal places
+          `+${response.awarded.toFixed(2)} points awarded!\n\nTotal: ${response.totalPoints.toFixed(2)} points`,
           [{ text: 'OK' }]
         );
       }, 300);
       
     } catch (error: any) {
       console.error('QR scan failed', error);
-      handleCloseScanner(); // ✅ Close on error too
+      handleCloseScanner();
       
       setTimeout(() => {
-        // ✅ Check for duplicate QR error specifically
         const isDuplicate = error?.message?.includes('already scanned') || 
                            error?.payload?.message?.includes('already scanned');
         
@@ -98,7 +104,7 @@ export default function Dashboard() {
         );
       }, 300);
     } finally {
-      setIsProcessingScan(false); // ✅ Hide loading
+      setIsProcessingScan(false);
     }
   };
 
