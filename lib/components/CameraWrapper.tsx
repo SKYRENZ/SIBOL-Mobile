@@ -13,6 +13,10 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
   // Web refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasWebPermission, setHasWebPermission] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+  
+  // ✅ Add flag to prevent multiple scans
+  const hasScannedRef = useRef(false);
 
   // Native camera refs
   const cameraRef = useRef<CameraView>(null);
@@ -26,6 +30,7 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
 
   const requestWebCameraAccess = async () => {
     try {
+      console.log('[Camera] Requesting web camera access...');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: 'environment',
@@ -33,9 +38,24 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
           height: { ideal: 720 }
         }
       });
+      
+      console.log('[Camera] Got stream:', stream);
+      
       if (videoRef.current) {
-        (videoRef.current as HTMLVideoElement).srcObject = stream;
-        setHasWebPermission(true);
+        const video = videoRef.current as HTMLVideoElement;
+        video.srcObject = stream;
+        
+        // ✅ Wait for video to be ready
+        video.onloadedmetadata = () => {
+          console.log('[Camera] Video metadata loaded');
+          video.play().then(() => {
+            console.log('[Camera] Video playing');
+            setHasWebPermission(true);
+            setIsVideoReady(true);
+          }).catch(err => {
+            console.error('[Camera] Failed to play video:', err);
+          });
+        };
       }
     } catch (err: any) {
       console.error('Camera access error:', err?.name, err?.message);
@@ -46,33 +66,29 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
         alert('No camera found on this device.');
       } else if (err?.name === 'NotReadableError') {
         alert('Camera is already in use by another application.');
+      } else {
+        alert(`Camera error: ${err?.message}`);
       }
       
       setHasWebPermission(false);
     }
   };
 
-  const capturePhoto = () => {
-    if (!videoRef.current) return;
-    const video = videoRef.current;
-    const canvas = document.createElement('canvas');
-    const width = video.videoWidth || video.clientWidth;
-    const height = video.videoHeight || video.clientHeight;
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0, width, height);
-    const dataUrl = canvas.toDataURL('image/png');
-    onCapture(dataUrl);
-  };
-
   // Web QR scanning loop
   useEffect(() => {
     if (Platform.OS !== 'web') return;
+    if (!isVideoReady) return;
+
+    // ✅ Reset scan flag when component mounts
+    hasScannedRef.current = false;
 
     let rafId: number | null = null;
     const scanFrame = () => {
+      // ✅ Stop scanning if already scanned
+      if (hasScannedRef.current) {
+        return;
+      }
+
       if (!hasWebPermission || !videoRef.current) {
         rafId = requestAnimationFrame(scanFrame);
         return;
@@ -93,6 +109,9 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const code = jsQR(imageData.data, canvas.width, canvas.height);
         if (code?.data) {
+          // ✅ Mark as scanned to prevent duplicate scans
+          hasScannedRef.current = true;
+          console.log('✅ QR detected, stopping scan loop');
           onCapture(canvas.toDataURL('image/png'));
           return;
         }
@@ -100,11 +119,18 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
       rafId = requestAnimationFrame(scanFrame);
     };
 
+    console.log('[Camera] Starting QR scan loop');
     rafId = requestAnimationFrame(scanFrame);
+    
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
+      // ✅ Stop video stream when component unmounts
+      if (videoRef.current?.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
     };
-  }, [hasWebPermission, onCapture]);
+  }, [hasWebPermission, isVideoReady, onCapture]);
 
   // Native camera handler
   const takePicture = async () => {
@@ -132,18 +158,50 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
         flexDirection: 'column', 
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#000'
+        backgroundColor: '#000',
+        position: 'relative',
+        overflow: 'hidden'
       }}>
         <video
           ref={videoRef}
           autoPlay
           playsInline
+          muted
           style={{ 
             width: '100%', 
             height: '100%',
-            objectFit: 'cover'
+            objectFit: 'cover',
+            display: isVideoReady ? 'block' : 'none'
           }}
         />
+        
+        {/* ✅ Show loading text while camera initializes */}
+        {!isVideoReady && (
+          <div style={{
+            position: 'absolute',
+            color: 'white',
+            fontSize: '18px',
+            fontWeight: '600'
+          }}>
+            Initializing camera...
+          </div>
+        )}
+        
+        {/* ✅ Simple instruction text */}
+        {isVideoReady && (
+          <div style={{
+            position: 'absolute',
+            bottom: '120px',
+            color: 'white',
+            fontSize: '16px',
+            fontWeight: '600',
+            textAlign: 'center',
+            textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+            zIndex: 10
+          }}>
+            Position QR code in view
+          </div>
+        )}
       </div>
     );
   }
@@ -178,6 +236,11 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
         style={StyleSheet.absoluteFill}
         facing="back"
       />
+      
+      {/* ✅ Simple instruction text for native */}
+      <View style={styles.instructionOverlay}>
+        <Text style={styles.instructionText}>Position QR code in view</Text>
+      </View>
       
       <TouchableOpacity
         style={styles.captureButton}
@@ -237,6 +300,21 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     borderRadius: 28,
     backgroundColor: '#fff',
+  },
+  instructionOverlay: {
+    position: 'absolute',
+    bottom: 100,
+    alignSelf: 'center',
+    pointerEvents: 'none',
+  },
+  instructionText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
 });
 
