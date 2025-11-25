@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, Image, SafeAreaView } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, Image, SafeAreaView, Animated, Easing, Platform } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import tw from '../utils/tailwind';
 import { useResponsiveStyle } from '../utils/responsiveStyles';
@@ -45,6 +45,45 @@ export default function LandingPage({ navigation }: Props) {
 
   const logoWidthPercent = isSm ? 50 : 40;
 
+  // Add animated cloud offsets
+  const cloudOffsets = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
+
+  useEffect(() => {
+    const timers: number[] = [];
+    const loops: Animated.CompositeAnimation[] = [];
+
+    const useNative = Platform.OS !== 'web';
+    const webAmplitudeMultiplier = Platform.OS === 'web' ? 2.5 : 1;
+
+    cloudOffsets.forEach((anim, idx) => {
+      const baseAmplitude = 8 + idx * 6;
+      const amplitude = baseAmplitude * webAmplitudeMultiplier;
+      const duration = 7000 + idx * 1200;
+      const sequence = Animated.sequence([
+        Animated.timing(anim, { toValue: amplitude, duration, easing: Easing.inOut(Easing.sin), useNativeDriver: useNative }),
+        Animated.timing(anim, { toValue: -amplitude, duration: Math.round(duration * 1.05), easing: Easing.inOut(Easing.sin), useNativeDriver: useNative }),
+      ]);
+
+      const loopAnim = Animated.loop(sequence);
+      loops.push(loopAnim);
+
+      const t = (setTimeout(() => loopAnim.start(), idx * 450) as unknown) as number;
+      timers.push(t);
+    });
+
+    return () => {
+      loops.forEach(l => l.stop && l.stop());
+      timers.forEach(t => clearTimeout(t));
+    };
+  }, [cloudOffsets]);
+
   return (
     <SafeAreaView style={tw`flex-1 bg-secondary`}>
       <View style={tw`flex-1`}>
@@ -52,34 +91,34 @@ export default function LandingPage({ navigation }: Props) {
         <View style={[tw`relative w-full`, styles.heroSection]}>
           {/* Green Clouds*/}
           <View style={tw`absolute w-full h-full`}>
-            <Image
+            <Animated.Image
               source={require('../../assets/cloud.png')}
-              style={tw`w-[70px] h-[35px] absolute -left-[10px] top-[10%]`}
+              style={[tw`w-[70px] h-[35px] absolute -left-[10px] top-[10%]`, { transform: [{ translateX: cloudOffsets[0] }] }]}
               resizeMode="contain"
             />
-            <Image
+            <Animated.Image
               source={require('../../assets/cloud.png')}
-              style={tw`w-[55px] h-[28px] absolute left-[35%] top-[25%]`}
+              style={[tw`w-[55px] h-[28px] absolute left-[35%] top-[25%]`, { transform: [{ translateX: cloudOffsets[1] }] }]}
               resizeMode="contain"
             />
-            <Image
+            <Animated.Image
               source={require('../../assets/cloud.png')}
-              style={tw`w-[60px] h-[30px] absolute -right-[15px] top-[15%]`}
+              style={[tw`w-[60px] h-[30px] absolute -right-[15px] top-[15%]`, { transform: [{ translateX: cloudOffsets[2] }] }]}
               resizeMode="contain"
             />
-            <Image
+            <Animated.Image
               source={require('../../assets/cloud.png')}
-              style={tw`w-[65px] h-[33px] absolute left-[5%] bottom-[35%]`}
+              style={[tw`w-[65px] h-[33px] absolute left-[5%] bottom-[35%]`, { transform: [{ translateX: cloudOffsets[3] }] }]}
               resizeMode="contain"
             />
-            <Image
+            <Animated.Image
               source={require('../../assets/cloud.png')}
-              style={tw`w-[50px] h-[25px] absolute right-[28%] bottom-[45%]`}
+              style={[tw`w-[50px] h-[25px] absolute right-[28%] bottom-[45%]`, { transform: [{ translateX: cloudOffsets[4] }] }]}
               resizeMode="contain"
             />
-            <Image
+            <Animated.Image
               source={require('../../assets/cloud.png')}
-              style={tw`w-[58px] h-[29px] absolute -right-[10px] bottom-[25%]`}
+              style={[tw`w-[58px] h-[29px] absolute -right-[10px] bottom-[25%]`, { transform: [{ translateX: cloudOffsets[5] }] }]}
               resizeMode="contain"
             />
           </View>
