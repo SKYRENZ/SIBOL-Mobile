@@ -7,12 +7,13 @@ import {
 	Animated,
 	Dimensions,
 	Platform,
+	Keyboard,
 } from 'react-native';
 import tw from '../utils/tailwind';
 import { HardDrive, MessageSquare, Settings, LogOut, User } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-// width = half the screen, full height
 const SIDEBAR_WIDTH = Math.min(320, Math.floor(SCREEN_WIDTH * 0.58));
 const SIDEBAR_HEIGHT = SCREEN_HEIGHT;
 
@@ -23,11 +24,13 @@ type Props = {
 };
 
 export default function OMenu({ visible, onClose, onNavigate }: Props) {
+	const navigation = useNavigation();
 	const translateX = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
 	const [mounted, setMounted] = useState(visible);
 
 	useEffect(() => {
 		if (visible) {
+			Keyboard.dismiss();
 			setMounted(true);
 			Animated.timing(translateX, {
 				toValue: 0,
@@ -67,7 +70,6 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
 							Platform.OS === 'android' ? { paddingTop: 0 } : { paddingTop: 0 },
 						]}
 					>
-						{/* Header: full-width light green block for username/profile with more top spacing */}
 						<View style={{ width: '100%', backgroundColor: '#A6BCAF', paddingHorizontal: 12, paddingTop: 20, paddingBottom: 14 }}>
 							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
 								<View>
@@ -87,7 +89,7 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
 							<TouchableOpacity
 								style={tw`flex-row items-center py-3 px-3 rounded`}
 								onPress={() => {
-									onNavigate?.('SIBOL Machines');
+									navigation.navigate('oMaintenance' as never);
 									onClose();
 								}}
 							>

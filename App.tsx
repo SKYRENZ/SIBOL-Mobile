@@ -13,6 +13,7 @@ import EmailVerification from './lib/Pages/EmailVerification';
 import AdminPending from './lib/Pages/AdminPending';
 import ForgotPassword from './lib/Pages/ForgotPassword';
 import { ResponsiveProvider } from './lib/utils/ResponsiveContext';
+import oMaintenance from './lib/Pages/oMaintenance';
 
 const Stack = createNativeStackNavigator();
 
@@ -21,7 +22,7 @@ export default function App() {
     <ResponsiveProvider>
       <NavigationContainer>
         <Stack.Navigator 
-          initialRouteName="SignIn"
+          initialRouteName="ODashboard"
           screenOptions={{
             headerShown: false,
           }}
@@ -34,6 +35,7 @@ export default function App() {
           <Stack.Screen name="HDashboard" component={hDashboard} />
           <Stack.Screen name="ODashboard" component={oDashboard} />
           <Stack.Screen name="ORequest" component={ORequest} />
+          <Stack.Screen name="oMaintenance" component={oMaintenance} />
           <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         </Stack.Navigator>

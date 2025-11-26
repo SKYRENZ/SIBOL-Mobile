@@ -1,0 +1,162 @@
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import tw from '../utils/tailwind';
+import BottomNavbar from '../components/oBotNav';
+import { ChevronDown } from 'lucide-react-native';
+
+type TabType = 'Maintenance' | 'Chemical' | 'Process';
+
+interface MaintenanceRequest {
+  id: string;
+  title: string;
+  description: string;
+  requestNumber: string;
+  dateAssigned: string;
+  dueDate: string;
+  remarks: string;
+}
+
+export default function OMaintenance() {
+  const [selectedTab, setSelectedTab] = useState<TabType>('Maintenance');
+  const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 1');
+  const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
+
+  const maintenanceRequests: MaintenanceRequest[] = [
+    {
+      id: '1',
+      title: 'Change filters',
+      description: 'Change the stage 2 filters on SIBOL Machine 2',
+      requestNumber: '112103',
+      dateAssigned: 'August 10, 2025',
+      dueDate: 'August 10, 2025',
+      remarks: 'Change filter',
+    },
+  ];
+
+  return (
+    <View style={tw`flex-1 bg-white`}>
+      <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-20`}>
+        <View style={tw`px-4 pt-11`}>
+          <Text style={tw`text-center text-[#6C8770] text-xl font-bold mb-6`}>
+            SIBOL Machines
+          </Text>
+
+          <View style={tw`mb-6`}>
+            <View style={tw`flex-row rounded-[15px] border border-[#88AB8E] bg-white p-1`}>
+              <TouchableOpacity
+                style={tw`flex-1 py-2 rounded-[15px] ${
+                  selectedTab === 'Maintenance' ? 'bg-[#88AB8E]' : ''
+                }`}
+                onPress={() => setSelectedTab('Maintenance')}
+              >
+                <Text
+                  style={tw`text-center font-semibold text-[15px] ${
+                    selectedTab === 'Maintenance' ? 'text-white' : 'text-primary'
+                  }`}
+                >
+                  Maintenance
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={tw`flex-1 py-2 rounded-[15px] ${
+                  selectedTab === 'Chemical' ? 'bg-[#88AB8E]' : ''
+                }`}
+                onPress={() => setSelectedTab('Chemical')}
+              >
+                <Text
+                  style={tw`text-center font-semibold text-[15px] ${
+                    selectedTab === 'Chemical' ? 'text-white' : 'text-primary'
+                  }`}
+                >
+                  Chemical
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={tw`flex-1 py-2 rounded-[15px] ${
+                  selectedTab === 'Process' ? 'bg-[#88AB8E]' : ''
+                }`}
+                onPress={() => setSelectedTab('Process')}
+              >
+                <Text
+                  style={tw`text-center font-semibold text-[15px] ${
+                    selectedTab === 'Process' ? 'text-white' : 'text-primary'
+                  }`}
+                >
+                  Process
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={tw`bg-primary rounded-md px-4 py-2 flex-row items-center justify-between self-start mb-6`}
+            onPress={() => setMachineDropdownOpen(!machineDropdownOpen)}
+          >
+            <Text style={tw`text-white font-bold text-[10px] mr-2`}>
+              {selectedMachine}
+            </Text>
+            <ChevronDown color="white" size={12} strokeWidth={2} />
+          </TouchableOpacity>
+
+          {maintenanceRequests.map((request) => (
+            <View
+              key={request.id}
+              style={tw`border border-[#88AB8E] rounded-[10px] bg-white p-5 mb-4`}
+            >
+              <Text style={tw`text-primary font-bold text-[13px] mb-2`}>
+                {request.title}
+              </Text>
+              <Text style={tw`text-[#6C8770] font-semibold text-[10px] mb-3`}>
+                {request.description}
+              </Text>
+
+              <View style={tw`mt-2`}>
+                <View style={tw`flex-row justify-between mb-2`}>
+                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>
+                    Request number:
+                  </Text>
+                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>
+                    {request.requestNumber}
+                  </Text>
+                </View>
+
+                <View style={tw`flex-row justify-between mb-2`}>
+                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>
+                    Date Assigned:
+                  </Text>
+                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>
+                    {request.dateAssigned}
+                  </Text>
+                </View>
+
+                <View style={tw`flex-row justify-between mb-2`}>
+                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>
+                    Due Date:
+                  </Text>
+                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>
+                    {request.dueDate}
+                  </Text>
+                </View>
+
+                <View style={tw`flex-row justify-between`}>
+                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>
+                    Remarks from brgy :
+                  </Text>
+                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>
+                    {request.remarks}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+
+      <View style={tw`absolute bottom-0 left-0 right-0`}>
+        <BottomNavbar currentPage="Home" />
+      </View>
+    </View>
+  );
+}
