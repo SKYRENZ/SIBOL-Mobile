@@ -7,9 +7,10 @@ import { Menu, FileText, Home as HomeIcon, Bell, ArrowLeft } from 'lucide-react-
 interface BottomNavbarProps {
   currentPage?: 'Menu' | 'Request' | 'Home' | 'Notifications' | 'Back';
   onRefresh?: () => void;
+  onMenuPress?: () => void;
 }
 
-export default function BottomNavbar({ currentPage, onRefresh }: BottomNavbarProps) {
+export default function BottomNavbar({ currentPage, onRefresh, onMenuPress }: BottomNavbarProps) {
   const navigation = useNavigation();
 
   const handleNavigation = (page: string) => {
@@ -32,6 +33,7 @@ export default function BottomNavbar({ currentPage, onRefresh }: BottomNavbarPro
     } else {
       switch (page) {
         case 'Menu':
+          if (onMenuPress) onMenuPress();
           break;
         case 'Request':
           navigation.navigate('ORequest' as never);
