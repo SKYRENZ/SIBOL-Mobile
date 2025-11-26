@@ -21,8 +21,10 @@ import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from 
 import Container from '../components/primitives/Container';
 import { Search, Bell } from 'lucide-react-native';
 import { CameraWrapper } from '../components/CameraWrapper';
+import HMenu from '../components/hMenu';
 
 export default function Dashboard() {
+  const [menuVisible, setMenuVisible] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
 
@@ -381,8 +383,14 @@ export default function Dashboard() {
       </View>
 
       <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
-        <BottomNavbar onScan={handleOpenScanner} />
+        <BottomNavbar onScan={handleOpenScanner} onMenuPress={() => setMenuVisible(true)} />
       </View>
-    </SafeAreaView>
-  );
-}
+
+      {/* HMenu overlay rendered at page level so it covers full screen */}
+      <HMenu visible={menuVisible} onClose={() => setMenuVisible(false)} onNavigate={(route) => {
+        // handle page navigation here if you have navigation available
+        setMenuVisible(false);
+      }} />
+     </SafeAreaView>
+   );
+ }
