@@ -12,9 +12,9 @@ export default function oMap({ navigation }: any) {
   const handleTabChange = (value: string) => {
     setSelectedTab(value);
     if (value === 'Waste Input') {
-      //waste input page
+      navigation.navigate('OWasteRecord');
     } else if (value === 'Schedule') {
-        //schedule page
+      // Navigate to schedule page when available
     }
   };
 
