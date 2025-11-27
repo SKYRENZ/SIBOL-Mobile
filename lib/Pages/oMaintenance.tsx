@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import { ChevronDown } from 'lucide-react-native';
+import Tabs from '../components/commons/Tabs';
 
 type TabType = 'Maintenance' | 'Chemical' | 'Process';
 
@@ -42,52 +43,11 @@ export default function OMaintenance() {
           </Text>
 
           <View style={tw`mb-6`}>
-            <View style={tw`flex-row rounded-[15px] border border-[#88AB8E] bg-white p-1`}>
-              <TouchableOpacity
-                style={tw`flex-1 py-2 rounded-[15px] ${
-                  selectedTab === 'Maintenance' ? 'bg-[#88AB8E]' : ''
-                }`}
-                onPress={() => setSelectedTab('Maintenance')}
-              >
-                <Text
-                  style={tw`text-center font-semibold text-[15px] ${
-                    selectedTab === 'Maintenance' ? 'text-white' : 'text-primary'
-                  }`}
-                >
-                  Maintenance
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={tw`flex-1 py-2 rounded-[15px] ${
-                  selectedTab === 'Chemical' ? 'bg-[#88AB8E]' : ''
-                }`}
-                onPress={() => setSelectedTab('Chemical')}
-              >
-                <Text
-                  style={tw`text-center font-semibold text-[15px] ${
-                    selectedTab === 'Chemical' ? 'text-white' : 'text-primary'
-                  }`}
-                >
-                  Chemical
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={tw`flex-1 py-2 rounded-[15px] ${
-                  selectedTab === 'Process' ? 'bg-[#88AB8E]' : ''
-                }`}
-                onPress={() => setSelectedTab('Process')}
-              >
-                <Text
-                  style={tw`text-center font-semibold text-[15px] ${
-                    selectedTab === 'Process' ? 'text-white' : 'text-primary'
-                  }`}
-                >
-                  Process
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <Tabs
+              tabs={['Maintenance', 'Chemical', 'Process']}
+              activeTab={selectedTab}
+              onTabChange={(val) => setSelectedTab(val as TabType)}
+            />
           </View>
 
           <TouchableOpacity
