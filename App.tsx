@@ -16,6 +16,7 @@ import { ResponsiveProvider } from './lib/utils/ResponsiveContext';
 import oMaintenance from './lib/Pages/oMaintenance';
 import oChemical from './lib/Pages/oChemical';
 import oProcess from './lib/Pages/oProcess';
+import oMap from './lib/Pages/oMap';
 
 const Stack = createNativeStackNavigator();
 
@@ -24,7 +25,7 @@ export default function App() {
     <ResponsiveProvider>
       <NavigationContainer>
         <Stack.Navigator 
-          initialRouteName="ODashboard"
+          initialRouteName="OMap"
           screenOptions={{
             headerShown: false,
           }}
@@ -40,6 +41,7 @@ export default function App() {
           <Stack.Screen name="oMaintenance" component={oMaintenance} />
           <Stack.Screen name="oChemical" component={oChemical} />
           <Stack.Screen name="oProcess" component={oProcess} />
+          <Stack.Screen name="OMap" component={oMap} />
           <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         </Stack.Navigator>
