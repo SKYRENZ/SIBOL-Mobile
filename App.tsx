@@ -15,6 +15,7 @@ import ForgotPassword from './lib/Pages/ForgotPassword';
 import { ResponsiveProvider } from './lib/utils/ResponsiveContext';
 import oMaintenance from './lib/Pages/oMaintenance';
 import oChemical from './lib/Pages/oChemical';
+import oProcess from './lib/Pages/oProcess';
 
 const Stack = createNativeStackNavigator();
 
@@ -38,6 +39,7 @@ export default function App() {
           <Stack.Screen name="ORequest" component={ORequest} />
           <Stack.Screen name="oMaintenance" component={oMaintenance} />
           <Stack.Screen name="oChemical" component={oChemical} />
+          <Stack.Screen name="oProcess" component={oProcess} />
           <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         </Stack.Navigator>

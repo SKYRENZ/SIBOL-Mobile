@@ -51,6 +51,8 @@ export default function OChemical() {
               onTabChange={(val) => {
                 if (val === 'Maintenance') {
                   navigation.navigate('oMaintenance');
+                } else if (val === 'Process') {
+                  navigation.navigate('oProcess');
                 } else {
                   setSelectedTab(val as TabType);
                 }

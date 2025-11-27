@@ -51,6 +51,8 @@ export default function OMaintenance() {
               onTabChange={(val) => {
                 if (val === 'Chemical') {
                   navigation.navigate('oChemical');
+                } else if (val === 'Process') {
+                  navigation.navigate('oProcess');
                 } else {
                   setSelectedTab(val as TabType);
                 }
