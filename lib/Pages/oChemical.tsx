@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 
 type TabType = 'Maintenance' | 'Chemical' | 'Process';
 
-interface MaintenanceRequest {
+interface ChemicalRequest {
   id: string;
   title: string;
   description: string;
@@ -18,17 +18,17 @@ interface MaintenanceRequest {
   remarks: string;
 }
 
-export default function OMaintenance() {
-  const [selectedTab, setSelectedTab] = useState<TabType>('Maintenance');
+export default function OChemical() {
+  const [selectedTab, setSelectedTab] = useState<TabType>('Chemical');
   const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 1');
   const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
   const navigation = useNavigation<any>();
 
-  const maintenanceRequests: MaintenanceRequest[] = [
+  const chemicalRequests: ChemicalRequest[] = [
     {
       id: '1',
-      title: 'Change filters',
-      description: 'Change the stage 2 filters on SIBOL Machine 2',
+      title: 'Stage 2: Water (H2O)',
+      description: 'Add water to stage 2',
       requestNumber: '112103',
       dateAssigned: 'August 10, 2025',
       dueDate: 'August 10, 2025',
@@ -49,8 +49,8 @@ export default function OMaintenance() {
               tabs={['Maintenance', 'Chemical', 'Process']}
               activeTab={selectedTab}
               onTabChange={(val) => {
-                if (val === 'Chemical') {
-                  navigation.navigate('oChemical');
+                if (val === 'Maintenance') {
+                  navigation.navigate('oMaintenance');
                 } else {
                   setSelectedTab(val as TabType);
                 }
@@ -68,7 +68,7 @@ export default function OMaintenance() {
             <ChevronDown color="white" size={12} strokeWidth={2} />
           </TouchableOpacity>
 
-          {maintenanceRequests.map((request) => (
+          {chemicalRequests.map((request) => (
             <View
               key={request.id}
               style={tw`border border-[#88AB8E] rounded-[10px] bg-white p-5 mb-4`}
