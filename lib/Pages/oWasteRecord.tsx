@@ -105,7 +105,7 @@ export default function OWasteRecord({ navigation }: any) {
 
               <TouchableOpacity style={styles.filterBtn} onPress={handleRefresh}>
                 <Filter size={14} color="#fff" />
-                <Text style={tw`text-white text-[15px] font-semibold ml-2`}>Refresh</Text>
+                <Text style={tw`text-white text-[15px] font-semibold ml-2`}>Filter</Text>
               </TouchableOpacity>
             </View>
 
