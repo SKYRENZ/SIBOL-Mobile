@@ -11,27 +11,36 @@ import {
   Alert,
   Linking,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import BottomNavbar from '../components/hBotNav';
 import HRewards from '../components/hRewards';
+import QRMessage from '../components/QRMessage'; // ✅ Import QRMessage
 import tw from '../utils/tailwind';
 import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from '../utils/responsiveStyles';
 import Container from '../components/primitives/Container';
 import { Search, Bell } from 'lucide-react-native';
 import { CameraWrapper } from '../components/CameraWrapper';
 import HMenu from '../components/hMenu';
+import { scanQr } from '../services/apiClient';
+import { decodeQrFromImage } from '../utils/qrDecoder';
 
 export default function Dashboard() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [scanResult, setScanResult] = useState<{ awarded: number; totalPoints: number } | null>(null);
+  const [isProcessingScan, setIsProcessingScan] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
+  
+  // ✅ Add state for QRMessage modal
+  const [showQRMessage, setShowQRMessage] = useState(false);
+  const [qrMessageType, setQRMessageType] = useState<'success' | 'error'>('success');
+  const [qrMessageData, setQRMessageData] = useState<{ points?: number; total?: number; message?: string }>({});
 
   // track which reward/category is selected (used by handleCategoryChange)
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-
-  // Note: do NOT call useCameraDevices at top-level here — CameraWrapper handles native-only camera logic.
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
@@ -40,23 +49,78 @@ export default function Dashboard() {
     }
   };
 
-  const handleOpenScanner = () => {
+  const handleOpenScanner = async () => {
     console.log('Opening scanner...');
+    
+    // Request camera permission on Android
+    if (Platform.OS === 'android') {
+      const result = await request(PERMISSIONS.ANDROID.CAMERA);
+      if (result !== RESULTS.GRANTED) {
+        Alert.alert('Permission Required', 'Camera permission is needed to scan QR codes.');
+        return;
+      }
+    }
+    
     setShowScanner(true);
   };
 
   const handleCloseScanner = () => {
     console.log('Closing scanner modal');
     setShowScanner(false);
+    setIsProcessingScan(false);
   };
 
-  const handleCapture = (imageData: string) => {
-    console.log('Captured:', imageData);
-    // Process image for scanning
-    handleCloseScanner();
+  const handleCapture = async (imageData: string) => {
+    setIsProcessingScan(true);
+    try {
+      const decodedQr = await decodeQrFromImage(imageData);
+      
+      // ✅ Parse weight from QR code
+      const weight = parseFloat(decodedQr);
+      
+      if (isNaN(weight) || weight <= 0) {
+        throw new Error('Invalid QR code: must contain a positive number');
+      }
+      
+      const response = await scanQr(decodedQr, weight);
+      
+      setScanResult({ awarded: response.awarded, totalPoints: response.totalPoints });
+      
+      // ✅ Close scanner and show success message
+      handleCloseScanner();
+      
+      setTimeout(() => {
+        setQRMessageType('success');
+        setQRMessageData({ 
+          points: response.awarded, 
+          total: response.totalPoints 
+        });
+        setShowQRMessage(true);
+      }, 300);
+      
+    } catch (error: any) {
+      console.error('QR scan failed', error);
+      handleCloseScanner();
+      
+      setTimeout(() => {
+        const isDuplicate = error?.message?.includes('already scanned') || 
+                           error?.payload?.message?.includes('already scanned');
+        
+        // ✅ Show error message in modal
+        setQRMessageType('error');
+        setQRMessageData({ 
+          message: isDuplicate 
+            ? 'This QR code has already been used. Each QR can only be scanned once.'
+            : error?.message || 'Unable to process QR code. Please try again.'
+        });
+        setShowQRMessage(true);
+      }, 300);
+    } finally {
+      setIsProcessingScan(false);
+    }
   };
 
-  const styles = useResponsiveStyle (({ isSm, isMd, isLg }) => ({
+  const styles = useResponsiveStyle(({ isSm, isMd, isLg }) => ({
     safeArea: {
       flex: 1,
       backgroundColor: 'white',
@@ -303,7 +367,7 @@ export default function Dashboard() {
           <View style={styles.statsContainer}>
             <View style={styles.statCard}>
               <View style={styles.statContent}>
-                <Text style={styles.statNumber}>115</Text>
+                <Text style={styles.statNumber}>{scanResult?.totalPoints?.toFixed(2) || '115.00'}</Text>
                 <Text style={styles.statLabel}>Sibol Points</Text>
               </View>
               <View style={styles.medalIcon}>
@@ -353,25 +417,42 @@ export default function Dashboard() {
           <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-8`} />
         </Container>
 
-        {/* Web Camera Modal */}
-        {Platform.OS === 'web' && (
-          <Modal 
-            visible={showScanner} 
-            animationType="slide" 
-            onRequestClose={handleCloseScanner}
-          >
-            <View style={tw`flex-1 bg-black`}>
-              <CameraWrapper onCapture={handleCapture} />
-              
-              <TouchableOpacity 
-                onPress={handleCloseScanner}
-                style={tw`absolute top-6 right-6 bg-white px-4 py-2 rounded-full z-50`}
-              >
-                <Text style={tw`text-[14px] font-semibold text-black`}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </Modal>
-        )}
+        {/* ✅ Camera Modal with Processing Overlay */}
+        <Modal 
+          visible={showScanner} 
+          animationType="slide" 
+          onRequestClose={handleCloseScanner}
+        >
+          <View style={tw`flex-1 bg-black`}>
+            <CameraWrapper onCapture={handleCapture} />
+            
+            {/* ✅ Processing overlay */}
+            {isProcessingScan && (
+              <View style={tw`absolute inset-0 bg-black bg-opacity-75 items-center justify-center`}>
+                <ActivityIndicator size="large" color="#fff" />
+                <Text style={tw`text-white text-lg mt-4`}>Processing QR code...</Text>
+              </View>
+            )}
+            
+            <TouchableOpacity 
+              onPress={handleCloseScanner}
+              style={tw`absolute top-12 right-6 bg-white px-4 py-2 rounded-full z-50`}
+              disabled={isProcessingScan}
+            >
+              <Text style={tw`text-[14px] font-semibold text-black`}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </Modal>
+
+        {/* ✅ QR Message Modal (Success/Error) */}
+        <QRMessage
+          visible={showQRMessage}
+          type={qrMessageType}
+          points={qrMessageData.points}
+          total={qrMessageData.total}
+          message={qrMessageData.message}
+          onClose={() => setShowQRMessage(false)}
+        />
 
         <ScrollView 
           ref={scrollViewRef}
