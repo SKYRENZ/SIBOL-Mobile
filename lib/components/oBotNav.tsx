@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Menu, FileText, Home as HomeIcon, Bell, ArrowLeft } from 'lucide-react-native';
 
 interface BottomNavbarProps {
-  currentPage?: 'Menu' | 'Request' | 'Home' | 'Notifications' | 'Back';
+  currentPage?: 'Menu' | 'Request' | 'Home' | 'Map' | 'Back';
   onRefresh?: () => void;
   onMenuPress?: () => void;
 }
@@ -41,7 +41,8 @@ export default function BottomNavbar({ currentPage, onRefresh, onMenuPress }: Bo
         case 'Home':
           navigation.navigate('ODashboard' as never);
           break;
-        case 'Notifications':
+        case 'Map':
+          navigation.navigate('OMap' as never);
           break;
         case 'Back':
           navigation.goBack();
@@ -81,10 +82,10 @@ export default function BottomNavbar({ currentPage, onRefresh, onMenuPress }: Bo
 
         <TouchableOpacity 
           style={tw`items-center flex-1`}
-          onPress={() => handleNavigation('Notifications')}
+          onPress={() => handleNavigation('Map')}
         >
           <Bell color="white" size={22} />
-          <Text style={tw`text-white font-semibold text-[11px] mt-1`}>Notifications</Text>
+          <Text style={tw`text-white font-semibold text-[11px] mt-1`}>Map</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 

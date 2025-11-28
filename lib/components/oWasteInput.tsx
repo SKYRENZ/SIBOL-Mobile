@@ -11,6 +11,8 @@ import {
   Platform
 } from 'react-native';
 
+import { createCollection } from '../services/wasteCollectionService';
+
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -34,7 +36,7 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
     if (error) setError(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!area.trim()) {
       setError('Please enter an area.');
       return;
@@ -44,8 +46,20 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
       return;
     }
     setError(null);
-    if (onSave) onSave({ area: area.trim(), weight: parseInt(weight, 10) });
-    onClose();
+
+    const numericWeight = parseInt(weight, 10);
+
+    try {
+      // submit to backend (area can be id or name)
+      await createCollection(area.trim(), numericWeight);
+
+      // notify parent and close
+      if (onSave) onSave({ area: area.trim(), weight: numericWeight });
+      onClose();
+    } catch (err: any) {
+      console.error('Failed to submit waste input', err);
+      setError(err?.message || 'Failed to submit waste input');
+    }
   };
 
   return (

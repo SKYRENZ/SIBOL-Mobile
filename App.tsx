@@ -26,7 +26,7 @@ export default function App() {
     <ResponsiveProvider>
       <NavigationContainer>
         <Stack.Navigator 
-          initialRouteName="OMap"
+          initialRouteName="SignIn"
           screenOptions={{
             headerShown: false,
           }}
