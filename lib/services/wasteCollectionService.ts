@@ -107,3 +107,17 @@ export async function createCollection(area: string | number, weight: number) {
   const data = await post('/api/waste-collections', payload);
   return data;
 }
+
+/**
+ * Fetch collections submitted by the current authenticated mobile user.
+ * Returns rows with fields: collection_id, area_id, weight, date, time, operator_name, collected_at
+ */
+export async function fetchMyCollections(limit = 100, offset = 0) {
+  const qs = `?limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`;
+  const data = await get(`/api/waste-collections/mine${qs}`);
+  // data expected shape: { data: [ ...rows ] }
+  if (data && Array.isArray((data as any).data)) return (data as any).data;
+  // fallback if API returns array directly
+  if (Array.isArray(data)) return data;
+  return [];
+}
