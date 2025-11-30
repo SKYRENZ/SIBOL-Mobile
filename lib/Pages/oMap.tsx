@@ -4,9 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import BottomNavbar from '../components/oBotNav';
 import OWasteInput from '../components/oWasteInput';
 import Tabs from '../components/commons/Tabs'; 
+import OMenu from '../components/oMenu';
 
 export default function oMap({ navigation }: any) {
   const [showWasteModal, setShowWasteModal] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
   const [selectedTab, setSelectedTab] = useState<string>('Map'); 
 
   const handleTabChange = (value: string) => {
@@ -45,11 +47,17 @@ export default function oMap({ navigation }: any) {
       </TouchableOpacity>
 
       <View style={styles.bottomNavWrapper}>
-        <BottomNavbar />
+        <BottomNavbar onMenuPress={() => setMenuVisible(true)} />
       </View>
 
       {/* Waste input modal */}
       <OWasteInput visible={showWasteModal} onClose={() => setShowWasteModal(false)} />
+      
+      <OMenu 
+        visible={menuVisible} 
+        onClose={() => setMenuVisible(false)} 
+        onNavigate={() => setMenuVisible(false)} 
+      />
     </SafeAreaView>
   );
 }
