@@ -10,22 +10,35 @@ const envApiBase = extras?.EXPO_PUBLIC_API_BASE;
 const DEFAULT_HOST = Platform.OS === 'android' ? 'http://10.0.2.2' : 'http://localhost';
 const DEFAULT_PORT = 5000;
 
-// If env provided a full URL (with port), don't append :5000
-export const API_BASE = (global as any).API_BASE_OVERRIDE ?? 
-  (envApiBase || `${DEFAULT_HOST}:${DEFAULT_PORT}`);
+// Remove trailing slash to prevent double slashes
+const normalizeUrl = (url: string) => url.replace(/\/$/, '');
 
+// If env provided a full URL (with port), don't append :5000
+export const API_BASE = normalizeUrl(
+  (global as any).API_BASE_OVERRIDE ?? 
+  (envApiBase || `${DEFAULT_HOST}:${DEFAULT_PORT}`)
+);
+
+console.log('[mobile api] Platform:', Platform.OS);
 console.log('[mobile api] API_BASE =', API_BASE);
 
 async function request(path: string, opts: RequestInit = {}) {
-  const url = path.startsWith('http') ? path : `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = path.startsWith('http') ? path : `${API_BASE}${normalizedPath}`;
+  
   const headers: Record<string,string> = { ...(opts.headers as Record<string,string> || {}) };
 
-  // attach token if available
+  // Attach token if available
   try {
     const token = await AsyncStorage.getItem('token');
-    if (token) headers.Authorization = `Bearer ${token}`;
-  } catch {
-    /* ignore */
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+      console.log(`[API] Token attached: ${token.substring(0, 20)}...`); // ✅ Log this
+    } else {
+      console.warn(`[API] No token found in AsyncStorage`); // ✅ Log this
+    }
+  } catch (err) {
+    console.error('[API] Failed to get token:', err);
   }
 
   // default JSON header for non-multipart bodies
@@ -47,6 +60,8 @@ async function request(path: string, opts: RequestInit = {}) {
     err.payload = data;
     throw err;
   }
+  
+  console.log(`[API Success] ${method} ${url}`);
   return data;
 }
 
@@ -85,4 +100,7 @@ export async function fetchBarangays() {
 }
 export async function ping() {
   return get('/api/health') /* optional; if not exposed backend, call a public endpoint like /api/auth/barangays */;
+}
+export async function scanQr(qr: string, weight: number) {
+  return post('/api/qr/scan', { qr, weight });
 }
