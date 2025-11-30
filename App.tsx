@@ -18,6 +18,7 @@ import oChemical from './lib/Pages/oChemical';
 import oProcess from './lib/Pages/oProcess';
 import oMap from './lib/Pages/oMap';
 import oWasteRecord from './lib/Pages/oWasteRecord';
+import oSchedule from './lib/Pages/oSchedule';
 
 const Stack = createNativeStackNavigator();
 
@@ -44,6 +45,7 @@ export default function App() {
           <Stack.Screen name="oProcess" component={oProcess} />
           <Stack.Screen name="OMap" component={oMap} />
           <Stack.Screen name="OWasteRecord" component={oWasteRecord} />
+          <Stack.Screen name="OSchedule" component={oSchedule} />
           <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         </Stack.Navigator>

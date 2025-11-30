@@ -19,24 +19,27 @@ export default function SearchBox({ value, onChangeText, placeholder = 'Search a
         onChangeText={onChangeText}
         underlineColorAndroid="transparent"
       />
-      <Search size={18} color="#88AB8E" />
+      <View style={styles.searchIconWrap}>
+        <Search size={18} color="#88AB8E" />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   searchBox: {
+    position: 'relative',          
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: '#fff',
-    borderRadius: 15,          
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: '#CAD3CA',
     paddingVertical: 10,
     paddingHorizontal: 14,
-    width: '65%',          
-    alignSelf: 'center',    
+    paddingRight: 44,             
+    width: '65%',
+    alignSelf: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowOffset: { width: 0, height: 2 },
@@ -49,6 +52,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
     padding: 0,
-    marginRight: 8,
+  },
+  searchIconWrap: {
+    position: 'absolute',
+    right: 14,                   
+    top: 0,
+    bottom: 0,
+    width: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

@@ -14,7 +14,7 @@ export default function oMap({ navigation }: any) {
     if (value === 'Waste Input') {
       navigation.navigate('OWasteRecord');
     } else if (value === 'Schedule') {
-      // Navigate to schedule page when available
+      navigation.navigate('OSchedule');
     }
   };
 
