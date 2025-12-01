@@ -87,14 +87,12 @@ export default function EmailVerification({ navigation, route }: Props) {
 
     setVerifying(true);
     try {
-      await verifyCodeApi(code, email);
-      Alert.alert('Success', 'Email verified successfully!', [
-        {
-          text: 'OK',
-          onPress: () => navigation.navigate('AdminPending', { email }),
-        },
-      ]);
+      const data = await verifyCodeApi(code, email);
+      console.log('[EmailVerification] verify response', data);
+      // Navigate immediately (replace so user can't go back to verify screen)
+      navigation.replace('AdminPending' as any, { email });
     } catch (err: any) {
+      console.error('[EmailVerification] verify failed', err);
       Alert.alert('Verification Failed', err?.message || 'Invalid code. Please try again.');
     } finally {
       setVerifying(false);
