@@ -5,6 +5,7 @@ import BottomNavbar from '../components/oBotNav';
 import { ChevronDown, Settings, Wifi, FileSearch } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
 import OProcessSensors from '../components/oProcessSensors';
+import OProcessDetails from '../components/oProcessDetails';
 import { useNavigation } from '@react-navigation/native';
 
 type MainTabType = 'Maintenance' | 'Chemical' | 'Process';
@@ -116,20 +117,7 @@ export default function OProcess() {
         return <OProcessSensors />;
 
       case 'Process Details':
-        return (
-          <View style={tw`px-4 mt-6`}>
-            <View
-              style={tw`border-3 border-[#F2F1EB] bg-white rounded-2xl p-6 shadow-lg`}
-            >
-              <Text style={tw`text-[#6C8770] font-bold text-xl text-center mb-4`}>
-                Process Details
-              </Text>
-              <Text style={tw`text-[#2E523A] text-center`}>
-                Detailed process information will be displayed here
-              </Text>
-            </View>
-          </View>
-        );
+        return <OProcessDetails machineId={selectedMachine} />;
 
       default:
         return null;
