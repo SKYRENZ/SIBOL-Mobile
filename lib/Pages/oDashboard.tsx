@@ -11,6 +11,7 @@ import {
 import tw from '../utils/tailwind';
 import { MaterialIcons } from '@expo/vector-icons';
 import BottomNavbar from '../components/oBotNav';
+import OMenu from '../components/oMenu';
 import ResponsiveTaskCard from '../components/primitives/ResponsiveTaskCard';
 import ResponsiveImage from '../components/primitives/ResponsiveImage';
 import { useResponsiveStyle, useResponsiveFontSize } from '../utils/responsiveStyles';
@@ -28,6 +29,7 @@ const MachineStatusDropdown: React.FC = () => {
 };
 
 export default function ODashboard() {
+  const [menuVisible, setMenuVisible] = useState(false);
   const { isSm, isMd, isLg } = useResponsiveContext();
   const screenHeight = Dimensions.get('window').height;
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -183,7 +185,13 @@ export default function ODashboard() {
       <BottomNavbar 
         currentPage="Home" 
         onRefresh={handleRefresh}
+        onMenuPress={() => setMenuVisible(true)}
       />
+      {/* render operator menu overlay at page level so it covers screen with dim overlay */}
+      <OMenu visible={menuVisible} onClose={() => setMenuVisible(false)} onNavigate={(route) => {
+        // handle navigation if needed
+        setMenuVisible(false);
+      }} />
     </SafeAreaView>
   );
 }
