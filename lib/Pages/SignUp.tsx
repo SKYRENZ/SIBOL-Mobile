@@ -10,6 +10,7 @@ import ResponsiveImage from '../components/primitives/ResponsiveImage';
 import Svg, { Path, G, Defs, ClipPath, Rect } from 'react-native-svg';
 import { post } from '../services/apiClient';
 import { useSignUp } from '../hooks/signup/useSignUp';
+import Button from '../components/commons/Button';
 
 type RootStackParamList = {
   Landing: undefined;
@@ -50,7 +51,7 @@ const UploadIcon = () => (
   <Svg width={12} height={12} viewBox="0 0 12 12" fill="none">
     <Path
       d="M5.25 9V2.8875L3.3 4.8375L2.25 3.75L6 0L9.75 3.75L8.7 4.8375L6.75 2.8875V9H5.25ZM1.5 12C1.0875 12 0.734375 11.8531 0.440625 11.5594C0.146875 11.2656 0 10.9125 0 10.5V8.25H1.5V10.5H10.5V8.25H12V10.5C12 10.9125 11.8531 11.2656 11.5594 11.5594C11.2656 11.8531 10.9125 12 10.5 12H1.5Z"
-      fill="#2E523A"
+      fill="#6C8770"
     />
   </Svg>
 );
@@ -61,6 +62,13 @@ const CheckIcon = () => (
       d="M10.3333 14.5L8 12.3723L8.81667 11.6277L10.3333 13.0106L14.1833 9.5L15 10.2447L10.3333 14.5Z"
       fill="white"
     />
+  </Svg>
+);
+
+// new: small chevron/down icon for dropdowns
+const ChevronDownIcon = () => (
+  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+    <Path d="M6 9l6 6 6-6" stroke="#6C8770" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
@@ -208,12 +216,13 @@ export default function SignUp({ navigation, route }: Props) {
 
             <View style={tw`gap-4`}>
               <TouchableOpacity
-                style={tw`border-2 border-text-gray rounded-[10px] px-4 py-3 bg-white bg-opacity-80`}
+                style={tw`border-2 border-text-gray rounded-[10px] px-4 py-3 bg-white bg-opacity-80 flex-row items-center justify-between`}
                 onPress={() => setShowRolePicker(!showRolePicker)}
               >
                 <Text style={[tw`text-[#686677]`, styles.input]}>
                   {role || 'Select Role'}
                 </Text>
+                <ChevronDownIcon />
               </TouchableOpacity>
 
               {showRolePicker && (
@@ -299,12 +308,13 @@ export default function SignUp({ navigation, route }: Props) {
               <View>
                 <Text style={[tw`text-primary mb-2`, styles.label]}>Barangay</Text>
                 <TouchableOpacity
-                  style={tw`border-2 border-text-gray rounded-[10px] px-4 py-3 bg-white bg-opacity-80`}
+                  style={tw`border-2 border-text-gray rounded-[10px] px-4 py-3 bg-white bg-opacity-80 flex-row items-center justify-between`}
                   onPress={() => setShowBarangayPicker(true)}
                 >
                   <Text style={[tw`text-[#686677]`, styles.input]}>
                     {barangays.find((b) => String(b.id) === String(barangay))?.name || 'Select Barangay'}
                   </Text>
+                  <ChevronDownIcon />
                 </TouchableOpacity>
 
                 {/* Modal picker so dropdown isn't clipped inside ScrollView */}
@@ -382,15 +392,13 @@ export default function SignUp({ navigation, route }: Props) {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={tw`bg-primary py-4 rounded-[10px] items-center justify-center mt-4 border-2 border-primary`}
+              <Button
+                title={loading ? 'Creating account...' : 'Create account'}
+                loading={loading}
                 onPress={handleCreateAccount}
-                disabled={loading}
-              >
-                <Text style={[tw`text-[#FFFDF4] font-bold`, { fontSize: 16 }]}>
-                  {loading ? 'Creating account...' : 'Create account'}
-                </Text>
-              </TouchableOpacity>
+                textStyle={{ fontSize: 16, fontWeight: '700', color: '#FFFDF4' }}
+                style={tw`mt-4`}
+              />
 
               {serverError ? (
                 <Text style={tw`text-red-500 text-center mt-4`}>{serverError}</Text>
