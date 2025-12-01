@@ -1,8 +1,9 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import RequestCard, { RequestItem } from '../components/RequestCard';
+import Tabs from '../components/commons/Tabs';
 
 type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
 
@@ -204,27 +205,11 @@ export default function ORequest() {
           </Text>
 
           <View style={tw`mb-8`}>
-            <View style={tw`flex-row items-center justify-center bg-white border border-[#CAD3CA] rounded-2xl p-1`}>
-              {filters.map((filter) => (
-                <TouchableOpacity
-                  key={filter}
-                  onPress={() => handleFilterChange(filter)}
-                  style={[
-                    tw`flex-1 py-2 px-3 rounded-2xl`,
-                    activeFilter === filter && tw`bg-[#88AB8E] border border-[#88AB8E]`,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      tw`text-center text-[13px] font-semibold`,
-                      activeFilter === filter ? tw`text-white` : tw`text-text-gray`,
-                    ]}
-                  >
-                    {filter}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Tabs
+              tabs={filters}
+              activeTab={activeFilter}
+              onTabChange={(value) => handleFilterChange(value as FilterTab)}
+            />
           </View>
 
           {isRefreshing ? (

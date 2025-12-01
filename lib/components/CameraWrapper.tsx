@@ -1,13 +1,26 @@
-import { Platform, View, TouchableOpacity, Text } from 'react-native';
+import { Platform, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
+import jsQR from 'jsqr';
+
+// Import expo-camera for native platforms
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
 interface CameraWrapperProps {
   onCapture: (imageData: string) => void;
 }
 
 export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
+  // Web refs
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [hasPermission, setHasPermission] = useState(false);
+  const [hasWebPermission, setHasWebPermission] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+  
+  // ✅ Add flag to prevent multiple scans
+  const hasScannedRef = useRef(false);
+
+  // Native camera refs
+  const cameraRef = useRef<CameraView>(null);
+  const [permission, requestPermission] = useCameraPermissions();
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -17,6 +30,7 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
 
   const requestWebCameraAccess = async () => {
     try {
+      console.log('[Camera] Requesting web camera access...');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: 'environment',
@@ -24,9 +38,24 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
           height: { ideal: 720 }
         }
       });
+      
+      console.log('[Camera] Got stream:', stream);
+      
       if (videoRef.current) {
-        (videoRef.current as HTMLVideoElement).srcObject = stream;
-        setHasPermission(true);
+        const video = videoRef.current as HTMLVideoElement;
+        video.srcObject = stream;
+        
+        // ✅ Wait for video to be ready
+        video.onloadedmetadata = () => {
+          console.log('[Camera] Video metadata loaded');
+          video.play().then(() => {
+            console.log('[Camera] Video playing');
+            setHasWebPermission(true);
+            setIsVideoReady(true);
+          }).catch(err => {
+            console.error('[Camera] Failed to play video:', err);
+          });
+        };
       }
     } catch (err: any) {
       console.error('Camera access error:', err?.name, err?.message);
@@ -37,27 +66,89 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
         alert('No camera found on this device.');
       } else if (err?.name === 'NotReadableError') {
         alert('Camera is already in use by another application.');
+      } else {
+        alert(`Camera error: ${err?.message}`);
       }
       
-      setHasPermission(false);
+      setHasWebPermission(false);
     }
   };
 
-  const capturePhoto = () => {
-    if (videoRef.current) {
+  // Web QR scanning loop
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (!isVideoReady) return;
+
+    // ✅ Reset scan flag when component mounts
+    hasScannedRef.current = false;
+
+    let rafId: number | null = null;
+    const scanFrame = () => {
+      // ✅ Stop scanning if already scanned
+      if (hasScannedRef.current) {
+        return;
+      }
+
+      if (!hasWebPermission || !videoRef.current) {
+        rafId = requestAnimationFrame(scanFrame);
+        return;
+      }
+
+      const video = videoRef.current;
+      if (video.readyState < 2) {
+        rafId = requestAnimationFrame(scanFrame);
+        return;
+      }
+
       const canvas = document.createElement('canvas');
-      canvas.width = (videoRef.current as HTMLVideoElement).videoWidth;
-      canvas.height = (videoRef.current as HTMLVideoElement).videoHeight;
-      
-      const context = canvas.getContext('2d');
-      if (context) {
-        context.drawImage(videoRef.current as HTMLVideoElement, 0, 0);
-        const imageData = canvas.toDataURL('image/jpeg');
-        onCapture(imageData);
+      canvas.width = video.videoWidth || video.clientWidth;
+      canvas.height = video.videoHeight || video.clientHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, canvas.width, canvas.height);
+        if (code?.data) {
+          // ✅ Mark as scanned to prevent duplicate scans
+          hasScannedRef.current = true;
+          console.log('✅ QR detected, stopping scan loop');
+          onCapture(canvas.toDataURL('image/png'));
+          return;
+        }
+      }
+      rafId = requestAnimationFrame(scanFrame);
+    };
+
+    console.log('[Camera] Starting QR scan loop');
+    rafId = requestAnimationFrame(scanFrame);
+    
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      // ✅ Stop video stream when component unmounts
+      if (videoRef.current?.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [hasWebPermission, isVideoReady, onCapture]);
+
+  // Native camera handler
+  const takePicture = async () => {
+    if (cameraRef.current) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync({ 
+          base64: true 
+        });
+        if (photo?.base64) {
+          onCapture(`data:image/jpeg;base64,${photo.base64}`);
+        }
+      } catch (error) {
+        console.error('Failed to take picture:', error);
       }
     }
   };
 
+  // WEB PLATFORM
   if (Platform.OS === 'web') {
     return (
       <div style={{ 
@@ -67,44 +158,167 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
         flexDirection: 'column', 
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#000'
+        backgroundColor: '#000',
+        position: 'relative',
+        overflow: 'hidden'
       }}>
         <video
           ref={videoRef}
           autoPlay
           playsInline
+          muted
           style={{ 
             width: '100%', 
             height: '100%',
-            objectFit: 'cover'
+            objectFit: 'cover',
+            display: isVideoReady ? 'block' : 'none'
           }}
         />
-        <button 
-          onClick={capturePhoto}
-          style={{ 
+        
+        {/* ✅ Show loading text while camera initializes */}
+        {!isVideoReady && (
+          <div style={{
             position: 'absolute',
-            bottom: '30px',
-            padding: '12px 24px',
-            backgroundColor: '#2E523A',
             color: 'white',
-            border: 'none',
-            borderRadius: '8px',
+            fontSize: '18px',
+            fontWeight: '600'
+          }}>
+            Initializing camera...
+          </div>
+        )}
+        
+        {/* ✅ Simple instruction text */}
+        {isVideoReady && (
+          <div style={{
+            position: 'absolute',
+            bottom: '120px',
+            color: 'white',
             fontSize: '16px',
-            fontWeight: 'bold',
-            cursor: 'pointer'
-          }}
-        >
-          Capture
-        </button>
+            fontWeight: '600',
+            textAlign: 'center',
+            textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+            zIndex: 10
+          }}>
+            Position QR code in view
+          </div>
+        )}
       </div>
     );
   }
 
-  // Mobile - return null, let native camera handle it
-  return null;
+  // NATIVE PLATFORM (Android/iOS)
+  if (!permission) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.text}>Requesting camera permission...</Text>
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.text}>Camera permission is required</Text>
+        <TouchableOpacity 
+          onPress={requestPermission}
+          style={styles.button}
+        >
+          <Text style={styles.buttonText}>Grant Permission</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <CameraView
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        facing="back"
+      />
+      
+      {/* ✅ Simple instruction text for native */}
+      <View style={styles.instructionOverlay}>
+        <Text style={styles.instructionText}>Position QR code in view</Text>
+      </View>
+      
+      <TouchableOpacity
+        style={styles.captureButton}
+        onPress={takePicture}
+      >
+        <View style={styles.captureButtonInner} />
+      </TouchableOpacity>
+    </View>
+  );
 };
 
-// Export stubs for mobile
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  text: {
+    color: '#fff',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  button: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  buttonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  captureButton: {
+    position: 'absolute',
+    bottom: 80,
+    alignSelf: 'center',
+    backgroundColor: '#fff',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  captureButtonInner: {
+    width: 56,
+    height: 56,
+    borderWidth: 4,
+    borderColor: '#e0e0e0',
+    borderRadius: 28,
+    backgroundColor: '#fff',
+  },
+  instructionOverlay: {
+    position: 'absolute',
+    bottom: 100,
+    alignSelf: 'center',
+    pointerEvents: 'none',
+  },
+  instructionText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+});
+
+// Export stubs for backwards compatibility
 export const Camera = null;
 export const getCameraPermissionStatus = async () => 'denied';
 export const requestCameraPermission = async () => 'denied';
