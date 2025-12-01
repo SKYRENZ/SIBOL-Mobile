@@ -33,6 +33,7 @@ export default function OWasteRecord({ navigation }: any) {
     if (value === 'Map') {
       navigation.navigate('OMap');
     } else if (value === 'Schedule') {
+      navigation.navigate('OSchedule');
     }
   };
 
