@@ -6,25 +6,27 @@ export type AuthResponse = { token?: string; accessToken?: string; user?: User; 
 
 export async function login(username: string, password: string): Promise<AuthResponse> {
   const res = await post('/api/auth/login', { username, password });
-  // Ensure login succeeded
+  
+  // ✅ Extract token from response
   const token = res?.token ?? res?.accessToken;
   const user = res?.user ?? null;
-  if (!token && !user) {
-    // backend returns 401 with message on bad creds — surface that
-    const msg = (res && (res.message || res.error)) || 'Invalid credentials';
-    throw new Error(msg);
+  
+  if (!token) {
+    throw new Error('No authentication token received');
   }
 
-  // mobile apiClient.post returns parsed data (not wrapped in { data })
-  if (token) {
-    // keep apiClient.setToken in-sync (it writes AsyncStorage) and also persist user
-    await setToken(token);
-    await AsyncStorage.setItem('token', token).catch(() => {});
+  if (!user) {
+    throw new Error('No user data received');
   }
-  if (user) {
-    await AsyncStorage.setItem('user', JSON.stringify(user)).catch(() => {});
-  }
-  return res as AuthResponse;
+
+  // ✅ Store token in AsyncStorage
+  await setToken(token);
+  await AsyncStorage.setItem('token', token);
+  await AsyncStorage.setItem('user', JSON.stringify(user));
+  
+  console.log('✅ Login successful - Token saved:', token.substring(0, 20) + '...');
+  
+  return { token, user };
 }
 
 export async function register(payload: any) {
@@ -33,5 +35,6 @@ export async function register(payload: any) {
 
 export async function logout() {
   await setToken(null);
-  await AsyncStorage.removeItem('user').catch(() => {});
+  await AsyncStorage.removeItem('user');
+  await AsyncStorage.removeItem('token');
 }
