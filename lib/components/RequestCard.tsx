@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, TextInput, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Image, TextInput, ScrollView, Alert } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import tw from '../utils/tailwind';
 import AttachmentModal from './AttachmentModal';
 import CommentsSection from './CommentsSection';
+import ForCompletion from './ForCompletion';
 import { Image as LucideImage, Send as LucideSend } from 'lucide-react-native';
 
 export interface RequestItem {
@@ -27,13 +28,14 @@ interface RequestCardProps {
   onToggleCheck: (id: string) => void;
 }
 
-export default function RequestCard({ 
-  request, 
-  onToggleExpand, 
-  onToggleCheck 
+export default function RequestCard({
+  request,
+  onToggleExpand,
+  onToggleCheck
 }: RequestCardProps) {
   const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
   const [commentsModalVisible, setCommentsModalVisible] = useState(false);
+  const [forCompletionModalVisible, setForCompletionModalVisible] = useState(false);
 
   const [inlineMessages, setInlineMessages] = useState<Array<{
     id: string;
@@ -66,6 +68,10 @@ export default function RequestCard({
     ]);
   };
 
+  const handleMarkDone = (remarks: string, attachments: any[]) => {
+    Alert.alert('Success', `Request marked as done with ${attachments.length} attachment(s)`);
+  };
+
   const isPending = request.status === 'Pending';
   const buttonLabel = isPending ? 'For Completion' : 'Follow-up';
 
@@ -86,9 +92,9 @@ export default function RequestCard({
   }, [inlineMessages.length]);
 
   return (
-    <View style={tw`mb-4 bg-white border border-gray-200 rounded-lg overflow-hidden`}>
+    <View style={tw`mb-4 bg-green-light rounded-xl overflow-hidden`}> 
       <View
-        style={tw`bg-green-light rounded-xl p-5 mb-6 relative overflow-visible`}
+        style={tw`p-5 mb-6 relative overflow-visible`}
       >
         <View style={tw`flex-row items-center justify-between mb-3`}>
           <View style={tw`flex-row items-center gap-3`}>
@@ -247,6 +253,7 @@ export default function RequestCard({
 
               <View style={tw`mt-2 items-center`}>
                 <TouchableOpacity
+                  onPress={() => setForCompletionModalVisible(true)}
                   style={tw`bg-[#2E523A] rounded-md py-2 px-6`}
                 >
                   <Text style={tw`text-white text-[11px] font-bold`}>
@@ -260,10 +267,21 @@ export default function RequestCard({
 
         <View style={tw`h-4`} />
 
-        <View style={tw`flex-row justify-end mt-2`}>
+        <View style={tw`mt-2 relative`}>
+          {!request.isExpanded && isPending && (
+            <View style={[{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }]}>
+              <TouchableOpacity
+                onPress={() => setForCompletionModalVisible(true)}
+                style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
+              >
+                <Text style={tw`text-white text-[11px] font-bold`}>{buttonLabel}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <TouchableOpacity
             onPress={() => onToggleExpand(request.id)}
-            style={tw`bg-[#88AB8E] rounded-full w-6 h-6 items-center justify-center`}
+            style={[tw`bg-[#88AB8E] rounded-full w-6 h-6 items-center justify-center`, { position: 'absolute', right: 0 }]}
           >
             <Svg width="10" height="6" viewBox="0 0 10 6" fill="none">
               <Path
@@ -289,6 +307,12 @@ export default function RequestCard({
         onClose={() => setCommentsModalVisible(false)}
         messages={inlineMessages}
         onSendMessage={handleModalSend}
+      />
+
+      <ForCompletion
+        visible={forCompletionModalVisible}
+        onClose={() => setForCompletionModalVisible(false)}
+        onMarkDone={handleMarkDone}
       />
     </View>
   );
