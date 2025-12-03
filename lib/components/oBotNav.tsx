@@ -2,7 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import tw from '../utils/tailwind';
 import { useNavigation } from '@react-navigation/native';
-import { Menu, FileText, Home as HomeIcon, Bell, ArrowLeft } from 'lucide-react-native';
+import { Menu, FileText, Home as HomeIcon, Map as MapIcon, ArrowLeft } from 'lucide-react-native';
 
 interface BottomNavbarProps {
   currentPage?: 'Menu' | 'Request' | 'Home' | 'Map' | 'Back';
@@ -84,7 +84,7 @@ export default function BottomNavbar({ currentPage, onRefresh, onMenuPress }: Bo
           style={tw`items-center flex-1`}
           onPress={() => handleNavigation('Map')}
         >
-          <Bell color="white" size={22} />
+          <MapIcon color="white" size={22} />
           <Text style={tw`text-white font-semibold text-[11px] mt-1`}>Map</Text>
         </TouchableOpacity>
 

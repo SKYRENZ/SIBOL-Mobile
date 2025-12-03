@@ -7,7 +7,7 @@ import {
   SafeAreaView,
   Dimensions,
   ActivityIndicator,
-} from 'react-native';
+} from 'react-native';Ftop
 import tw from '../utils/tailwind';
 import { MaterialIcons } from '@expo/vector-icons';
 import BottomNavbar from '../components/oBotNav';
@@ -106,7 +106,7 @@ export default function ODashboard() {
   return (
     <SafeAreaView style={tw`flex-1 bg-white`}>
       <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
-        <View style={tw`px-5 pt-6`}>
+        <View style={tw`px-5 pt-12`}>
           <Text style={[tw`text-left`, styles.heading]}>
             Hello, User#436262!
           </Text>
