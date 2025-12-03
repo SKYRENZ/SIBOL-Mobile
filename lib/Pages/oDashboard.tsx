@@ -7,7 +7,7 @@ import {
   SafeAreaView,
   Dimensions,
   ActivityIndicator,
-} from 'react-native';Ftop
+} from 'react-native';
 import tw from '../utils/tailwind';
 import { MaterialIcons } from '@expo/vector-icons';
 import BottomNavbar from '../components/oBotNav';
