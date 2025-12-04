@@ -20,14 +20,17 @@ export default function useRewards() {
     setError(null);
     try {
       const rows = await rewardService.listRewards(false);
-      const mapped = (rows || []).map((r: any) => ({
-        id: Number(r.Reward_id ?? r.reward_id ?? r.id),
-        title: r.Item ?? r.item ?? r.title ?? 'Reward',
-        description: r.Description ?? r.description ?? '',
-        points: Number(r.Points_cost ?? r.points_cost ?? r.points ?? 0),
-        quantity: Number(r.Quantity ?? r.quantity ?? 0),
-        raw: r,
-      }));
+      const mapped = (rows || [])
+        .map((r: any) => ({
+          id: Number(r.Reward_id ?? r.reward_id ?? r.id),
+          title: r.Item ?? r.item ?? r.title ?? 'Reward',
+          description: r.Description ?? r.description ?? '',
+          points: Number(r.Points_cost ?? r.points_cost ?? r.points ?? 0),
+          quantity: Number(r.Quantity ?? r.quantity ?? 0),
+          raw: r,
+        }))
+        .filter((reward) => reward.quantity > 0); // ✅ Filter out zero-stock rewards
+      
       setRewards(mapped);
     } catch (err: any) {
       console.error('[useRewards] load error', err);
