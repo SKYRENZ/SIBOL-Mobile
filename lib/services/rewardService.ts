@@ -22,6 +22,11 @@ export type RedeemResponse = {
     status?: string;
     [k: string]: any;
   };
+  // ✅ Add top-level fields as fallback
+  redemption_code?: string;
+  total_points?: number;
+  transactionId?: number;
+  status?: string;
 };
 
 /**
