@@ -26,6 +26,7 @@ import { CameraWrapper } from '../components/CameraWrapper';
 import HMenu from '../components/hMenu';
 import { scanQr } from '../services/apiClient';
 import { decodeQrFromImage } from '../utils/qrDecoder';
+import useRewards from '../hooks/useRewards';
 
 export default function Dashboard() {
   const [menuVisible, setMenuVisible] = useState(false);
@@ -284,44 +285,8 @@ export default function Dashboard() {
     },
   }));
 
-  const rewards = [
-    {
-      id: 1,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 2,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 3,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 4,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 5,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 6,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-  ];
+  // replace static rewards with live data
+  const { rewards: liveRewards, loading: rewardsLoading, refresh: refreshRewards, redeem } = useRewards();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -459,7 +424,23 @@ export default function Dashboard() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={tw`pb-[80px] px-4`} 
         >
-          <HRewards rewards={rewards} />
+          {/* pass live rewards and loading state */}
+          <HRewards 
+            rewards={liveRewards} 
+            loading={rewardsLoading} 
+            onRedeem={async (id: number, qty = 1) => {
+              try {
+                const res = await redeem(id, qty);
+                // option: show toast/modal for success using res
+                console.log('Redeem success', res);
+                // refresh was performed in hook, but ensure UI refresh
+                refreshRewards();
+              } catch (err: any) {
+                console.error('Redeem failed', err);
+                // option: show error UI
+              }
+            }}
+          />
         </ScrollView>
       </View>
 

@@ -1,19 +1,25 @@
 import React from 'react';
-import { View, Image, Text, TouchableOpacity } from 'react-native';
+import { View, Image, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from '../utils/responsiveStyles';
 
 interface Reward {
   id: number;
   title: string;
-  description: string;
-  image: any;
+  description?: string;  // ✅ Make optional to match MobileReward type
+  points?: number;
+  image?: any;
+  raw?: any;
 }
 
 interface HRewardsProps {
   rewards: Reward[];
+  loading?: boolean;
+  onRedeem?: (id: number, qty: number) => void | Promise<void>;
 }
 
-export default function HRewards({ rewards }: HRewardsProps) {
+export default function HRewards({ rewards, loading, onRedeem }: HRewardsProps) {
+  const [redeeming, setRedeeming] = React.useState<number | null>(null);
+
   const styles = useResponsiveStyle(({ isSm, isMd, isLg }) => ({
     rewardsContainer: {
       flexDirection: 'row',
@@ -72,6 +78,12 @@ export default function HRewards({ rewards }: HRewardsProps) {
       marginBottom: isSm ? 10 : 12,
       textAlign: 'center',
     },
+    pointsText: {
+      fontSize: isSm ? useResponsiveFontSize('xs') : useResponsiveFontSize('sm'),
+      fontWeight: 'bold',
+      color: '#2E523A',
+      marginBottom: isSm ? 8 : 10,
+    },
     claimButton: {
       backgroundColor: '#2E523A',
       borderRadius: 20,
@@ -79,6 +91,11 @@ export default function HRewards({ rewards }: HRewardsProps) {
       paddingHorizontal: isSm ? 16 : 20,
       alignItems: 'center',
       width: '70%',
+      minHeight: 32,
+      justifyContent: 'center',
+    },
+    claimButtonDisabled: {
+      backgroundColor: '#9CA3AF',
     },
     claimButtonText: {
       fontSize: isSm ? useResponsiveFontSize('xs') : useResponsiveFontSize('xs'),
@@ -87,23 +104,75 @@ export default function HRewards({ rewards }: HRewardsProps) {
     },
   }));
 
+  const handleClaim = async (reward: Reward) => {
+    if (!onRedeem || redeeming) return;
+    
+    console.log('[HRewards] Claim button pressed', reward.id);  // ✅ Debug log
+    
+    setRedeeming(reward.id);
+    try {
+      await onRedeem(reward.id, 1);
+    } catch (err) {
+      console.error('[HRewards] redeem failed', err);
+    } finally {
+      setRedeeming(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.rewardsContainer, { paddingVertical: 40 }]}>
+        <ActivityIndicator size="large" color="#2E523A" />
+      </View>
+    );
+  }
+
+  if (!rewards || rewards.length === 0) {
+    return (
+      <View style={[styles.rewardsContainer, { paddingVertical: 40 }]}>
+        <Text style={{ color: '#6B7280', fontSize: 14 }}>No rewards available</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.rewardsContainer}>
       {rewards.map((reward) => (
         <View key={reward.id} style={styles.rewardCard}>
           <View style={styles.rewardImageContainer}>
-            <Image
-              source={reward.image}
-              style={styles.rewardImage}
-              resizeMode="cover"
-            />
+            {reward.image ? (
+              <Image
+                source={reward.image}
+                style={styles.rewardImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[styles.rewardImage, { backgroundColor: 'rgba(217,217,217,0.5)', justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={{ color: '#9CA3AF', fontSize: 12 }}>No Image</Text>
+              </View>
+            )}
           </View>
           <View style={styles.rewardInfo}>
             <Text style={styles.rewardTitle}>{reward.title}</Text>
             <View style={styles.divider} />
-            <Text style={styles.rewardDescription}>{reward.description}</Text>
-            <TouchableOpacity style={styles.claimButton}>
-              <Text style={styles.claimButtonText}>Claim</Text>
+            {reward.points !== undefined && (
+              <Text style={styles.pointsText}>{reward.points} pts</Text>
+            )}
+            <Text style={styles.rewardDescription}>{reward.description || 'No description'}</Text>
+            
+            <TouchableOpacity 
+              style={[
+                styles.claimButton,
+                (redeeming === reward.id || !onRedeem) && styles.claimButtonDisabled
+              ]}
+              onPress={() => handleClaim(reward)}
+              disabled={redeeming === reward.id || !onRedeem}
+            >
+              {redeeming === reward.id ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.claimButtonText}>Claim</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
