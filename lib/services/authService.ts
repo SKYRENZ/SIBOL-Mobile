@@ -7,7 +7,6 @@ export type AuthResponse = { token?: string; accessToken?: string; user?: User; 
 export async function login(username: string, password: string): Promise<AuthResponse> {
   const res = await post('/api/auth/login', { username, password });
   
-  // ✅ Extract token from response
   const token = res?.token ?? res?.accessToken;
   const user = res?.user ?? null;
   
@@ -19,7 +18,6 @@ export async function login(username: string, password: string): Promise<AuthRes
     throw new Error('No user data received');
   }
 
-  // ✅ Store token in AsyncStorage
   await setToken(token);
   await AsyncStorage.setItem('token', token);
   await AsyncStorage.setItem('user', JSON.stringify(user));
@@ -33,8 +31,20 @@ export async function register(payload: any) {
   return post('/api/auth/register', payload);
 }
 
+// ✅ ADD: Sign out function
 export async function logout() {
-  await setToken(null);
-  await AsyncStorage.removeItem('user');
-  await AsyncStorage.removeItem('token');
+  try {
+    // Clear local storage
+    await AsyncStorage.removeItem('token');
+    await AsyncStorage.removeItem('user');
+    await setToken(null);
+    
+    console.log('✅ Logout successful - Cleared auth data');
+    
+    // Optionally call backend logout endpoint if you have one
+    // await post('/api/auth/logout', {});
+  } catch (err) {
+    console.error('❌ Logout failed:', err);
+    throw err;
+  }
 }
