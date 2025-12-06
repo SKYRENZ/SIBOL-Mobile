@@ -13,6 +13,19 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type RootStackParamList = {
+  HRewards: undefined;
+  History: undefined;
+  Map: undefined;
+  Settings: undefined;
+  HDashboard: undefined;
+  // Add other screen names here as needed
+};
+
+type DashboardScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'HDashboard'>;
 import { SafeAreaView } from 'react-native';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import BottomNavbar from '../components/hBotNav';
@@ -28,6 +41,7 @@ import { scanQr } from '../services/apiClient';
 import { decodeQrFromImage } from '../utils/qrDecoder';
 
 export default function Dashboard() {
+  const navigation = useNavigation<DashboardScreenNavigationProp>();
   const [menuVisible, setMenuVisible] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<{ awarded: number; totalPoints: number } | null>(null);
@@ -459,7 +473,8 @@ export default function Dashboard() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={tw`pb-[80px] px-4`} 
         >
-          <HRewards rewards={rewards} />
+          {/* Dashboard content goes here */}
+          <Text style={tw`text-center text-lg font-semibold mt-4`}>Welcome to SIBOL</Text>
         </ScrollView>
       </View>
 
@@ -468,10 +483,17 @@ export default function Dashboard() {
       </View>
 
       {/* HMenu overlay rendered at page level so it covers full screen */}
-      <HMenu visible={menuVisible} onClose={() => setMenuVisible(false)} onNavigate={(route) => {
-        // handle page navigation here if you have navigation available
-        setMenuVisible(false);
-      }} />
+      <HMenu 
+        visible={menuVisible} 
+        onClose={() => setMenuVisible(false)} 
+        onNavigate={(route) => {
+          setMenuVisible(false);
+          if (route) {
+            // @ts-ignore - We know the route is valid
+            navigation.navigate(route);
+          }
+        }} 
+      />
      </SafeAreaView>
    );
  }

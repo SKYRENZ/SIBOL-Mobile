@@ -99,7 +99,7 @@ export default function HMenu({ visible, onClose, onNavigate }: Props) {
 							<TouchableOpacity
 								style={tw`flex-row items-center py-3 px-3 rounded`}
 								onPress={() => {
-									onNavigate?.('Rewards');
+									onNavigate?.('HRewards');
 									onClose();
 								}}
 							>
