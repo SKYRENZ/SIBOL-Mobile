@@ -7,9 +7,10 @@ import {
 	Animated,
 	Dimensions,
 	Platform,
+	Image
 } from 'react-native';
 import tw from '../utils/tailwind';
-import { Clock, MapPin, Settings, LogOut, User } from 'lucide-react-native';
+import { Clock, MapPin, Settings, LogOut, User, Gift } from 'lucide-react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SIDEBAR_WIDTH = Math.min(320, Math.floor(SCREEN_WIDTH * 0.58));
@@ -80,8 +81,12 @@ export default function HMenu({ visible, onClose, onNavigate }: Props) {
 									<Text style={{ fontSize: 11, color: '#18472f', marginTop: 4 }}>Household</Text>
 								</View>
 
-								<View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
-									<User color="#18472f" size={22} />
+								<View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+									<Image 
+										source={{ uri: 'https://ui-avatars.com/api/?name=User&background=18472f&color=fff' }}
+										style={{ width: '100%', height: '100%' }}
+										resizeMode="cover"
+									/>
 								</View>
 							</View>
 						</View>
@@ -94,12 +99,23 @@ export default function HMenu({ visible, onClose, onNavigate }: Props) {
 							<TouchableOpacity
 								style={tw`flex-row items-center py-3 px-3 rounded`}
 								onPress={() => {
+									onNavigate?.('Rewards');
+									onClose();
+								}}
+							>
+								<Gift color="#E6F0E9" size={20} />
+								<Text style={tw`text-[16px] text-[#E6F0E9] ml-3`}>Rewards</Text>
+							</TouchableOpacity>
+
+							<TouchableOpacity
+								style={tw`flex-row items-center py-3 px-3 rounded`}
+								onPress={() => {
 									onNavigate?.('History');
 									onClose();
 								}}
 							>
-								<Clock color="#E6F0E9" size={18} />
-								<Text style={tw`text-[14px] text-[#E6F0E9] ml-3`}>History</Text>
+								<Clock color="#E6F0E9" size={20} />
+								<Text style={tw`text-[16px] text-[#E6F0E9] ml-3`}>History</Text>
 							</TouchableOpacity>
 
 							<TouchableOpacity
@@ -109,8 +125,8 @@ export default function HMenu({ visible, onClose, onNavigate }: Props) {
 									onClose();
 								}}
 							>
-								<MapPin color="#E6F0E9" size={18} />
-								<Text style={tw`text-[14px] text-[#E6F0E9] ml-3`}>Map</Text>
+								<MapPin color="#E6F0E9" size={20} />
+								<Text style={tw`text-[16px] text-[#E6F0E9] ml-3`}>Map</Text>
 							</TouchableOpacity>
 
 							<TouchableOpacity
@@ -120,8 +136,8 @@ export default function HMenu({ visible, onClose, onNavigate }: Props) {
 									onClose();
 								}}
 							>
-								<Settings color="#E6F0E9" size={18} />
-								<Text style={tw`text-[14px] text-[#E6F0E9] ml-3`}>Settings</Text>
+								<Settings color="#E6F0E9" size={20} />
+								<Text style={tw`text-[16px] text-[#E6F0E9] ml-3`}>Settings</Text>
 							</TouchableOpacity>
 						</View>
 
