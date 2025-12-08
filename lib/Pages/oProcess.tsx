@@ -8,7 +8,7 @@ import OProcessSensors from '../components/oProcessSensors';
 import OProcessDetails from '../components/oProcessDetails';
 import { useNavigation } from '@react-navigation/native';
 
-type MainTabType = 'Maintenance' | 'Chemical' | 'Process';
+type MainTabType = 'Maintenance' | 'Additive' | 'Process';
 type ProcessTabType = 'Process Panel' | 'Process Sensors and Alerts' | 'Process Details';
 
 export default function OProcess() {
@@ -21,8 +21,8 @@ export default function OProcess() {
   const handleMainTabChange = (tab: string) => {
     if (tab === 'Maintenance') {
       navigation.navigate('oMaintenance');
-    } else if (tab === 'Chemical') {
-      navigation.navigate('oChemical');
+    } else if (tab === 'oAdditive') {
+      navigation.navigate('oAdditive');
     } else {
       setSelectedMainTab(tab as MainTabType);
     }
@@ -133,7 +133,7 @@ export default function OProcess() {
 
         <View style={tw`mb-6`}>
           <Tabs
-            tabs={['Maintenance', 'Chemical', 'Process']}
+            tabs={['Maintenance', 'Additive', 'Process']}
             activeTab={selectedMainTab}
             onTabChange={handleMainTabChange}
           />

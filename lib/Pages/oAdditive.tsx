@@ -2,37 +2,38 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
-import { ChevronDown } from 'lucide-react-native';
+import { ChevronDown, Plus } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
+import Button from '../components/commons/Button';
+import AdditiveInput from '../components/AdditiveInput';
 import { useNavigation } from '@react-navigation/native';
 
-type TabType = 'Maintenance' | 'Chemical' | 'Process';
+type TabType = 'Maintenance' | 'Additive' | 'Process';
 
-interface ChemicalRequest {
+interface AdditiveRequest {
   id: string;
   title: string;
-  description: string;
-  requestNumber: string;
-  dateAssigned: string;
-  dueDate: string;
-  remarks: string;
+  units: string;
+  values: number;
+  date: string;
+  time: string;
 }
 
-export default function OChemical() {
-  const [selectedTab, setSelectedTab] = useState<TabType>('Chemical');
+export default function OAdditive() {
+  const [selectedTab, setSelectedTab] = useState<TabType>('Additive');
   const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 1');
   const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
+  const [additiveModalVisible, setAdditiveModalVisible] = useState(false);
   const navigation = useNavigation<any>();
 
-  const chemicalRequests: ChemicalRequest[] = [
+  const additiveRequests: AdditiveRequest[] = [
     {
       id: '1',
-      title: 'Stage 2: Water (H2O)',
-      description: 'Add water to stage 2',
-      requestNumber: '112103',
-      dateAssigned: 'August 10, 2025',
-      dueDate: 'August 10, 2025',
-      remarks: 'Change filter',
+      title: 'Water (H2O)',
+      units: 'liters',
+      values: 20,
+      date: 'August 10, 2025',
+      time: '11:00 AM',
     },
   ];
 
@@ -46,7 +47,7 @@ export default function OChemical() {
 
           <View style={tw`mb-6`}>
             <Tabs
-              tabs={['Maintenance', 'Chemical', 'Process']}
+              tabs={['Maintenance', 'Additive', 'Process']}
               activeTab={selectedTab}
               onTabChange={(val) => {
                 if (val === 'Maintenance') {
@@ -60,26 +61,32 @@ export default function OChemical() {
             />
           </View>
 
-          <TouchableOpacity
-            style={tw`bg-primary rounded-md px-4 py-2 flex-row items-center justify-between self-start mb-6`}
-            onPress={() => setMachineDropdownOpen(!machineDropdownOpen)}
-          >
-            <Text style={tw`text-white font-bold text-[10px] mr-2`}>
-              {selectedMachine}
-            </Text>
-            <ChevronDown color="white" size={12} strokeWidth={2} />
-          </TouchableOpacity>
+          <View style={tw`flex-row items-center justify-between gap-2 mb-6`}>
+            <TouchableOpacity
+              style={tw`bg-primary rounded-md px-4 py-2 flex-row items-center justify-between self-start`}
+              onPress={() => setMachineDropdownOpen(!machineDropdownOpen)}
+            >
+              <Text style={tw`text-white font-bold text-[10px] mr-2`}>
+                {selectedMachine}
+              </Text>
+              <ChevronDown color="white" size={12} strokeWidth={2} />
+            </TouchableOpacity>
 
-          {chemicalRequests.map((request) => (
+            <Button
+              title="Add"
+              onPress={() => setAdditiveModalVisible(true)}
+              variant="primary"
+              style={tw`px-6 py-2`}
+            />
+          </View>
+
+          {additiveRequests.map((request) => (
             <View
               key={request.id}
               style={tw`border border-[#88AB8E] rounded-[10px] bg-white p-5 mb-4`}
             >
               <Text style={tw`text-primary font-bold text-[13px] mb-2`}>
                 {request.title}
-              </Text>
-              <Text style={tw`text-[#6C8770] font-semibold text-[10px] mb-3`}>
-                {request.description}
               </Text>
 
               <View
@@ -97,37 +104,37 @@ export default function OChemical() {
               <View style={tw`mt-2`}>
                 <View style={tw`flex-row justify-between mb-2`}>
                   <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>
-                    Request number:
+                    Units :
                   </Text>
                   <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>
-                    {request.requestNumber}
+                    {request.units}
                   </Text>
                 </View>
 
                 <View style={tw`flex-row justify-between mb-2`}>
                   <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>
-                    Date Assigned:
+                    Values :
                   </Text>
                   <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>
-                    {request.dateAssigned}
+                    {request.values}
                   </Text>
                 </View>
 
                 <View style={tw`flex-row justify-between mb-2`}>
                   <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>
-                    Due Date:
+                    Date :
                   </Text>
                   <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>
-                    {request.dueDate}
+                    {request.date}
                   </Text>
                 </View>
 
                 <View style={tw`flex-row justify-between`}>
                   <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>
-                    Remarks from brgy :
+                    Time :
                   </Text>
                   <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>
-                    {request.remarks}
+                    {request.time}
                   </Text>
                 </View>
               </View>
@@ -135,6 +142,15 @@ export default function OChemical() {
           ))}
         </View>
       </ScrollView>
+
+      <AdditiveInput
+        visible={additiveModalVisible}
+        onClose={() => setAdditiveModalVisible(false)}
+        onSave={(payload) => {
+          console.log('Additive saved:', payload);
+          // Handle the additive data here - e.g., send to API
+        }}
+      />
 
       <View style={tw`absolute bottom-0 left-0 right-0`}>
         <BottomNavbar currentPage="Home" />
