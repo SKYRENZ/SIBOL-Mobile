@@ -18,6 +18,7 @@ import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import BottomNavbar from '../components/hBotNav';
 import HRewards from '../components/hRewards';
 import QRMessage from '../components/QRMessage'; // ✅ Import QRMessage
+import RedemptionModal from '../components/RedemptionModal'; // ✅ ADD THIS
 import tw from '../utils/tailwind';
 import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from '../utils/responsiveStyles';
 import Container from '../components/primitives/Container';
@@ -26,8 +27,10 @@ import { CameraWrapper } from '../components/CameraWrapper';
 import HMenu from '../components/hMenu';
 import { scanQr } from '../services/apiClient';
 import { decodeQrFromImage } from '../utils/qrDecoder';
+import useRewards from '../hooks/useRewards';
+import { getMyPoints } from '../services/profileService'; // ✅ ADD THIS
 
-export default function Dashboard() {
+export default function hDashboard() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<{ awarded: number; totalPoints: number } | null>(null);
@@ -41,6 +44,14 @@ export default function Dashboard() {
 
   // track which reward/category is selected (used by handleCategoryChange)
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+
+  // ✅ Add points state
+  const [userPoints, setUserPoints] = useState<number>(0);
+  const [pointsLoading, setPointsLoading] = useState<boolean>(true);
+
+  // ✅ Add redemption modal state
+  const [showRedemptionModal, setShowRedemptionModal] = useState(false);
+  const [redemptionData, setRedemptionData] = useState<{ code: string; points: number }>({ code: '', points: 0 });
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
@@ -119,6 +130,21 @@ export default function Dashboard() {
       setIsProcessingScan(false);
     }
   };
+
+  // ✅ Fetch points on mount
+  useEffect(() => {
+    const loadPoints = async () => {
+      try {
+        const data = await getMyPoints();
+        setUserPoints(data.points);
+      } catch (err) {
+        console.error('[hDashboard] Failed to load points', err);
+      } finally {
+        setPointsLoading(false);
+      }
+    };
+    loadPoints();
+  }, []);
 
   const styles = useResponsiveStyle(({ isSm, isMd, isLg }) => ({
     safeArea: {
@@ -284,44 +310,8 @@ export default function Dashboard() {
     },
   }));
 
-  const rewards = [
-    {
-      id: 1,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 2,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 3,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 4,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 5,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 6,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-  ];
+  // replace static rewards with live data
+  const { rewards: liveRewards, loading: rewardsLoading, refresh: refreshRewards, redeem } = useRewards();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -367,7 +357,12 @@ export default function Dashboard() {
           <View style={styles.statsContainer}>
             <View style={styles.statCard}>
               <View style={styles.statContent}>
-                <Text style={styles.statNumber}>{scanResult?.totalPoints?.toFixed(2) || '115.00'}</Text>
+                {/* ✅ Show live points or loading */}
+                {pointsLoading ? (
+                  <ActivityIndicator size="small" color="#2E523A" />
+                ) : (
+                  <Text style={styles.statNumber}>{userPoints.toFixed(2)}</Text>
+                )}
                 <Text style={styles.statLabel}>Sibol Points</Text>
               </View>
               <View style={styles.medalIcon}>
@@ -459,8 +454,54 @@ export default function Dashboard() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={tw`pb-[80px] px-4`} 
         >
-          <HRewards rewards={rewards} />
+          <HRewards 
+            rewards={liveRewards} 
+            loading={rewardsLoading} 
+            onRedeem={async (id: number, qty = 1) => {
+              console.log('[hDashboard] onRedeem called', { id, qty });
+              try {
+                const res = await redeem(id, qty);
+                console.log('Redeem success', res);
+                
+                const code = res?.data?.redemption_code ?? res?.redemption_code;
+                const pointsUsed = res?.data?.total_points ?? res?.total_points ?? 0; // ✅ Add ?? 0
+                
+                if (!code) {
+                  Alert.alert('Error', 'Redemption succeeded but no code received. Please contact support.');
+                } else {
+                  // ✅ Now pointsUsed is guaranteed to be a number
+                  setRedemptionData({ code, points: pointsUsed });
+                  setShowRedemptionModal(true);
+                }
+                
+                // Refresh points after redeem
+                try {
+                  const updated = await getMyPoints();
+                  setUserPoints(updated.points);
+                } catch (err) {
+                  console.error('Failed to refresh points', err);
+                }
+                
+                refreshRewards();
+              } catch (err: any) {
+                console.error('[hDashboard] redeem failed:', err);
+                // ✅ Keep Alert for errors (or create error modal if needed)
+                Alert.alert(
+                  'Redeem Failed', 
+                  err?.message || 'Unable to redeem reward. Please try again.'
+                );
+              }
+            }}
+          />
         </ScrollView>
+
+        {/* ✅ Add Redemption Modal */}
+        <RedemptionModal
+          visible={showRedemptionModal}
+          code={redemptionData.code}
+          pointsUsed={redemptionData.points}
+          onClose={() => setShowRedemptionModal(false)}
+        />
       </View>
 
       <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
