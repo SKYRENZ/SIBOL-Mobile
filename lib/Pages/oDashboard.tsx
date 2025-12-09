@@ -86,7 +86,7 @@ const MachineStatusDropdown: React.FC<MachineStatusDropdownProps> = ({ selectedM
                         style={[
                           tw`text-[12px]`,
                           selectedMachine === machine
-                            ? tw`text-primary font-bold`
+                            ? tw`text-primary`
                             : tw`text-gray-800`,
                         ]}
                       >
