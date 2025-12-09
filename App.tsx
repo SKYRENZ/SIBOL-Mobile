@@ -14,7 +14,7 @@ import AdminPending from './lib/Pages/AdminPending';
 import ForgotPassword from './lib/Pages/ForgotPassword';
 import { ResponsiveProvider } from './lib/utils/ResponsiveContext';
 import oMaintenance from './lib/Pages/oMaintenance';
-import oChemical from './lib/Pages/oChemical';
+import oAdditive from './lib/Pages/oAdditive';
 import oProcess from './lib/Pages/oProcess';
 import oMap from './lib/Pages/oMap';
 import oWasteRecord from './lib/Pages/oWasteRecord';
@@ -41,7 +41,7 @@ export default function App() {
           <Stack.Screen name="ODashboard" component={oDashboard} />
           <Stack.Screen name="ORequest" component={ORequest} />
           <Stack.Screen name="oMaintenance" component={oMaintenance} />
-          <Stack.Screen name="oChemical" component={oChemical} />
+          <Stack.Screen name="oAdditive" component={oAdditive} />
           <Stack.Screen name="oProcess" component={oProcess} />
           <Stack.Screen name="OMap" component={oMap} />
           <Stack.Screen name="OWasteRecord" component={oWasteRecord} />
