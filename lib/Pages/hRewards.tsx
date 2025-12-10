@@ -1,38 +1,126 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, Menu, MessageCircle, Bell, Home } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  Image, 
+  ScrollView, 
+  SafeAreaView, 
+  StyleSheet, 
+  Dimensions, 
+  FlatList,
+  TextInput,
+  ImageSourcePropType
+} from 'react-native';
+import { ArrowLeft, Menu, MessageCircle, Bell, Home, Gift, Search } from 'lucide-react-native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
+import tw from '../utils/tailwind';
+import HMenu from '../components/hMenu';
 
-type RootStackParamList = {
-  HDashboard: undefined;
-  // Add other screen names here as needed
+import { RootStackParamList } from '../types/navigation';
+
+type RewardItem = {
+  id: string;
+  title: string;
+  points: number;
+  image: ImageSourcePropType;
+  description: string;
 };
 
-type RewardsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'HDashboard'>;
+const RewardsScreen = () => {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const [activeTab, setActiveTab] = useState('All');
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-export default function RewardsScreen() {
-  const navigation = useNavigation<RewardsScreenNavigationProp>();
-  
-  // Sample rewards data
-  const rewards = [
-    { id: 1, name: 'Grocery Package', points: '200', image: 'https://via.placeholder.com/150/193827/ffffff?text=Grocery' },
-    { id: 2, name: 'Rice (5kg)', points: '150', image: 'https://via.placeholder.com/150/193827/ffffff?text=Rice' },
-    { id: 3, name: 'Canned Goods Pack', points: '100', image: 'https://via.placeholder.com/150/193827/ffffff?text=Canned' },
-    { id: 4, name: 'Noodles Pack', points: '80', image: 'https://via.placeholder.com/150/193827/ffffff?text=Noodles' },
+  const toggleMenu = () => {
+    setMenuVisible(!menuVisible);
+  };
+
+  const rewards: RewardItem[] = [
+    {
+      id: '1',
+      title: 'Grocery Package',
+      points: 200,
+      image: require('../../assets/rewards/grocery.png'),
+      description: 'Essential grocery items for your household'
+    },
+    {
+      id: '2',
+      title: 'Rice (5kg)',
+      points: 150,
+      image: require('../../assets/rewards/rice.png'),
+      description: 'Premium quality rice'
+    },
+    {
+      id: '3',
+      title: 'Canned Goods',
+      points: 100,
+      image: require('../../assets/rewards/canned.png'),
+      description: 'Assorted canned goods'
+    },
+    {
+      id: '4',
+      title: 'Noodles Pack',
+      points: 80,
+      image: require('../../assets/rewards/noodles.png'),
+      description: 'Variety pack of instant noodles'
+    },
   ];
+
+  const filteredRewards = rewards.filter(reward => 
+    reward.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    reward.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const renderRewardItem = ({ item }: { item: RewardItem }) => (
+    <View style={styles.rewardCard}>
+      <Image 
+        source={item.image} 
+        style={styles.rewardImage} 
+        resizeMode="cover"
+        defaultSource={require('../../assets/placeholder.png')} // Add a placeholder image
+      />
+      <View style={styles.rewardInfo}>
+        <Text style={styles.rewardTitle}>{item.title}</Text>
+        <Text style={styles.rewardPoints}>{item.points} points</Text>
+        <Text style={styles.rewardDescription} numberOfLines={2}>
+          {item.description}
+        </Text>
+        <TouchableOpacity 
+          style={styles.claimButton}
+          onPress={() => console.log('Claim', item.id)}
+        >
+          <Text style={styles.claimButtonText}>Claim</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const handleNavigate = (route: keyof RootStackParamList) => {
+    navigation.navigate(route);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <ArrowLeft color="#193827" size={24} />
+          <TouchableOpacity 
+            onPress={toggleMenu} 
+            style={styles.backButton}
+            accessibilityLabel="Open menu"
+          >
+            <Menu size={24} color="#193827" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Rewards</Text>
-          <View style={{ width: 24 }} />
+          <TouchableOpacity 
+            style={styles.chatButton}
+            onPress={() => handleNavigate('HDashboard')}
+            accessibilityLabel="Go to chat"
+          >
+            <MessageCircle size={24} color="#193827" />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -45,52 +133,84 @@ export default function RewardsScreen() {
           </Text>
         </View>
 
-        {/* Rewards Grid */}
-        <View style={styles.rewardsGrid}>
-          {rewards.map((reward) => (
-            <View key={reward.id} style={styles.rewardCard}>
-              <Image 
-                source={{ uri: reward.image }} 
-                style={styles.rewardImage} 
-                resizeMode="cover"
-              />
-              <Text style={styles.rewardName}>{reward.name}</Text>
-              <Text style={styles.rewardPoints}>{reward.points} Reward Points</Text>
-              <TouchableOpacity style={styles.claimButton}>
-                <Text style={styles.claimButtonText}>Claim</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Search size={20} color="#6B7280" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search rewards..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="#9CA3AF"
+          />
         </View>
+
+        {/* Rewards Grid */}
+        <FlatList
+          data={filteredRewards}
+          renderItem={renderRewardItem}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          columnWrapperStyle={styles.rewardsGrid}
+          scrollEnabled={false}
+          contentContainerStyle={styles.rewardsList}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No rewards found</Text>
+            </View>
+          }
+        />
       </ScrollView>
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('HDashboard')}>
-          <Menu color="#E6F0E9" size={24} />
+        <TouchableOpacity style={styles.navButton} onPress={toggleMenu}>
+          <Menu size={24} color="#E6F0E9" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.navButton}>
-          <MessageCircle color="#E6F0E9" size={24} />
+          <MessageCircle size={24} color="#E6F0E9" />
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.navButton, styles.homeButton]}
-          onPress={() => navigation.navigate('HDashboard')}
+          style={styles.homeButton}
+          onPress={() => handleNavigate('HDashboard')}
         >
-          <Home color="#193827" size={24} />
+          <Home size={24} color="#193827" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.navButton}>
-          <Bell color="#E6F0E9" size={24} />
+          <Bell size={24} color="#E6F0E9" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.navButton} onPress={() => navigation.goBack()}>
-          <ArrowLeft color="#E6F0E9" size={24} />
+          <ArrowLeft size={24} color="#E6F0E9" />
         </TouchableOpacity>
       </View>
+
+      {/* Side Menu */}
+      <HMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onNavigate={(route) => {
+          handleNavigate(route);
+        }}
+      />
     </SafeAreaView>
   );
-}
+};
+
+export default RewardsScreen;
 
 const { width } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -110,6 +230,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   backButton: {
+    padding: 8,
+  },
+  chatButton: {
     padding: 8,
   },
   headerTitle: {
@@ -135,10 +258,30 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 20,
   },
-  rewardsGrid: {
+  searchContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+    height: 48,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 14,
+    color: '#111827',
+  },
+  rewardsList: {
+    paddingBottom: 24,
+  },
+  rewardsGrid: {
     justifyContent: 'space-between',
+    marginBottom: 16,
   },
   rewardCard: {
     width: (width - 48) / 2,
@@ -159,21 +302,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
     marginBottom: 12,
   },
-  rewardName: {
+  rewardInfo: {
+    flex: 1,
+  },
+  rewardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#193827',
     marginBottom: 4,
   },
   rewardPoints: {
     fontSize: 14,
-    color: '#666',
+    color: '#10B981',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  rewardDescription: {
+    fontSize: 12,
+    color: '#6B7280',
     marginBottom: 12,
+    lineHeight: 16,
   },
   claimButton: {
     backgroundColor: '#193827',
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 8,
     alignItems: 'center',
   },
   claimButtonText: {

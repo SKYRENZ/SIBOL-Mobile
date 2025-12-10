@@ -34,7 +34,7 @@ import QRMessage from '../components/QRMessage'; // ✅ Import QRMessage
 import tw from '../utils/tailwind';
 import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from '../utils/responsiveStyles';
 import Container from '../components/primitives/Container';
-import { Search, Bell } from 'lucide-react-native';
+import { Search, Bell, Menu } from 'lucide-react-native';
 import { CameraWrapper } from '../components/CameraWrapper';
 import HMenu from '../components/hMenu';
 import { scanQr } from '../services/apiClient';
@@ -48,12 +48,15 @@ export default function Dashboard() {
   const [isProcessingScan, setIsProcessingScan] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
   
-  // ✅ Add state for QRMessage modal
+  // Menu toggle function
+  const toggleMenu = () => {
+    setMenuVisible(!menuVisible);
+  };
+  
+  // State for QRMessage modal
   const [showQRMessage, setShowQRMessage] = useState(false);
   const [qrMessageType, setQRMessageType] = useState<'success' | 'error'>('success');
   const [qrMessageData, setQRMessageData] = useState<{ points?: number; total?: number; message?: string }>({});
-
-  // track which reward/category is selected (used by handleCategoryChange)
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
   const handleCategoryChange = (category: string) => {
@@ -339,161 +342,170 @@ export default function Dashboard() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={[tw`flex-1`]}>
-        <Container style={styles.staticContainer}>
-          <View style={styles.headerContainer}>
-            <View style={tw`flex-row justify-between items-center`}>
-              <View>
-                <Text style={[tw`font-bold text-[#2E523A]`, styles.heading]}>Hi, User#39239!</Text>
-                <Text style={[tw`font-bold text-[#2E523A]`, styles.subheading]}>Welcome to SIBOL Community.</Text>
-              </View>
-              <TouchableOpacity style={tw`p-2`} accessibilityLabel="Notifications">
-                <Bell color="#2E523A" size={22} />
-              </TouchableOpacity>
-            </View>
+      <View style={tw`flex-1 bg-white`}>
+        {/* Header */}
+        <View style={tw`bg-white px-4 pt-4 pb-2 border-b border-gray-100`}>
+          <View style={tw`flex-row justify-between items-center mb-4`}>
+            <TouchableOpacity onPress={toggleMenu}>
+              <Menu size={24} color="#193827" />
+            </TouchableOpacity>
+            <Text style={tw`text-xl font-bold text-[#193827]`}>Dashboard</Text>
+            <View style={tw`w-6`} />
           </View>
+        </View>
 
-          <View style={styles.bannerContainer}>
-            <Image
-              source={require('../../assets/gradient-bg.png')}
-              style={styles.bannerImage}
-            />
-            <View style={styles.bannerContent}>
-              <Text style={styles.bannerTitle}>Practice Food Waste Segregation</Text>
-              <Text style={styles.bannerSubtitle}>Let our household be the sprout of change in our environment.</Text>
+      <Container style={styles.staticContainer}>
+        <View style={styles.headerContainer}>
+          <View style={tw`flex-row justify-between items-center`}>
+            <View>
+              <Text style={[tw`font-bold text-[#2E523A]`, styles.heading]}>Hi, User#39239!</Text>
+              <Text style={[tw`font-bold text-[#2E523A]`, styles.subheading]}>Welcome to SIBOL Community.</Text>
             </View>
-            <Image
-              source={require('../../assets/trashcan.png')}
-              style={styles.bannerIcon}
-              resizeMode="contain"
-            />
-          </View>
-
-          <View style={styles.scheduleContainer}>
-            <Text style={[tw`font-semibold text-[#6C8770] flex-1`, styles.scheduleText]}>
-              View the waste containers near you
-            </Text>
-            <TouchableOpacity style={styles.mapButton}>
-              <Text style={tw`text-[11px] font-semibold text-white font-inter`}>View Map</Text>
+            <TouchableOpacity style={tw`p-2`} accessibilityLabel="Notifications">
+              <Bell color="#2E523A" size={22} />
             </TouchableOpacity>
           </View>
+        </View>
 
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <View style={styles.statContent}>
-                <Text style={styles.statNumber}>{scanResult?.totalPoints?.toFixed(2) || '115.00'}</Text>
-                <Text style={styles.statLabel}>Sibol Points</Text>
-              </View>
-              <View style={styles.medalIcon}>
-                <Image
-                  source={require('../../assets/medal.png')}
-                  style={tw`w-full h-full`}
-                  resizeMode="contain"
-                />
-              </View>
+        <View style={styles.bannerContainer}>
+          <Image
+            source={require('../../assets/gradient-bg.png')}
+            style={styles.bannerImage}
+          />
+          <View style={styles.bannerContent}>
+            <Text style={styles.bannerTitle}>Practice Food Waste Segregation</Text>
+            <Text style={styles.bannerSubtitle}>Let our household be the sprout of change in our environment.</Text>
+          </View>
+          <Image
+            source={require('../../assets/trashcan.png')}
+            style={styles.bannerIcon}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View style={styles.scheduleContainer}>
+          <Text style={[tw`font-semibold text-[#6C8770] flex-1`, styles.scheduleText]}>
+            View the waste containers near you
+          </Text>
+          <TouchableOpacity style={styles.mapButton}>
+            <Text style={tw`text-[11px] font-semibold text-white font-inter`}>View Map</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <View style={styles.statContent}>
+              <Text style={styles.statNumber}>{scanResult?.totalPoints?.toFixed(2) || '115.00'}</Text>
+              <Text style={styles.statLabel}>Sibol Points</Text>
             </View>
-            <View style={[styles.statCard, styles.statCardGreen]}>
-              <View style={styles.statContent}>
-                <Text style={styles.statNumber}>20</Text>
-                <Text style={styles.statLabel}>Contributions</Text>
-              </View>
-              <View style={styles.medalIcon}>
-                <Image
-                  source={require('../../assets/medal.png')}
-                  style={tw`w-full h-full`}
-                  resizeMode="contain"
-                />
-              </View>
+            <View style={styles.medalIcon}>
+              <Image
+                source={require('../../assets/medal.png')}
+                style={tw`w-full h-full`}
+                resizeMode="contain"
+              />
             </View>
           </View>
+          <View style={[styles.statCard, styles.statCardGreen]}>
+            <View style={styles.statContent}>
+              <Text style={styles.statNumber}>20</Text>
+              <Text style={styles.statLabel}>Contributions</Text>
+            </View>
+            <View style={styles.medalIcon}>
+              <Image
+                source={require('../../assets/medal.png')}
+                style={tw`w-full h-full`}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+        </View>
 
-          <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-1 mt-4`} />
+        <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-1 mt-4`} />
 
-          <Text style={styles.sectionTitle}>Claim your rewards</Text>
+        <Text style={styles.sectionTitle}>Claim your rewards</Text>
 
-          <View
+        <View
+          style={[
+            tw`bg-[rgba(217,217,217,0.65)] rounded-[10px] flex-row items-center px-[15px]`,
+            styles.searchBar,
+          ]}
+        >
+          <TextInput
             style={[
-              tw`bg-[rgba(217,217,217,0.65)] rounded-[10px] flex-row items-center px-[15px]`,
-              styles.searchBar,
+              tw`flex-1 font-semibold text-black`,
+              { fontSize: useResponsiveFontSize('xs') },
             ]}
+            placeholder="Search rewards"
+            placeholderTextColor="rgba(0, 0, 0, 0.3)"
+          />
+          <Search size={16} color="black" strokeWidth={2} />
+        </View>
+
+        <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-8`} />
+      </Container>
+
+      {/* ✅ Camera Modal with Processing Overlay */}
+      <Modal 
+        visible={showScanner} 
+        animationType="slide" 
+        onRequestClose={handleCloseScanner}
+      >
+        <View style={tw`flex-1 bg-black`}>
+          <CameraWrapper onCapture={handleCapture} />
+          
+          {/* ✅ Processing overlay */}
+          {isProcessingScan && (
+            <View style={tw`absolute inset-0 bg-black bg-opacity-75 items-center justify-center`}>
+              <ActivityIndicator size="large" color="#fff" />
+              <Text style={tw`text-white text-lg mt-4`}>Processing QR code...</Text>
+            </View>
+          )}
+          
+          <TouchableOpacity 
+            onPress={handleCloseScanner}
+            style={tw`absolute top-12 right-6 bg-white px-4 py-2 rounded-full z-50`}
+            disabled={isProcessingScan}
           >
-            <TextInput
-              style={[
-                tw`flex-1 font-semibold text-black`,
-                { fontSize: useResponsiveFontSize('xs') },
-              ]}
-              placeholder="Search rewards"
-              placeholderTextColor="rgba(0, 0, 0, 0.3)"
-            />
-            <Search size={16} color="black" strokeWidth={2} />
-          </View>
+            <Text style={tw`text-[14px] font-semibold text-black`}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
 
-          <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-8`} />
-        </Container>
-
-        {/* ✅ Camera Modal with Processing Overlay */}
-        <Modal 
-          visible={showScanner} 
-          animationType="slide" 
-          onRequestClose={handleCloseScanner}
-        >
-          <View style={tw`flex-1 bg-black`}>
-            <CameraWrapper onCapture={handleCapture} />
-            
-            {/* ✅ Processing overlay */}
-            {isProcessingScan && (
-              <View style={tw`absolute inset-0 bg-black bg-opacity-75 items-center justify-center`}>
-                <ActivityIndicator size="large" color="#fff" />
-                <Text style={tw`text-white text-lg mt-4`}>Processing QR code...</Text>
-              </View>
-            )}
-            
-            <TouchableOpacity 
-              onPress={handleCloseScanner}
-              style={tw`absolute top-12 right-6 bg-white px-4 py-2 rounded-full z-50`}
-              disabled={isProcessingScan}
-            >
-              <Text style={tw`text-[14px] font-semibold text-black`}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </Modal>
-
-        {/* ✅ QR Message Modal (Success/Error) */}
-        <QRMessage
-          visible={showQRMessage}
-          type={qrMessageType}
-          points={qrMessageData.points}
-          total={qrMessageData.total}
-          message={qrMessageData.message}
-          onClose={() => setShowQRMessage(false)}
-        />
-
-        <ScrollView 
-          ref={scrollViewRef}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={tw`pb-[80px] px-4`} 
-        >
-          {/* Dashboard content goes here */}
-          <Text style={tw`text-center text-lg font-semibold mt-4`}>Welcome to SIBOL</Text>
-        </ScrollView>
-      </View>
-
-      <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
-        <BottomNavbar onScan={handleOpenScanner} onMenuPress={() => setMenuVisible(true)} />
-      </View>
-
-      {/* HMenu overlay rendered at page level so it covers full screen */}
-      <HMenu 
-        visible={menuVisible} 
-        onClose={() => setMenuVisible(false)} 
-        onNavigate={(route) => {
-          setMenuVisible(false);
-          if (route) {
-            // @ts-ignore - We know the route is valid
-            navigation.navigate(route);
-          }
-        }} 
+      {/* ✅ QR Message Modal (Success/Error) */}
+      <QRMessage
+        visible={showQRMessage}
+        type={qrMessageType}
+        points={qrMessageData.points}
+        total={qrMessageData.total}
+        message={qrMessageData.message}
+        onClose={() => setShowQRMessage(false)}
       />
-     </SafeAreaView>
-   );
+
+      <ScrollView 
+        ref={scrollViewRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={tw`pb-[80px] px-4`} 
+      >
+        {/* Dashboard content goes here */}
+        <Text style={tw`text-center text-lg font-semibold mt-4`}>Welcome to SIBOL</Text>
+      </ScrollView>
+    </View>
+
+    <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
+      <BottomNavbar onScan={handleOpenScanner} onMenuPress={() => setMenuVisible(true)} />
+    </View>
+
+    {/* HMenu overlay rendered at page level so it covers full screen */}
+    <HMenu 
+      visible={menuVisible} 
+      onClose={() => setMenuVisible(false)} 
+      onNavigate={(route) => {
+        // @ts-ignore
+        navigation.navigate(route);
+        setMenuVisible(false);
+      }} 
+    />
+  </SafeAreaView>
+);
  }

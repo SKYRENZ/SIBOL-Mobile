@@ -1,162 +1,217 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-	View,
-	Text,
-	TouchableOpacity,
-	TouchableWithoutFeedback,
-	Animated,
-	Dimensions,
-	Platform,
-	Image
+  View,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  Animated,
+  Dimensions,
+  Image,
+  StyleSheet,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import tw from '../utils/tailwind';
-import { Clock, MapPin, Settings, LogOut, User, Gift } from 'lucide-react-native';
+import { Clock, MapPin, Settings, LogOut, Gift, MessageCircle, ChevronRight } from 'lucide-react-native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SIDEBAR_WIDTH = Math.min(320, Math.floor(SCREEN_WIDTH * 0.58));
-const SIDEBAR_HEIGHT = SCREEN_HEIGHT;
+type RootStackParamList = {
+  HRewards: undefined;
+  History: undefined;
+  Map: undefined;
+  ChatSupport: undefined;
+  Settings: undefined;
+  HDashboard: undefined;
+};
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SIDEBAR_WIDTH = Math.min(320, Math.floor(SCREEN_WIDTH * 0.8));
+
+const menuItems = [
+  { id: 1, title: 'Rewards', icon: Gift, route: 'HRewards' as const },
+  { id: 2, title: 'History', icon: Clock, route: 'History' as const },
+  { id: 3, title: 'Map', icon: MapPin, route: 'Map' as const },
+  { id: 4, title: 'Chat Support', icon: MessageCircle, route: 'ChatSupport' as const },
+  { id: 5, title: 'Settings', icon: Settings, route: 'Settings' as const },
+];
 
 type Props = {
-	visible: boolean;
-	onClose: () => void;
-	onNavigate?: (route: string) => void;
+  visible: boolean;
+  onClose: () => void;
+  onNavigate: (route: keyof RootStackParamList) => void;
 };
 
 export default function HMenu({ visible, onClose, onNavigate }: Props) {
-	const translateX = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
-	const [mounted, setMounted] = useState(visible);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const translateX = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
+  const [mounted, setMounted] = useState(visible);
 
-	useEffect(() => {
-		if (visible) {
-			setMounted(true);
-			Animated.timing(translateX, {
-				toValue: 0,
-				duration: 220,
-				useNativeDriver: true,
-			}).start();
-		} else {
-			Animated.timing(translateX, {
-				toValue: -SIDEBAR_WIDTH,
-				duration: 180,
-				useNativeDriver: true,
-			}).start(() => setMounted(false));
-		}
-	}, [visible, translateX]);
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      Animated.spring(translateX, {
+        toValue: 0,
+        useNativeDriver: true,
+        bounciness: 0,
+      }).start();
+    } else {
+      Animated.timing(translateX, {
+        toValue: -SIDEBAR_WIDTH,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => setMounted(false));
+    }
+  }, [visible, translateX]);
 
-	if (!mounted) return null;
+  const handleNavigation = (route: keyof RootStackParamList) => {
+    onClose();
+    navigation.navigate(route);
+  };
 
-	return (
-		<TouchableWithoutFeedback onPress={onClose}>
-			<View
-				style={[
-					// overlay
-					{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-					tw`bg-[rgba(0,0,0,0.3)]`,
-				]}
-			>
-				<TouchableWithoutFeedback onPress={() => {}}>
-					<Animated.View
-						style={[
-							{
-								width: SIDEBAR_WIDTH,
-								height: SCREEN_HEIGHT,
-								transform: [{ translateX }],
-								position: 'absolute',
-								left: 0,
-								top: 0,
-								elevation: 20,
-								shadowColor: '#000',
-								shadowOpacity: 0.2,
-								shadowRadius: 8,
-							},
-							tw`bg-[#193827]`, 
-							Platform.OS === 'android' ? { paddingTop: 0 } : { paddingTop: 0 },
-						]}
-					>
-						
-						<View style={{ width: '100%', backgroundColor: '#A6BCAF', paddingHorizontal: 12, paddingTop: 20, paddingBottom: 14 }}>
-							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-								<View>
-									<Text style={{ fontSize: 14, fontWeight: '600', color: '#18472f' }}>User#39239!</Text>
-									<Text style={{ fontSize: 11, color: '#18472f', marginTop: 4 }}>Household</Text>
-								</View>
+  if (!mounted) return null;
 
-								<View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-									<Image 
-										source={{ uri: 'https://ui-avatars.com/api/?name=User&background=18472f&color=fff' }}
-										style={{ width: '100%', height: '100%' }}
-										resizeMode="cover"
-									/>
-								</View>
-							</View>
-						</View>
+  return (
+    <View style={styles.container}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.overlay} />
+      </TouchableWithoutFeedback>
+      
+      <Animated.View 
+        style={[
+          styles.menuContainer,
+          { transform: [{ translateX }] }
+        ]}
+      >
+        {/* User Profile Section */}
+        <View style={styles.profileSection}>
+          <View style={styles.profileImageContainer}>
+            <Image
+              source={{ uri: 'https://ui-avatars.com/api/?name=User&background=18472f&color=fff' }}
+              style={styles.profileImage}
+            />
+          </View>
+          <Text style={styles.userName}>User#39239!</Text>
+          <Text style={styles.userType}>Household</Text>
+        </View>
 
-						{/* Divider */}
-						<View style={tw`h-[1px] bg-[#264A3C] my-2`} />
+        {/* Menu Items */}
+        <View style={styles.menuItems}>
+          {menuItems.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.menuItem}
+              onPress={() => handleNavigation(item.route)}
+            >
+              <View style={styles.menuItemContent}>
+                <View style={styles.menuItemIcon}>
+                  <item.icon size={20} color="#193827" />
+                </View>
+                <Text style={tw`ml-4 text-[#193827]`}>{item.title}</Text>
+              </View>
+              <ChevronRight size={16} color="#666" />
+            </TouchableOpacity>
+          ))}
+        </View>
 
-						{/* Menu items */}
-						<View style={tw`mt-2 px-2`}>
-							<TouchableOpacity
-								style={tw`flex-row items-center py-3 px-3 rounded`}
-								onPress={() => {
-									onNavigate?.('HRewards');
-									onClose();
-								}}
-							>
-								<Gift color="#E6F0E9" size={20} />
-								<Text style={tw`text-[16px] text-[#E6F0E9] ml-3`}>Rewards</Text>
-							</TouchableOpacity>
-
-							<TouchableOpacity
-								style={tw`flex-row items-center py-3 px-3 rounded`}
-								onPress={() => {
-									onNavigate?.('History');
-									onClose();
-								}}
-							>
-								<Clock color="#E6F0E9" size={20} />
-								<Text style={tw`text-[16px] text-[#E6F0E9] ml-3`}>History</Text>
-							</TouchableOpacity>
-
-							<TouchableOpacity
-								style={tw`flex-row items-center py-3 px-3 rounded`}
-								onPress={() => {
-									onNavigate?.('Map');
-									onClose();
-								}}
-							>
-								<MapPin color="#E6F0E9" size={20} />
-								<Text style={tw`text-[16px] text-[#E6F0E9] ml-3`}>Map</Text>
-							</TouchableOpacity>
-
-							<TouchableOpacity
-								style={tw`flex-row items-center py-3 px-3 rounded`}
-								onPress={() => {
-									onNavigate?.('Settings');
-									onClose();
-								}}
-							>
-								<Settings color="#E6F0E9" size={20} />
-								<Text style={tw`text-[16px] text-[#E6F0E9] ml-3`}>Settings</Text>
-							</TouchableOpacity>
-						</View>
-
-						<View style={{ flex: 1 }} />
-
-						<View style={tw`px-4 pb-6`}>
-							<TouchableOpacity
-								onPress={() => {
-									onClose();
-								}}
-								style={tw`flex-row items-center justify-center bg-[#A6BCAF] rounded py-3`}
-							>
-								<LogOut color="#18472f" size={18} />
-								<Text style={tw`ml-3 text-[14px] font-semibold text-[#18472f]`}>Sign Out</Text>
-							</TouchableOpacity>
-						</View>
-					</Animated.View>
-				</TouchableWithoutFeedback>
-			</View>
-		</TouchableWithoutFeedback>
-	);
+        {/* Sign Out Button */}
+        <TouchableOpacity 
+          style={styles.signOutButton}
+          onPress={() => {
+            // Handle sign out
+            onClose();
+          }}
+        >
+          <LogOut size={20} color="#E74C3C" />
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
+    flexDirection: 'row',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  menuContainer: {
+    width: SIDEBAR_WIDTH,
+    backgroundColor: 'white',
+    height: '100%',
+    paddingTop: 20,
+  },
+  profileSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    alignItems: 'center',
+  },
+  profileImageContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  profileImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#193827',
+    marginBottom: 4,
+  },
+  userType: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  menuItems: {
+    flex: 1,
+    paddingVertical: 16,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  menuItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuItemIcon: {
+    width: 24,
+    marginRight: 16,
+    alignItems: 'center',
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#193827',
+  },
+  signOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  signOutText: {
+    marginLeft: 12,
+    fontSize: 16,
+    color: '#E74C3C',
+    fontWeight: '500',
+  },
+});
