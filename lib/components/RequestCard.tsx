@@ -26,12 +26,14 @@ interface RequestCardProps {
   request: RequestItem;
   onToggleExpand: (id: string) => void;
   onToggleCheck: (id: string) => void;
+  onMarkDone?: (requestId: string, remarks: string, attachments: any[]) => Promise<void>;
 }
 
 export default function RequestCard({
   request,
   onToggleExpand,
-  onToggleCheck
+  onToggleCheck,
+  onMarkDone
 }: RequestCardProps) {
   const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
   const [commentsModalVisible, setCommentsModalVisible] = useState(false);
@@ -68,8 +70,17 @@ export default function RequestCard({
     ]);
   };
 
-  const handleMarkDone = (remarks: string, attachments: any[]) => {
-    Alert.alert('Success', `Request marked as done with ${attachments.length} attachment(s)`);
+  const handleMarkDone = async (remarks: string, attachments: any[]) => {
+    try {
+      if (onMarkDone) {
+        await onMarkDone(request.id, remarks, attachments);
+        Alert.alert('Success', 'Request marked for verification');
+      } else {
+        Alert.alert('Success', `Request marked as done with ${attachments.length} attachment(s)`);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to mark request as done');
+    }
   };
 
   const isPending = request.status === 'Pending';
