@@ -1,34 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Text, 
-  View, 
-  ScrollView, 
-  Image, 
-  TextInput, 
+import {
+  Text,
+  View,
+  ScrollView,
+  Image,
   TouchableOpacity,
-  Dimensions,
   Modal,
   Alert,
-  Linking,
   Platform,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import BottomNavbar from '../components/hBotNav';
-import HRewards from '../components/hRewards';
-import QRMessage from '../components/QRMessage'; // ✅ Import QRMessage
-import RedemptionModal from '../components/RedemptionModal'; // ✅ ADD THIS
+import QRMessage from '../components/QRMessage';
+import Leaderboard from '../components/Leaderboard';
 import tw from '../utils/tailwind';
 import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from '../utils/responsiveStyles';
 import Container from '../components/primitives/Container';
-import { Search, Bell } from 'lucide-react-native';
+import { Bell } from 'lucide-react-native';
 import { CameraWrapper } from '../components/CameraWrapper';
 import HMenu from '../components/hMenu';
 import { scanQr } from '../services/apiClient';
 import { decodeQrFromImage } from '../utils/qrDecoder';
-import useRewards from '../hooks/useRewards';
-import { getMyPoints } from '../services/profileService'; // ✅ ADD THIS
+import { getMyPoints } from '../services/profileService';
 
 export default function hDashboard() {
   const [menuVisible, setMenuVisible] = useState(false);
@@ -42,23 +37,8 @@ export default function hDashboard() {
   const [qrMessageType, setQRMessageType] = useState<'success' | 'error'>('success');
   const [qrMessageData, setQRMessageData] = useState<{ points?: number; total?: number; message?: string }>({});
 
-  // track which reward/category is selected (used by handleCategoryChange)
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-
-  // ✅ Add points state
   const [userPoints, setUserPoints] = useState<number>(0);
   const [pointsLoading, setPointsLoading] = useState<boolean>(true);
-
-  // ✅ Add redemption modal state
-  const [showRedemptionModal, setShowRedemptionModal] = useState(false);
-  const [redemptionData, setRedemptionData] = useState<{ code: string; points: number }>({ code: '', points: 0 });
-
-  const handleCategoryChange = (category: string) => {
-    setSelectedCategory(category);
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({ x: 0, y: 0, animated: true });
-    }
-  };
 
   const handleOpenScanner = async () => {
     console.log('Opening scanner...');
@@ -150,7 +130,7 @@ export default function hDashboard() {
     safeArea: {
       flex: 1,
       backgroundColor: 'white',
-      paddingTop: isSm ? 35 : 50,
+      paddingTop: isSm ? 55 : 70,
     },
     staticContainer: {
       flexShrink: 0,
@@ -161,6 +141,7 @@ export default function hDashboard() {
     },
     headerContainer: {
       marginBottom: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
+      marginHorizontal: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
     },
     heading: {
       fontSize: isSm ? useResponsiveFontSize('sm') : useResponsiveFontSize('xl'),
@@ -172,8 +153,8 @@ export default function hDashboard() {
     bannerContainer: {
       backgroundColor: 'transparent',
       marginBottom: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
+      marginHorizontal: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
       alignSelf: 'stretch',
-      width: '100%',
       overflow: 'hidden',
       borderRadius: 15,
       height: isSm ? 140 : isMd ? 180 : 150,
@@ -222,13 +203,14 @@ export default function hDashboard() {
       borderColor: 'rgba(0,0,0,0.25)',
       padding: isSm ? 10 : 15,
       marginBottom: useResponsiveSpacing('md'),
+      marginHorizontal: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
+      shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.1,
-      shadowRadius: 3,
+      shadowRadius: 4,
       elevation: 3,
     },
     statsContainer: {
@@ -236,8 +218,9 @@ export default function hDashboard() {
       justifyContent: 'space-around',
       gap: useResponsiveSpacing('md'),
       marginBottom: useResponsiveSpacing('xs'),
-      paddingHorizontal: isSm ? useResponsiveSpacing('sm') : 0,
-      height: isSm ? 120 : 140,
+      marginHorizontal: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
+      paddingHorizontal: 0,
+      alignItems: 'flex-start',
     },
     sectionTitle: {
       fontSize: isSm ? useResponsiveFontSize('2xl') : isMd ? useResponsiveFontSize('3xl') : useResponsiveFontSize('4xl'),
@@ -251,51 +234,61 @@ export default function hDashboard() {
       fontSize: isSm ? useResponsiveFontSize('sm') : useResponsiveFontSize('md'),
       color: '#6C8770',
       fontWeight: '600',
+      flex: 1,
     },
     statCard: {
       flex: 1,
       backgroundColor: 'white',
       borderRadius: 15,
-      padding: isSm ? 10 : 14,
-      alignItems: 'stretch',
-      justifyContent: 'center',
+      minHeight: isSm ? 120 : 140, 
+      padding: isSm ? 16 : 22,    
+      alignItems: 'center',
+      justifyContent: 'center', 
       borderWidth: 0,
       borderColor: 'transparent',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
+      shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.1,
-      shadowRadius: 3,
+      shadowRadius: 4,
       elevation: 2,
-      flexDirection: 'row',
+      flexDirection: 'column',
     },
     statContent: {
-      flex: 1,
-      justifyContent: 'flex-start',
-      paddingVertical: isSm ? 18 : 22,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: isSm ? 14 : 18, 
+      marginBottom: 0,
     },
     statCardGreen: {
-      backgroundColor: '#E8F0E6',
+      backgroundColor: 'white',
       borderColor: 'transparent',
       borderWidth: 0,
     },
     medalIcon: {
       width: isSm ? 50 : 60,
       height: isSm ? 50 : 60,
-      justifyContent: 'flex-end',
-      alignItems: 'flex-end',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    statIcon: {
+      width: isSm ? 28 : 32,
+      height: isSm ? 28 : 32,
     },
     statNumber: {
       fontSize: isSm ? 40 : 48,
       fontWeight: 'bold',
       color: '#2E523A',
-      marginBottom: 4,
+      marginBottom: 2, 
       lineHeight: isSm ? 40 : 48,
     },
     statLabel: {
       fontSize: isSm ? useResponsiveFontSize('xs') : useResponsiveFontSize('xs'),
-      color: '#6C8770',
-      textAlign: 'left',
+      color: '#2E523A',
+      textAlign: 'center',
       lineHeight: isSm ? 14 : 18,
+      fontWeight: '500',
+      marginTop: isSm ? 16 : 20, 
     },
     searchBar: {
       height: isSm ? 38 : 45,
@@ -310,8 +303,7 @@ export default function hDashboard() {
     },
   }));
 
-  // replace static rewards with live data
-  const { rewards: liveRewards, loading: rewardsLoading, refresh: refreshRewards, redeem } = useRewards();
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -346,7 +338,7 @@ export default function hDashboard() {
           </View>
 
           <View style={styles.scheduleContainer}>
-            <Text style={[tw`font-semibold text-[#6C8770] flex-1`, styles.scheduleText]}>
+            <Text style={[tw`font-semibold text-[#6C8770]`, styles.scheduleText]}>
               View the waste containers near you
             </Text>
             <TouchableOpacity style={styles.mapButton}>
@@ -357,59 +349,40 @@ export default function hDashboard() {
           <View style={styles.statsContainer}>
             <View style={styles.statCard}>
               <View style={styles.statContent}>
+                <View style={styles.medalIcon}>
+                  <View style={[tw`rounded-lg bg-green-light justify-center items-center`, { width: '100%', height: '100%' }]}>
+                    <Image
+                      source={require('../../assets/sibol-points.png')}
+                      style={[styles.statIcon, { resizeMode: 'contain' }]}
+                    />
+                  </View>
+                </View>
                 {/* ✅ Show live points or loading */}
                 {pointsLoading ? (
                   <ActivityIndicator size="small" color="#2E523A" />
                 ) : (
                   <Text style={styles.statNumber}>{userPoints.toFixed(2)}</Text>
                 )}
-                <Text style={styles.statLabel}>Sibol Points</Text>
               </View>
-              <View style={styles.medalIcon}>
-                <Image
-                  source={require('../../assets/medal.png')}
-                  style={tw`w-full h-full`}
-                  resizeMode="contain"
-                />
-              </View>
+              <Text style={styles.statLabel}>Your total contribution</Text>
             </View>
             <View style={[styles.statCard, styles.statCardGreen]}>
               <View style={styles.statContent}>
+                <View style={styles.medalIcon}>
+                  <View style={[tw`rounded-lg bg-green-light justify-center items-center`, { width: '100%', height: '100%' }]}>
+                    <Image
+                      source={require('../../assets/contributions.png')}
+                      style={[styles.statIcon, { resizeMode: 'contain' }]}
+                    />
+                  </View>
+                </View>
                 <Text style={styles.statNumber}>20</Text>
-                <Text style={styles.statLabel}>Contributions</Text>
               </View>
-              <View style={styles.medalIcon}>
-                <Image
-                  source={require('../../assets/medal.png')}
-                  style={tw`w-full h-full`}
-                  resizeMode="contain"
-                />
-              </View>
+              <Text style={styles.statLabel}>Your reward points</Text>
             </View>
           </View>
 
-          <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-1 mt-4`} />
-
-          <Text style={styles.sectionTitle}>Claim your rewards</Text>
-
-          <View
-            style={[
-              tw`bg-[rgba(217,217,217,0.65)] rounded-[10px] flex-row items-center px-[15px]`,
-              styles.searchBar,
-            ]}
-          >
-            <TextInput
-              style={[
-                tw`flex-1 font-semibold text-black`,
-                { fontSize: useResponsiveFontSize('xs') },
-              ]}
-              placeholder="Search rewards"
-              placeholderTextColor="rgba(0, 0, 0, 0.3)"
-            />
-            <Search size={16} color="black" strokeWidth={2} />
-          </View>
-
-          <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-8`} />
+          <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-6 mt-4`} />
         </Container>
 
         {/* ✅ Camera Modal with Processing Overlay */}
@@ -449,59 +422,21 @@ export default function hDashboard() {
           onClose={() => setShowQRMessage(false)}
         />
 
-        <ScrollView 
+        <ScrollView
           ref={scrollViewRef}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={tw`pb-[80px] px-4`} 
+          contentContainerStyle={tw`pb-[80px]`}
         >
-          <HRewards 
-            rewards={liveRewards} 
-            loading={rewardsLoading} 
-            onRedeem={async (id: number, qty = 1) => {
-              console.log('[hDashboard] onRedeem called', { id, qty });
-              try {
-                const res = await redeem(id, qty);
-                console.log('Redeem success', res);
-                
-                const code = res?.data?.redemption_code ?? res?.redemption_code;
-                const pointsUsed = res?.data?.total_points ?? res?.total_points ?? 0; // ✅ Add ?? 0
-                
-                if (!code) {
-                  Alert.alert('Error', 'Redemption succeeded but no code received. Please contact support.');
-                } else {
-                  // ✅ Now pointsUsed is guaranteed to be a number
-                  setRedemptionData({ code, points: pointsUsed });
-                  setShowRedemptionModal(true);
-                }
-                
-                // Refresh points after redeem
-                try {
-                  const updated = await getMyPoints();
-                  setUserPoints(updated.points);
-                } catch (err) {
-                  console.error('Failed to refresh points', err);
-                }
-                
-                refreshRewards();
-              } catch (err: any) {
-                console.error('[hDashboard] redeem failed:', err);
-                // ✅ Keep Alert for errors (or create error modal if needed)
-                Alert.alert(
-                  'Redeem Failed', 
-                  err?.message || 'Unable to redeem reward. Please try again.'
-                );
-              }
-            }}
+          <Leaderboard
+            brgyName="Brgy. 176-E"
+            entries={[
+              { rank: 1, name: 'Jacelyn Caratao', points: 120 },
+              { rank: 2, name: 'Laurenz Listangco', points: 100 },
+              { rank: 3, name: 'Karl Miranda', points: 95 },
+            ]}
+            userRank={1}
           />
         </ScrollView>
-
-        {/* ✅ Add Redemption Modal */}
-        <RedemptionModal
-          visible={showRedemptionModal}
-          code={redemptionData.code}
-          pointsUsed={redemptionData.points}
-          onClose={() => setShowRedemptionModal(false)}
-        />
       </View>
 
       <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>

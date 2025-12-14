@@ -19,6 +19,7 @@ import oProcess from './lib/Pages/oProcess';
 import oMap from './lib/Pages/oMap';
 import oWasteRecord from './lib/Pages/oWasteRecord';
 import oSchedule from './lib/Pages/oSchedule';
+import OAdditive from './lib/Pages/oAdditive';
 
 const Stack = createNativeStackNavigator();
 
@@ -27,7 +28,7 @@ export default function App() {
     <ResponsiveProvider>
       <NavigationContainer>
         <Stack.Navigator 
-          initialRouteName="AdminPending"
+          initialRouteName="HDashboard"
           screenOptions={{
             headerShown: false,
           }}

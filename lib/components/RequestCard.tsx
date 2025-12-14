@@ -5,7 +5,7 @@ import tw from '../utils/tailwind';
 import AttachmentModal from './AttachmentModal';
 import CommentsSection from './CommentsSection';
 import ForCompletion from './ForCompletion';
-import { Image as LucideImage, Send as LucideSend } from 'lucide-react-native';
+import { Image as LucideImage, Send as LucideSend, Check as LucideCheck } from 'lucide-react-native';
 
 export interface RequestItem {
   id: string;
@@ -122,10 +122,12 @@ export default function RequestCard({
 
           <TouchableOpacity
             onPress={() => onToggleCheck(request.id)}
-            style={tw`w-[18px] h-[18px] rounded-sm border-2 border-[#49454F]`}
+            style={tw`w-[18px] h-[18px] rounded-sm border-2 border-[#49454F] items-center justify-center`}
           >
             {request.isChecked && (
-              <View style={tw`flex-1 bg-[#49454F]`} />
+              <View style={[tw`flex-1 w-full h-full items-center justify-center rounded-sm`, { backgroundColor: '#2E523A' }]}>
+                <LucideCheck color="#fff" size={14} strokeWidth={3} />
+              </View>
             )}
           </TouchableOpacity>
         </View>
