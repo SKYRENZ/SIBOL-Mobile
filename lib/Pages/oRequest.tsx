@@ -6,12 +6,14 @@ import RequestCard, { RequestItem } from '../components/RequestCard';
 import Tabs from '../components/commons/Tabs';
 import { useMaintenance } from '../hooks/useMaintenance';
 import { MaintenanceTicket } from '../services/maintenanceService';
+import OMenu from '../components/oMenu'; // ✅ Add this import
 
 type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
 
 export default function ORequest() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Pending');
   const scrollViewRef = useRef<ScrollView>(null);
+  const [menuVisible, setMenuVisible] = useState(false); // ✅ Add menu state
   
   const {
     pendingTickets,
@@ -181,6 +183,14 @@ export default function ORequest() {
       <BottomNavbar 
         currentPage="Request" 
         onRefresh={handleRefresh}
+        onMenuPress={() => setMenuVisible(true)} // ✅ Add this prop
+      />
+
+      {/* ✅ Add the OMenu component */}
+      <OMenu 
+        visible={menuVisible} 
+        onClose={() => setMenuVisible(false)} 
+        onNavigate={() => setMenuVisible(false)} 
       />
     </View>
   );
