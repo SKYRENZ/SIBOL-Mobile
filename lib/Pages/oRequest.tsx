@@ -4,169 +4,100 @@ import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import RequestCard, { RequestItem } from '../components/RequestCard';
 import Tabs from '../components/commons/Tabs';
+import { useMaintenance } from '../hooks/useMaintenance';
+import { MaintenanceTicket } from '../services/maintenanceService';
+import OMenu from '../components/oMenu'; // ✅ Add this import
 
 type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
 
 export default function ORequest() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Pending');
   const scrollViewRef = useRef<ScrollView>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [requests, setRequests] = useState<RequestItem[]>([
-    // Pending requests
-    {
-      id: '112103',
-      title: 'Change filters',
-      description: 'Change the stage 2 filters on SIBOL Machine 2',
-      requestNumber: '112103',
-      dateAssigned: 'August 10, 2025',
-      dueDate: 'August 15, 2025',
-      remarksBrgy: 'Change filter',
-      remarksMaintenance: 'Filter is broken and was changed into new one.',
-      status: 'Pending',
-      isChecked: false,
-      isExpanded: false,
-      hasAttachment: true,
-    },
-    {
-      id: '112106',
-      title: 'Inspect leakage',
-      description: 'Inspect possible water leakage on SIBOL Machine 2',
-      requestNumber: '112106',
-      dateAssigned: 'August 11, 2025',
-      dueDate: 'August 16, 2025',
-      remarksBrgy: 'Water puddle found underneath the unit',
-      remarksMaintenance: 'Leak found in drainage pipe, temporary fix applied.',
-      status: 'Pending',
-      isChecked: false,
-      isExpanded: false,
-      hasAttachment: true,
-    },
-    {
-      id: '112109',
-      title: 'Calibrate sensors',
-      description: 'Calibrate all temperature sensors on SIBOL Machine 3',
-      requestNumber: '112109',
-      dateAssigned: 'August 12, 2025',
-      dueDate: 'August 17, 2025',
-      remarksBrgy: 'Temperature readings seem inaccurate',
-      remarksMaintenance: 'All sensors calibrated against reference thermometer.',
-      status: 'Pending',
-      isChecked: false,
-      isExpanded: false,
-      hasAttachment: false,
-    },
-    
-    // For review requests
-    {
-      id: '112105',
-      title: 'Clean intake valve',
-      description: 'Clean the clogged intake valve on SIBOL Machine 3',
-      requestNumber: '112105',
-      dateAssigned: 'August 12, 2025',
-      dueDate: 'August 14, 2025',
-      remarksBrgy: 'Valve is clogged',
-      remarksMaintenance: 'Valve cleaned and tested, flow restored to normal.',
-      status: 'For review',
-      isChecked: false,
-      isExpanded: false,
-      hasAttachment: false,
-    },
-    {
-      id: '112108',
-      title: 'Replace pump',
-      description: 'Replace the circulation pump on SIBOL Machine 1',
-      requestNumber: '112108',
-      dateAssigned: 'August 10, 2025',
-      dueDate: 'August 13, 2025',
-      remarksBrgy: 'Pump making loud noise',
-      remarksMaintenance: 'Pump replaced with spare unit, old pump sent for repair.',
-      status: 'For review',
-      isChecked: false,
-      isExpanded: false,
-      hasAttachment: true,
-    },
-    
-    // Done requests
-    {
-      id: '112104',
-      title: 'Replace sensor',
-      description: 'Replace faulty temperature sensor on SIBOL Machine 1',
-      requestNumber: '112104',
-      dateAssigned: 'August 8, 2025',
-      dueDate: 'August 11, 2025',
-      remarksBrgy: 'Sensor malfunctioning',
-      remarksMaintenance: 'Sensor replaced with new model, calibration completed.',
-      status: 'Done',
-      isChecked: false,
-      isExpanded: false,
-      hasAttachment: true,
-    },
-    {
-      id: '112107',
-      title: 'Update software',
-      description: 'Update control software on SIBOL Machine 2',
-      requestNumber: '112107',
-      dateAssigned: 'August 5, 2025',
-      dueDate: 'August 7, 2025',
-      remarksBrgy: 'Software update needed',
-      remarksMaintenance: 'Software updated to v2.5.1, all systems tested and functioning properly.',
-      status: 'Done',
-      isChecked: false,
-      isExpanded: false,
-      hasAttachment: false,
-    },
-    
-    // Canceled requests
-    {
-      id: '112110',
-      title: 'Install backup power',
-      description: 'Install backup power system for SIBOL Machine 1',
-      requestNumber: '112110',
-      dateAssigned: 'August 1, 2025',
-      dueDate: 'August 10, 2025',
-      remarksBrgy: 'Need backup during power outages',
-      remarksMaintenance: 'Canceled due to budget constraints.',
-      status: 'Canceled',
-      isChecked: false,
-      isExpanded: false,
-      hasAttachment: false,
-    },
-    {
-      id: '112111',
-      title: 'Relocate machine',
-      description: 'Move SIBOL Machine 2 to new location',
-      requestNumber: '112111',
-      dateAssigned: 'July 28, 2025',
-      dueDate: 'August 5, 2025',
-      remarksBrgy: 'Need to relocate for better access',
-      remarksMaintenance: 'Request canceled as current location is optimal.',
-      status: 'Canceled',
-      isChecked: false,
-      isExpanded: false,
-      hasAttachment: true,
-    },
-  ]);
+  const [menuVisible, setMenuVisible] = useState(false); // ✅ Add menu state
+  
+  const {
+    pendingTickets,
+    forReviewTickets,
+    doneTickets,
+    canceledTickets,
+    loading,
+    error,
+    refresh,
+    submitForVerification,
+  } = useMaintenance();
+
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
   const filters: FilterTab[] = ['Pending', 'For review', 'Done', 'Canceled'];
 
+  // Convert MaintenanceTicket to RequestItem format
+  const convertToRequestItem = useCallback((ticket: MaintenanceTicket): RequestItem => {
+    const statusMap: { [key: string]: 'Pending' | 'For review' | 'Done' | 'Canceled' } = {
+      'On-going': 'Pending',
+      'For Verification': 'For review',
+      'Completed': 'Done',
+      'Cancelled': 'Canceled'
+    };
+
+    return {
+      id: String(ticket.Request_Id),
+      title: ticket.Title || 'Untitled',
+      description: ticket.Details || '',
+      requestNumber: String(ticket.Request_Id),
+      dateAssigned: ticket.Request_date ? new Date(ticket.Request_date).toLocaleDateString() : '',
+      dueDate: ticket.Due_date ? new Date(ticket.Due_date).toLocaleDateString() : '',
+      remarksBrgy: ticket.Remarks || 'No remarks',
+      remarksMaintenance: 'No remarks from operator yet',
+      status: statusMap[ticket.Status || ''] || 'Pending',
+      isChecked: checkedIds.has(String(ticket.Request_Id)),
+      isExpanded: expandedIds.has(String(ticket.Request_Id)),
+      hasAttachment: !!ticket.Attachment,
+    };
+  }, [expandedIds, checkedIds]);
+
+  const getFilteredTickets = useCallback(() => {
+    switch (activeFilter) {
+      case 'Pending':
+        return pendingTickets.map(convertToRequestItem);
+      case 'For review':
+        return forReviewTickets.map(convertToRequestItem);
+      case 'Done':
+        return doneTickets.map(convertToRequestItem);
+      case 'Canceled':
+        return canceledTickets.map(convertToRequestItem);
+      default:
+        return [];
+    }
+  }, [activeFilter, pendingTickets, forReviewTickets, doneTickets, canceledTickets, convertToRequestItem]);
+
   const toggleRequestExpanded = (id: string) => {
-    setRequests(requests.map(req => 
-      req.id === id ? { ...req, isExpanded: !req.isExpanded } : req
-    ));
+    setExpandedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
   };
 
   const toggleRequestChecked = (id: string) => {
-    setRequests(requests.map(req => 
-      req.id === id ? { ...req, isChecked: !req.isChecked } : req
-    ));
+    setCheckedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
   };
 
   const handleFilterChange = (filter: FilterTab) => {
-    setRequests(requests.map(req => ({
-      ...req,
-      isExpanded: false
-    })));
-    
+    // Collapse all expanded items when changing filter
+    setExpandedIds(new Set());
     setActiveFilter(filter);
     
     if (scrollViewRef.current) {
@@ -175,23 +106,27 @@ export default function ORequest() {
   };
 
   const handleRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    
-    setRequests(requests.map(req => ({
-      ...req,
-      isExpanded: false
-    })));
+    // Collapse all items on refresh
+    setExpandedIds(new Set());
     
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollTo({ x: 0, y: 0, animated: true });
     }
     
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 1000);
-  }, [requests]);
+    refresh();
+  }, [refresh]);
 
-  const filteredRequests = requests.filter(req => req.status === activeFilter);
+  const handleMarkDone = useCallback(async (requestId: string, remarks: string, attachments: any[]) => {
+    try {
+      await submitForVerification(Number(requestId));
+      // You can add remarks and attachments handling here later
+    } catch (error: any) {
+      console.error('Error marking done:', error);
+      throw error;
+    }
+  }, [submitForVerification]);
+
+  const filteredRequests = getFilteredTickets();
 
   return (
     <View style={tw`flex-1 bg-white`}>
@@ -212,11 +147,17 @@ export default function ORequest() {
             />
           </View>
 
-          {isRefreshing ? (
+          {error && (
+            <View style={tw`bg-red-50 border border-red-200 rounded-lg p-4 mb-4`}>
+              <Text style={tw`text-red-600 text-sm`}>{error}</Text>
+            </View>
+          )}
+
+          {loading ? (
             <View style={tw`items-center justify-center py-12`}>
               <ActivityIndicator size="large" color="#2E523A" />
               <Text style={tw`text-[#2E523A] font-semibold text-base mt-2`}>
-                Refreshing...
+                Loading requests...
               </Text>
             </View>
           ) : filteredRequests.length === 0 ? (
@@ -232,6 +173,7 @@ export default function ORequest() {
                 request={request}
                 onToggleExpand={toggleRequestExpanded}
                 onToggleCheck={toggleRequestChecked}
+                onMarkDone={handleMarkDone}
               />
             ))
           )}
@@ -241,6 +183,14 @@ export default function ORequest() {
       <BottomNavbar 
         currentPage="Request" 
         onRefresh={handleRefresh}
+        onMenuPress={() => setMenuVisible(true)} // ✅ Add this prop
+      />
+
+      {/* ✅ Add the OMenu component */}
+      <OMenu 
+        visible={menuVisible} 
+        onClose={() => setMenuVisible(false)} 
+        onNavigate={() => setMenuVisible(false)} 
       />
     </View>
   );
