@@ -20,6 +20,7 @@ import oMap from './lib/Pages/oMap';
 import oWasteRecord from './lib/Pages/oWasteRecord';
 import oSchedule from './lib/Pages/oSchedule';
 import OAdditive from './lib/Pages/oAdditive';
+import HRewards from './lib/Pages/hRewards';
 
 const Stack = createNativeStackNavigator();
 
@@ -39,6 +40,7 @@ export default function App() {
           <Stack.Screen name="VerifyEmail" component={EmailVerification} />
           <Stack.Screen name="AdminPending" component={AdminPending} />
           <Stack.Screen name="HDashboard" component={hDashboard} />
+          <Stack.Screen name="HRewards" component={HRewards} />
           <Stack.Screen name="ODashboard" component={oDashboard} />
           <Stack.Screen name="ORequest" component={ORequest} />
           <Stack.Screen name="oMaintenance" component={oMaintenance} />
