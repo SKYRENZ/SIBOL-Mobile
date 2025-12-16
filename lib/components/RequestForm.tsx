@@ -104,7 +104,7 @@ export default function RequestForm({
     }
 
     if (!sibolMachineNo || !sibolMachineNo.trim()) {
-      setError('Please enter SIBOL Machine No');
+      setError('Please enter Machine ID');
       return;
     }
 
@@ -192,7 +192,7 @@ export default function RequestForm({
                   </View>
 
                   <View style={styles.fieldContainer}>
-                    <Text style={styles.label}>SIBOL Machine No:</Text>
+                    <Text style={styles.label}>Machine ID:</Text>
                     <TextInput
                       value={sibolMachineNo}
                       onChangeText={(text) => {
