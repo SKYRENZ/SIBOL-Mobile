@@ -1,19 +1,22 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { Plus } from 'lucide-react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import RequestCard, { RequestItem } from '../components/RequestCard';
 import Tabs from '../components/commons/Tabs';
+import RequestForm from '../components/RequestForm';
 import { useMaintenance } from '../hooks/useMaintenance';
 import { MaintenanceTicket } from '../services/maintenanceService';
-import OMenu from '../components/oMenu'; // ✅ Add this import
+import OMenu from '../components/oMenu';
 
 type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
 
 export default function ORequest() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Pending');
   const scrollViewRef = useRef<ScrollView>(null);
-  const [menuVisible, setMenuVisible] = useState(false); // ✅ Add menu state
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [requestFormVisible, setRequestFormVisible] = useState(false);
   
   const {
     pendingTickets,
@@ -180,18 +183,49 @@ export default function ORequest() {
         </View>
       </ScrollView>
 
-      <BottomNavbar 
-        currentPage="Request" 
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setRequestFormVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Plus color="#fff" size={28} strokeWidth={3} />
+      </TouchableOpacity>
+
+      <BottomNavbar
+        currentPage="Request"
         onRefresh={handleRefresh}
-        onMenuPress={() => setMenuVisible(true)} // ✅ Add this prop
+        onMenuPress={() => setMenuVisible(true)}
       />
 
-      {/* ✅ Add the OMenu component */}
-      <OMenu 
-        visible={menuVisible} 
-        onClose={() => setMenuVisible(false)} 
-        onNavigate={() => setMenuVisible(false)} 
+      <RequestForm
+        visible={requestFormVisible}
+        onClose={() => setRequestFormVisible(false)}
+      />
+
+      <OMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onNavigate={() => setMenuVisible(false)}
       />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 140,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2f6b3f',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+  },
+});
