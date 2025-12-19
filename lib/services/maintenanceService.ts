@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import { Platform } from 'react-native';
 
 export interface MaintenanceTicket {
   Request_Id: number;
@@ -38,39 +39,70 @@ export interface AddRemarksPayload {
 // ✅ UPLOAD TO BACKEND (which handles Cloudinary upload)
 export async function uploadToCloudinary(uri: string, fileName: string, mimeType?: string): Promise<string> {
   try {
-    // Create FormData
     const formData = new FormData();
     
-    // Add file with proper format for React Native
-    formData.append('file', {
-      uri: uri,
-      name: fileName,
-      type: mimeType || 'image/jpeg',
-    } as any);
+    console.log(`[Upload Start] ${fileName}`, { uri, mimeType, platform: Platform.OS });
+    
+    if (Platform.OS === 'web') {
+      const blobResponse = await fetch(uri);
+      if (!blobResponse.ok) {
+        throw new Error(`Failed to fetch blob from ${uri}`);
+      }
+      const blob = await blobResponse.blob();
+      
+      // ✅ Check blob size before upload
+      const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
+      if (blob.size > 10 * 1024 * 1024) {
+        throw new Error(`File "${fileName}" is too large (${sizeMB}MB). Maximum size is 10MB.`);
+      }
+      
+      const file = new File([blob], fileName, { type: mimeType || 'image/jpeg' });
+      formData.append('file', file);
+      console.log('Web upload - File object created:', { 
+        name: fileName, 
+        size: `${sizeMB}MB`, 
+        type: file.type 
+      });
+    } else {
+      formData.append('file', {
+        uri: uri,
+        name: fileName,
+        type: mimeType || 'image/jpeg',
+      } as any);
+      console.log('Native upload - FormData with URI:', { uri, fileName, mimeType });
+    }
 
-    console.log('Uploading file:', { uri, fileName, mimeType });
-
-    // Use fetch instead of axios for file uploads in React Native
-    const response = await fetch(`${apiClient.defaults.baseURL}/api/upload`, {
+    const authHeader = await getAuthHeader();
+    
+    const uploadResponse = await fetch(`${apiClient.defaults.baseURL}/api/upload`, {
       method: 'POST',
       body: formData,
       headers: {
-        'Content-Type': 'multipart/form-data',
-        // Get auth token from AsyncStorage
-        'Authorization': await getAuthHeader(),
+        'Authorization': authHeader,
       },
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Upload failed' }));
-      throw new Error(errorData.message || `Upload failed with status ${response.status}`);
+    console.log(`[Upload Response] ${fileName}:`, uploadResponse.status);
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText || 'Upload failed' };
+      }
+      
+      // ✅ Provide clearer error messages
+      const errorMessage = errorData.message || `Upload failed with status ${uploadResponse.status}`;
+      throw new Error(errorMessage);
     }
 
-    const data = await response.json();
-    console.log('Upload successful:', data);
+    const data = await uploadResponse.json();
+    console.log(`[Upload Success] ${fileName}:`, data.filepath);
     return data.filepath;
   } catch (error: any) {
-    console.error('Upload error:', error);
+    console.error(`[Upload Error] ${fileName}:`, error);
     throw new Error(error?.message || 'Failed to upload file');
   }
 }

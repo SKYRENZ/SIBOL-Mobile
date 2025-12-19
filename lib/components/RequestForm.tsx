@@ -182,8 +182,9 @@ export default function RequestForm({
       if (attachments.length > 0 && createdTicket.Request_Id) {
         console.log(`Uploading ${attachments.length} attachment(s)`);
         
-        const uploadPromises = attachments.map(async (attachment) => {
-          try {
+        // ✅ Track successful and failed uploads
+        const uploadResults = await Promise.allSettled(
+          attachments.map(async (attachment) => {
             console.log('Uploading attachment:', attachment.name);
             
             const cloudinaryUrl = await uploadToCloudinary(
@@ -202,22 +203,27 @@ export default function RequestForm({
               attachment.size
             );
             console.log('Attachment added to ticket:', attachment.name);
-          } catch (uploadError) {
-            console.error('Error uploading attachment:', attachment.name, uploadError);
-            throw uploadError;
-          }
-        });
+            
+            return attachment.name;
+          })
+        );
 
-        try {
-          await Promise.all(uploadPromises);
+        const failed = uploadResults.filter(r => r.status === 'rejected');
+        const succeeded = uploadResults.filter(r => r.status === 'fulfilled');
+
+        if (failed.length > 0) {
+          console.error('Failed uploads:', failed);
+          Alert.alert(
+            'Partial Success', 
+            `Ticket created. ${succeeded.length} of ${attachments.length} attachments uploaded successfully.`
+          );
+        } else {
           console.log('All attachments uploaded successfully');
-        } catch (uploadError) {
-          console.error('Error uploading attachments:', uploadError);
-          Alert.alert('Warning', 'Ticket created but some attachments failed to upload');
+          Alert.alert('Success', 'Maintenance request created with all attachments');
         }
+      } else {
+        Alert.alert('Success', 'Maintenance request created successfully');
       }
-
-      Alert.alert('Success', 'Maintenance request created successfully');
       
       if (onSave) {
         onSave({
@@ -226,7 +232,7 @@ export default function RequestForm({
           sibolMachineNo,
           area,
           date: selectedDate,
-          attachment: attachments[0] || null, // Keep for backward compatibility
+          attachment: attachments[0] || null,
         });
       }
 
