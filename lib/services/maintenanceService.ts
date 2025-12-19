@@ -35,9 +35,86 @@ export interface AddRemarksPayload {
   remarks: string;
 }
 
+// ✅ UPLOAD TO BACKEND (which handles Cloudinary upload)
+export async function uploadToCloudinary(uri: string, fileName: string, mimeType?: string): Promise<string> {
+  try {
+    // Create FormData
+    const formData = new FormData();
+    
+    // Add file with proper format for React Native
+    formData.append('file', {
+      uri: uri,
+      name: fileName,
+      type: mimeType || 'image/jpeg',
+    } as any);
+
+    console.log('Uploading file:', { uri, fileName, mimeType });
+
+    // Use fetch instead of axios for file uploads in React Native
+    const response = await fetch(`${apiClient.defaults.baseURL}/api/upload`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        // Get auth token from AsyncStorage
+        'Authorization': await getAuthHeader(),
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Upload failed' }));
+      throw new Error(errorData.message || `Upload failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Upload successful:', data);
+    return data.filepath;
+  } catch (error: any) {
+    console.error('Upload error:', error);
+    throw new Error(error?.message || 'Failed to upload file');
+  }
+}
+
+// Helper function to get auth header
+async function getAuthHeader(): Promise<string> {
+  try {
+    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+    const token = await AsyncStorage.getItem('token');
+    return token ? `Bearer ${token}` : '';
+  } catch (err) {
+    console.error('Error getting auth token:', err);
+    return '';
+  }
+}
+
+// ✅ GET PRIORITIES
+export async function getPriorities(): Promise<Array<{ Priority_id: number; Priority: string }>> {
+  const response = await apiClient.get('/api/maintenance/priorities');
+  return response.data;
+}
+
 // ✅ 1. CREATE TICKET (Operator creates maintenance request)
 export async function createTicket(data: CreateTicketPayload): Promise<MaintenanceTicket> {
   const response = await apiClient.post('/api/maintenance', data);
+  return response.data;
+}
+
+// ✅ ADD ATTACHMENT TO TICKET
+export async function addAttachmentToTicket(
+  requestId: number,
+  uploadedBy: number,
+  filepath: string,
+  filename: string,
+  filetype?: string,
+  filesize?: number
+): Promise<any> {
+  const response = await apiClient.post(`/api/maintenance/${requestId}/attachments`, {
+    uploaded_by: uploadedBy,
+    filepath,
+    filename,
+    filetype,
+    filesize,
+  });
   return response.data;
 }
 
