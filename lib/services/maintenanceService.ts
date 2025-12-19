@@ -36,78 +36,49 @@ export interface AddRemarksPayload {
   remarks: string;
 }
 
-// ✅ UPLOAD TO BACKEND (which handles Cloudinary upload)
 export async function uploadToCloudinary(uri: string, fileName: string, mimeType?: string): Promise<string> {
   try {
     const formData = new FormData();
     
-    console.log(`[Upload Start] ${fileName}`, { uri, mimeType, platform: Platform.OS });
-    
     if (Platform.OS === 'web') {
-      const blobResponse = await fetch(uri);
-      if (!blobResponse.ok) {
-        throw new Error(`Failed to fetch blob from ${uri}`);
-      }
-      const blob = await blobResponse.blob();
-      
-      // ✅ Check blob size before upload
-      const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
-      if (blob.size > 10 * 1024 * 1024) {
-        throw new Error(`File "${fileName}" is too large (${sizeMB}MB). Maximum size is 10MB.`);
-      }
-      
+      const response = await fetch(uri);
+      const blob = await response.blob();
       const file = new File([blob], fileName, { type: mimeType || 'image/jpeg' });
       formData.append('file', file);
-      console.log('Web upload - File object created:', { 
-        name: fileName, 
-        size: `${sizeMB}MB`, 
-        type: file.type 
-      });
     } else {
       formData.append('file', {
         uri: uri,
         name: fileName,
         type: mimeType || 'image/jpeg',
       } as any);
-      console.log('Native upload - FormData with URI:', { uri, fileName, mimeType });
     }
 
-    const authHeader = await getAuthHeader();
-    
-    const uploadResponse = await fetch(`${apiClient.defaults.baseURL}/api/upload`, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+    const response = await fetch(`${apiClient.defaults.baseURL}/api/upload`, {
       method: 'POST',
       body: formData,
       headers: {
-        'Authorization': authHeader,
+        'Authorization': await getAuthHeader(),
       },
+      signal: controller.signal,
     });
 
-    console.log(`[Upload Response] ${fileName}:`, uploadResponse.status);
+    clearTimeout(timeoutId);
 
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      let errorData;
-      try {
-        errorData = JSON.parse(errorText);
-      } catch {
-        errorData = { message: errorText || 'Upload failed' };
-      }
-      
-      // ✅ Provide clearer error messages
-      const errorMessage = errorData.message || `Upload failed with status ${uploadResponse.status}`;
-      throw new Error(errorMessage);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Upload failed' }));
+      throw new Error(errorData.message || `Upload failed with status ${response.status}`);
     }
 
-    const data = await uploadResponse.json();
-    console.log(`[Upload Success] ${fileName}:`, data.filepath);
+    const data = await response.json();
     return data.filepath;
   } catch (error: any) {
-    console.error(`[Upload Error] ${fileName}:`, error);
-    throw new Error(error?.message || 'Failed to upload file');
+    throw new Error(error?.message || 'Failed to upload file. Please try again.');
   }
 }
 
-// Helper function to get auth header
 async function getAuthHeader(): Promise<string> {
   try {
     const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
@@ -119,19 +90,16 @@ async function getAuthHeader(): Promise<string> {
   }
 }
 
-// ✅ GET PRIORITIES
 export async function getPriorities(): Promise<Array<{ Priority_id: number; Priority: string }>> {
   const response = await apiClient.get('/api/maintenance/priorities');
   return response.data;
 }
 
-// ✅ 1. CREATE TICKET (Operator creates maintenance request)
 export async function createTicket(data: CreateTicketPayload): Promise<MaintenanceTicket> {
   const response = await apiClient.post('/api/maintenance', data);
   return response.data;
 }
 
-// ✅ ADD ATTACHMENT TO TICKET
 export async function addAttachmentToTicket(
   requestId: number,
   uploadedBy: number,
@@ -150,7 +118,6 @@ export async function addAttachmentToTicket(
   return response.data;
 }
 
-// ✅ 2. MARK ON-GOING (Operator starts working on ticket)
 export async function markOngoing(
   requestId: number,
   data: OperatorActionPayload
@@ -159,7 +126,6 @@ export async function markOngoing(
   return response.data;
 }
 
-// ✅ 3. MARK FOR VERIFICATION (Operator finishes work)
 export async function markForVerification(
   requestId: number,
   data: OperatorActionPayload
@@ -168,7 +134,6 @@ export async function markForVerification(
   return response.data;
 }
 
-// ✅ 4. ADD REMARKS (Operator adds notes/updates)
 export async function addRemarks(
   requestId: number,
   data: AddRemarksPayload
@@ -177,7 +142,6 @@ export async function addRemarks(
   return response.data;
 }
 
-// ✅ 5. CANCEL TICKET (Operator can cancel their own tickets)
 export async function cancelTicket(
   requestId: number,
   operatorAccountId: number
@@ -188,13 +152,11 @@ export async function cancelTicket(
   return response.data;
 }
 
-// ✅ 6. GET SINGLE TICKET (View ticket details)
 export async function getTicket(requestId: number): Promise<MaintenanceTicket> {
   const response = await apiClient.get(`/api/maintenance/${requestId}`);
   return response.data;
 }
 
-// ✅ 7. LIST OPERATOR'S TICKETS (Filter by operator)
 export async function listMyTickets(operatorAccountId: number): Promise<MaintenanceTicket[]> {
   const response = await apiClient.get('/api/maintenance', {
     params: { created_by: operatorAccountId }
@@ -202,7 +164,6 @@ export async function listMyTickets(operatorAccountId: number): Promise<Maintena
   return response.data;
 }
 
-// ✅ 8. LIST ASSIGNED TICKETS (Tickets assigned to operator)
 export async function listAssignedTickets(operatorAccountId: number): Promise<MaintenanceTicket[]> {
   const response = await apiClient.get('/api/maintenance', {
     params: { assigned_to: operatorAccountId }
@@ -210,7 +171,6 @@ export async function listAssignedTickets(operatorAccountId: number): Promise<Ma
   return response.data;
 }
 
-// ✅ 9. LIST TICKETS BY STATUS (Filter tickets)
 export async function listTicketsByStatus(
   operatorAccountId: number, 
   status: string
