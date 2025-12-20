@@ -29,7 +29,7 @@ export default function App() {
     <ResponsiveProvider>
       <NavigationContainer>
         <Stack.Navigator 
-          initialRouteName="HDashboard"
+          initialRouteName="SignIn"
           screenOptions={{
             headerShown: false,
           }}
