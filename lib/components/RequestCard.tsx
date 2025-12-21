@@ -6,6 +6,8 @@ import AttachmentModal from './AttachmentModal';
 import CommentsSection from './CommentsSection';
 import ForCompletion from './ForCompletion';
 import { Image as LucideImage, Send as LucideSend, Check as LucideCheck } from 'lucide-react-native';
+import { uploadToCloudinary, addAttachmentToTicket } from '../services/maintenanceService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface RequestItem {
   id: string;
@@ -52,6 +54,23 @@ export default function RequestCard({
     { id: '3', sender: 'Brgy', message: 'Attached the reference photo.', time: 'Aug 14, 3:45 PM', hasAttachment: true, attachmentName: 'brokenfilter.png' },
   ]);
   const [inlineNewMsg, setInlineNewMsg] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+
+  // ✅ Load current user
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const userStr = await AsyncStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          setCurrentUserId(user.Account_id || user.account_id);
+        }
+      } catch (err) {
+        console.error('Error loading user:', err);
+      }
+    };
+    loadUser();
+  }, []);
 
   const handleInlineSend = () => {
     if (!inlineNewMsg.trim()) return;
@@ -71,15 +90,70 @@ export default function RequestCard({
   };
 
   const handleMarkDone = async (remarks: string, attachments: any[]) => {
+    if (!currentUserId) {
+      Alert.alert('Error', 'User not found. Please sign in again.');
+      return;
+    }
+
     try {
-      if (onMarkDone) {
-        await onMarkDone(request.id, remarks, attachments);
-        Alert.alert('Success', 'Request marked for verification');
+      // ✅ Upload all attachments to Cloudinary first
+      if (attachments.length > 0) {
+        console.log(`Uploading ${attachments.length} completion attachment(s)`);
+        
+        const uploadResults = await Promise.allSettled(
+          attachments.map(async (attachment) => {
+            console.log('Uploading completion attachment:', attachment.name);
+            
+            const cloudinaryUrl = await uploadToCloudinary(
+              attachment.uri,
+              attachment.name,
+              attachment.type
+            );
+            console.log('Cloudinary URL:', cloudinaryUrl);
+
+            await addAttachmentToTicket(
+              Number(request.id),
+              currentUserId,
+              cloudinaryUrl,
+              attachment.name,
+              attachment.type,
+              attachment.size
+            );
+            console.log('Completion attachment added to ticket:', attachment.name);
+
+            return attachment.name;
+          })
+        );
+
+        const failed = uploadResults.filter(r => r.status === 'rejected');
+        const succeeded = uploadResults.filter(r => r.status === 'fulfilled');
+
+        // ✅ Then mark for verification
+        if (onMarkDone) {
+          await onMarkDone(request.id, remarks, attachments);
+        }
+
+        if (failed.length > 0) {
+          console.error('Failed uploads:', failed);
+          Alert.alert(
+            'Partial Success',
+            `Request marked for verification.\n${succeeded.length} of ${attachments.length} photos uploaded successfully.`
+          );
+        } else {
+          console.log('All completion attachments uploaded successfully');
+          Alert.alert('Success', `Request marked for verification with ${attachments.length} photo(s)`);
+        }
       } else {
-        Alert.alert('Success', `Request marked as done with ${attachments.length} attachment(s)`);
+        // ✅ No attachments, just mark for verification
+        if (onMarkDone) {
+          await onMarkDone(request.id, remarks, attachments);
+        }
+        Alert.alert('Success', 'Request marked for verification');
       }
     } catch (error: any) {
+      console.error('Error in handleMarkDone:', error);
       Alert.alert('Error', error?.message || 'Failed to mark request as done');
+      throw error;
     }
   };
 
