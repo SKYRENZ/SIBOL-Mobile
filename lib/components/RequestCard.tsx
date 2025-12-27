@@ -472,6 +472,7 @@ export default function RequestCard({
         visible={forCompletionModalVisible}
         onClose={() => setForCompletionModalVisible(false)}
         onMarkDone={handleMarkDone}
+        requestId={request.id} // ✅ Pass requestId
       />
     </View>
   );
