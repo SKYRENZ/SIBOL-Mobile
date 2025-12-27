@@ -19,6 +19,18 @@ export interface MaintenanceTicket {
   AssignedOperatorName?: string;
 }
 
+// ✅ NEW: Interface for remarks
+export interface MaintenanceRemark {
+  Remark_Id: number;
+  Request_Id: number;
+  Remark_text: string;
+  Created_by: number;
+  User_role?: string;
+  Created_at: string;
+  CreatedByName?: string;
+  CreatedByRoleName?: string;
+}
+
 export interface CreateTicketPayload {
   title: string;
   details?: string;
@@ -118,6 +130,27 @@ export async function addAttachmentToTicket(
   return response.data;
 }
 
+// ✅ NEW: Add a remark to a ticket
+export async function addRemark(
+  requestId: number,
+  remarkText: string,
+  createdBy: number,
+  userRole?: string
+): Promise<MaintenanceRemark> {
+  const response = await apiClient.post(`/api/maintenance/${requestId}/remarks`, {
+    remark_text: remarkText,
+    created_by: createdBy,
+    user_role: userRole,
+  });
+  return response.data;
+}
+
+// ✅ NEW: Get all remarks for a ticket
+export async function getTicketRemarks(requestId: number): Promise<MaintenanceRemark[]> {
+  const response = await apiClient.get(`/api/maintenance/${requestId}/remarks`);
+  return response.data || [];
+}
+
 export async function markOngoing(
   requestId: number,
   data: OperatorActionPayload
@@ -134,6 +167,7 @@ export async function markForVerification(
   return response.data;
 }
 
+// ✅ Keep old addRemarks for backward compatibility
 export async function addRemarks(
   requestId: number,
   data: AddRemarksPayload

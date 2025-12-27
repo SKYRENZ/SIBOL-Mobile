@@ -1,12 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import tw from '../utils/tailwind';
 import AttachmentModal from './AttachmentModal';
 import CommentsSection from './CommentsSection';
 import ForCompletion from './ForCompletion';
 import { Image as LucideImage, Send as LucideSend, Check as LucideCheck } from 'lucide-react-native';
-import { uploadToCloudinary, addAttachmentToTicket } from '../services/maintenanceService';
+import { 
+  uploadToCloudinary, 
+  addAttachmentToTicket, 
+  getTicketRemarks, 
+  addRemark,
+  MaintenanceRemark 
+} from '../services/maintenanceService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface RequestItem {
@@ -40,21 +46,15 @@ export default function RequestCard({
   const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
   const [commentsModalVisible, setCommentsModalVisible] = useState(false);
   const [forCompletionModalVisible, setForCompletionModalVisible] = useState(false);
-
-  const [inlineMessages, setInlineMessages] = useState<Array<{
-    id: string;
-    sender: 'Brgy' | 'Operator';
-    message: string;
-    time: string;
-    hasAttachment: boolean;
-    attachmentName?: string;
-  }>>([
-    { id: '1', sender: 'Brgy', message: 'Please make sure to replace the entire filter unit, not just the cartridge.', time: 'Aug 14, 2:30 PM', hasAttachment: false },
-    { id: '2', sender: 'Operator', message: 'Understood. I will replace the complete unit tomorrow morning.', time: 'Aug 14, 3:15 PM', hasAttachment: false },
-    { id: '3', sender: 'Brgy', message: 'Attached the reference photo.', time: 'Aug 14, 3:45 PM', hasAttachment: true, attachmentName: 'brokenfilter.png' },
-  ]);
+  
+  // ✅ Changed to use MaintenanceRemark
+  const [remarks, setRemarks] = useState<MaintenanceRemark[]>([]);
+  const [loadingRemarks, setLoadingRemarks] = useState(false);
   const [inlineNewMsg, setInlineNewMsg] = useState('');
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string>('Operator');
+
+  const inlineScrollRef = useRef<any>(null);
 
   // ✅ Load current user
   useEffect(() => {
@@ -64,6 +64,15 @@ export default function RequestCard({
         if (userStr) {
           const user = JSON.parse(userStr);
           setCurrentUserId(user.Account_id || user.account_id);
+          
+          const roleId = user.Roles || user.role;
+          const roleMap: { [key: number]: string } = {
+            1: 'Admin',
+            2: 'Barangay_staff',
+            3: 'Operator',
+            4: 'Household'
+          };
+          setCurrentUserRole(roleMap[roleId] || 'Operator');
         }
       } catch (err) {
         console.error('Error loading user:', err);
@@ -72,44 +81,89 @@ export default function RequestCard({
     loadUser();
   }, []);
 
-  const handleInlineSend = () => {
-    if (!inlineNewMsg.trim()) return;
-    setInlineMessages([
-      ...inlineMessages,
-      { id: String(inlineMessages.length + 1), sender: 'Operator', message: inlineNewMsg, time: new Date().toLocaleTimeString(), hasAttachment: false }
-    ]);
-    setInlineNewMsg('');
+  // ✅ Load remarks when card is expanded
+  useEffect(() => {
+    if (request.isExpanded && !loadingRemarks && remarks.length === 0) {
+      loadRemarks();
+    }
+  }, [request.isExpanded]);
+
+  // ✅ Load remarks from backend
+  const loadRemarks = async () => {
+    setLoadingRemarks(true);
+    try {
+      const data = await getTicketRemarks(Number(request.id));
+      setRemarks(data);
+    } catch (error) {
+      console.error('Error loading remarks:', error);
+    } finally {
+      setLoadingRemarks(false);
+    }
   };
 
-  const handleModalSend = (text: string) => {
-    if (!text.trim()) return;
-    setInlineMessages([
-      ...inlineMessages,
-      { id: String(inlineMessages.length + 1), sender: 'Operator', message: text, time: new Date().toLocaleTimeString(), hasAttachment: false }
-    ]);
+  // ✅ Scroll to bottom when remarks change
+  useEffect(() => {
+    if (inlineScrollRef.current && typeof inlineScrollRef.current.scrollToEnd === 'function') {
+      setTimeout(() => {
+        inlineScrollRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [remarks.length]);
+
+  // ✅ Handle sending inline remark
+  const handleInlineSend = async () => {
+    if (!inlineNewMsg.trim() || !currentUserId) return;
+    
+    try {
+      const newRemark = await addRemark(
+        Number(request.id),
+        inlineNewMsg.trim(),
+        currentUserId,
+        currentUserRole
+      );
+      
+      setRemarks(prev => [...prev, newRemark]);
+      setInlineNewMsg('');
+    } catch (error: any) {
+      console.error('Error adding remark:', error);
+      Alert.alert('Error', error?.message || 'Failed to add remark');
+    }
   };
 
-  const handleMarkDone = async (remarks: string, attachments: any[]) => {
+  // ✅ Handle sending remark from modal
+  const handleModalSend = async (text: string) => {
+    if (!text.trim() || !currentUserId) return;
+    
+    try {
+      const newRemark = await addRemark(
+        Number(request.id),
+        text.trim(),
+        currentUserId,
+        currentUserRole
+      );
+      
+      setRemarks(prev => [...prev, newRemark]);
+    } catch (error: any) {
+      console.error('Error adding remark:', error);
+      Alert.alert('Error', error?.message || 'Failed to add remark');
+    }
+  };
+
+  const handleMarkDone = async (completionRemarks: string, attachments: any[]) => {
     if (!currentUserId) {
       Alert.alert('Error', 'User not found. Please sign in again.');
       return;
     }
 
     try {
-      // ✅ Upload all attachments to Cloudinary first
       if (attachments.length > 0) {
-        console.log(`Uploading ${attachments.length} completion attachment(s)`);
-        
         const uploadResults = await Promise.allSettled(
           attachments.map(async (attachment) => {
-            console.log('Uploading completion attachment:', attachment.name);
-            
             const cloudinaryUrl = await uploadToCloudinary(
               attachment.uri,
               attachment.name,
               attachment.type
             );
-            console.log('Cloudinary URL:', cloudinaryUrl);
 
             await addAttachmentToTicket(
               Number(request.id),
@@ -119,7 +173,6 @@ export default function RequestCard({
               attachment.type,
               attachment.size
             );
-            console.log('Completion attachment added to ticket:', attachment.name);
 
             return attachment.name;
           })
@@ -128,28 +181,35 @@ export default function RequestCard({
         const failed = uploadResults.filter(r => r.status === 'rejected');
         const succeeded = uploadResults.filter(r => r.status === 'fulfilled');
 
-        // ✅ Then mark for verification
+        if (completionRemarks.trim()) {
+          await addRemark(
+            Number(request.id),
+            `[COMPLETION] ${completionRemarks}`,
+            currentUserId,
+            currentUserRole
+          );
+        }
+
         if (onMarkDone) {
-          await onMarkDone(request.id, remarks, attachments);
+          await onMarkDone(request.id, completionRemarks, attachments);
         }
 
         if (failed.length > 0) {
-          console.error('Failed uploads:', failed);
           Alert.alert(
             'Partial Success',
             `Request marked for verification.\n${succeeded.length} of ${attachments.length} photos uploaded successfully.`
           );
         } else {
-          console.log('All completion attachments uploaded successfully');
           Alert.alert('Success', `Request marked for verification with ${attachments.length} photo(s)`);
         }
       } else {
-        // ✅ No attachments, just mark for verification
         if (onMarkDone) {
-          await onMarkDone(request.id, remarks, attachments);
+          await onMarkDone(request.id, completionRemarks, attachments);
         }
         Alert.alert('Success', 'Request marked for verification');
       }
+      
+      await loadRemarks();
     } catch (error: any) {
       console.error('Error in handleMarkDone:', error);
       Alert.alert('Error', error?.message || 'Failed to mark request as done');
@@ -168,19 +228,9 @@ export default function RequestCard({
     elevation: 3,
   };
 
-  const inlineScrollRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (inlineScrollRef.current && typeof inlineScrollRef.current.scrollToEnd === 'function') {
-      inlineScrollRef.current.scrollToEnd({ animated: true });
-    }
-  }, [inlineMessages.length]);
-
   return (
     <View style={tw`mb-4 bg-green-light rounded-xl overflow-hidden`}> 
-      <View
-        style={tw`p-5 mb-6 relative overflow-visible`}
-      >
+      <View style={tw`p-5 mb-6 relative overflow-visible`}>
         <View style={tw`flex-row items-center justify-between mb-3`}>
           <View style={tw`flex-row items-center gap-3`}>
             <Text style={tw`text-primary text-[13px] font-bold`}>
@@ -284,35 +334,57 @@ export default function RequestCard({
                       </TouchableOpacity>
                     </View>
 
-                    {/* messages area */}
                     <View style={tw`min-h-24 max-h-40`}>
-                      <ScrollView ref={inlineScrollRef}>
-                        {inlineMessages.map(msg => {
-                          const isBrgy = msg.sender === 'Brgy';
-                          return (
-                            <View key={msg.id} style={{ marginBottom: 12, alignSelf: isBrgy ? 'flex-start' : 'flex-end', maxWidth: '78%' }}>
-                              <View style={{ marginBottom: 4, flexDirection: 'row' }}>
-                                <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
-                                  {isBrgy ? 'Barangay' : 'You'}
-                                </Text>
-                                <Text style={tw`text-xs text-gray-400 ml-2`}>{msg.time}</Text>
-                              </View>
+                      {loadingRemarks ? (
+                        <View style={tw`items-center justify-center py-4`}>
+                          <Text style={tw`text-gray-500 text-xs`}>Loading remarks...</Text>
+                        </View>
+                      ) : (
+                        <ScrollView ref={inlineScrollRef}>
+                          {remarks.length === 0 ? (
+                            <Text style={tw`text-gray-400 text-xs italic`}>No remarks yet</Text>
+                          ) : (
+                            remarks.map((remark) => {
+                              const isBrgy = remark.User_role === 'Barangay_staff' || remark.User_role === 'Admin';
+                              return (
+                                <View 
+                                  key={remark.Remark_Id} 
+                                  style={{ 
+                                    marginBottom: 12, 
+                                    alignSelf: isBrgy ? 'flex-start' : 'flex-end', 
+                                    maxWidth: '78%' 
+                                  }}
+                                >
+                                  <View style={{ marginBottom: 4, flexDirection: 'row' }}>
+                                    <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
+                                      {isBrgy ? 'Barangay' : 'You'}
+                                    </Text>
+                                    <Text style={tw`text-xs text-gray-400 ml-2`}>
+                                      {new Date(remark.Created_at).toLocaleString()}
+                                    </Text>
+                                  </View>
 
-                              <View style={[{ padding: 10, borderRadius: 10, backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF' }, shadowStyle]}>
-                                <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
-                                  {msg.message}
-                                </Text>
-                                {msg.hasAttachment && msg.attachmentName && (
-                                  <TouchableOpacity onPress={() => setAttachmentModalVisible(true)} style={tw`mt-2`}>
-                                    <Text style={{ color: '#F9F4D3', textDecorationLine: 'underline', fontSize: 12 }}>{msg.attachmentName}</Text>
-                                  </TouchableOpacity>
-                                )}
-                              </View>
-                            </View>
-                          );
-                        })}
-                      </ScrollView>
-                     </View>
+                                  <View 
+                                    style={[
+                                      { 
+                                        padding: 10, 
+                                        borderRadius: 10, 
+                                        backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF' 
+                                      }, 
+                                      shadowStyle
+                                    ]}
+                                  >
+                                    <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
+                                      {remark.Remark_text}
+                                    </Text>
+                                  </View>
+                                </View>
+                              );
+                            })
+                          )}
+                        </ScrollView>
+                      )}
+                    </View>
 
                     <View style={tw`mt-3`}>
                       <View style={tw`flex-row items-center bg-white border border-gray-200 rounded-full px-3`} >
@@ -392,7 +464,7 @@ export default function RequestCard({
       <CommentsSection
         visible={commentsModalVisible}
         onClose={() => setCommentsModalVisible(false)}
-        messages={inlineMessages}
+        messages={remarks}
         onSendMessage={handleModalSend}
       />
 
