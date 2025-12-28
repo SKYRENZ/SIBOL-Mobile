@@ -21,6 +21,7 @@ import oWasteRecord from './lib/Pages/oWasteRecord';
 import oSchedule from './lib/Pages/oSchedule';
 import OAdditive from './lib/Pages/oAdditive';
 import HRewards from './lib/Pages/hRewards';
+import WiFiConnectivity from './lib/Pages/WiFiConnectivity';
 
 const Stack = createNativeStackNavigator();
 
@@ -51,6 +52,7 @@ export default function App() {
           <Stack.Screen name="OSchedule" component={oSchedule} />
           <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+          <Stack.Screen name="WiFiConnectivity" component={WiFiConnectivity} />
         </Stack.Navigator>
         <StatusBar style="auto" />
       </NavigationContainer>

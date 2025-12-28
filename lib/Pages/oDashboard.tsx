@@ -19,6 +19,13 @@ import ResponsiveTaskCard from '../components/primitives/ResponsiveTaskCard';
 import ResponsiveImage from '../components/primitives/ResponsiveImage';
 import { useResponsiveStyle, useResponsiveFontSize } from '../utils/responsiveStyles';
 import { useResponsiveContext } from '../utils/ResponsiveContext';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type RootStackParamList = {
+  WiFiConnectivity: undefined;
+  // Add other screens here as needed
+};
 
 interface MachineStatusDropdownProps {
   selectedMachine: string;
@@ -110,6 +117,8 @@ export default function ODashboard() {
   const { isSm, isMd, isLg } = useResponsiveContext();
   const screenHeight = Dimensions.get('window').height;
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showActivatePopup, setShowActivatePopup] = useState(false);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const isTallScreen = screenHeight > 800;
   const isTrulySmallDevice = isSm && screenHeight < 700;
@@ -233,9 +242,17 @@ export default function ODashboard() {
 
             <View style={tw`bg-white pt-6 rounded-t-3xl self-center w-[94%]`}>
               <View style={tw`px-5 mb-4`}>
-                <Text style={[tw`text-[#2E523A]`, { fontSize: styles.sectionTitle.fontSize, fontWeight: 'bold' }]}>
-                  SIBOL Machines
-                </Text>
+                <View style={tw`flex-row justify-between items-center w-full`}>
+                  <Text style={[tw`text-[#2E523A]`, { fontSize: styles.sectionTitle.fontSize, fontWeight: 'bold' }]}>
+                    SIBOL Machines
+                  </Text>
+                  <TouchableOpacity 
+                    onPress={() => setShowActivatePopup(true)}
+                    style={tw`bg-primary p-2 rounded-full`}
+                  >
+                    <MaterialIcons name="add" size={24} color="white" />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <View style={tw`px-5 pt-4`}>
@@ -270,6 +287,52 @@ export default function ODashboard() {
       <OMenu visible={menuVisible} onClose={() => setMenuVisible(false)} onNavigate={(route) => {
         setMenuVisible(false);
       }} />
+
+      {/* Activate SIBOL Machine Popup */}
+      <Modal
+        visible={showActivatePopup}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowActivatePopup(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowActivatePopup(false)}>
+          <View style={tw`flex-1 bg-black bg-opacity-50 justify-center items-center`}>
+            <TouchableWithoutFeedback>
+              <View style={tw`bg-white rounded-lg p-6 w-5/6 max-w-sm`}>
+                <Text style={tw`text-lg font-semibold text-gray-800 mb-4 text-center`}>
+                  Activate SIBOL Machine
+                </Text>
+                <Text style={tw`text-gray-600 mb-6 text-center`}>
+                  Are you sure you want to activate a new SIBOL Machine?
+                </Text>
+                <View style={tw`flex-row justify-center space-x-4 mt-4`}>
+                  <TouchableOpacity 
+                    onPress={() => setShowActivatePopup(false)}
+                    style={[
+                      tw`px-6 py-2 rounded-md border border-gray-300 flex-1 max-w-[120px] items-center`,
+                      { minWidth: 100 }
+                    ]}
+                  >
+                    <Text style={tw`text-gray-700 font-medium`}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setShowActivatePopup(false);
+                      navigation.navigate('WiFiConnectivity');
+                    }}
+                    style={[
+                      tw`bg-primary px-6 py-2 rounded-md flex-1 max-w-[120px] items-center`,
+                      { minWidth: 100 }
+                    ]}
+                  >
+                    <Text style={tw`text-white font-medium`}>Activate</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 }
