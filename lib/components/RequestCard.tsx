@@ -64,6 +64,9 @@ export default function RequestCard({
   const [expandedRemarkIds, setExpandedRemarkIds] = useState<Set<number>>(new Set());
   const [attachmentsRefreshSignal, setAttachmentsRefreshSignal] = useState(0);
 
+  // ✅ NEW: open modal and auto-open picker (for small UI attach button)
+  const [autoPickOnOpen, setAutoPickOnOpen] = useState(false);
+
   const inlineScrollRef = useRef<any>(null);
 
   const formatTimeOnly = (dateStr: string) => {
@@ -471,7 +474,14 @@ export default function RequestCard({
 
                     <View style={tw`mt-3`}>
                       <View style={tw`flex-row items-center bg-white border border-gray-200 rounded-full px-3`} >
-                        <TouchableOpacity onPress={() => { /* open image picker */ }} style={{ marginRight: 8 }}>
+                        {/* ✅ Small UI: open modal + picker */}
+                        <TouchableOpacity
+                          onPress={() => {
+                            setAutoPickOnOpen(true);
+                            setCommentsModalVisible(true);
+                          }}
+                          style={{ marginRight: 8 }}
+                        >
                           <LucideImage color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
                         </TouchableOpacity>
 
@@ -509,9 +519,44 @@ export default function RequestCard({
 
         <View style={tw`h-4`} />
 
-        <View style={tw`mt-2 relative`}>
+        {/* Bottom controls (collapsed) */}
+        <View style={tw`mt-2`}>
+          {/* Row 1: Remarks (left) + Expand arrow (right) */}
+          <View style={tw`flex-row items-center justify-between`}>
+            {!request.isExpanded ? (
+              <TouchableOpacity
+                onPress={() => {
+                  // ✅ Expand card (as requested) + open modal for attachments/messages
+                  onToggleExpand(request.id);
+                  setCommentsModalVisible(true);
+                }}
+                style={tw`bg-white border border-gray-300 rounded-full px-3 py-2`}
+              >
+                <Text style={tw`text-text-gray text-[11px] font-semibold`}>Remarks</Text>
+              </TouchableOpacity>
+            ) : (
+              <View />
+            )}
+
+            <TouchableOpacity
+              onPress={() => onToggleExpand(request.id)}
+              style={tw`bg-[#88AB8E] rounded-full w-8 h-8 items-center justify-center`}
+            >
+              <Svg width="10" height="6" viewBox="0 0 10 6" fill="none">
+                <Path
+                  d={request.isExpanded ? "M9 5L5 1L1 5" : "M1 1L5 5L9 1"}
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+          </View>
+
+          {/* Row 2: For Completion button moved down */}
           {!request.isExpanded && isPending && (
-            <View style={[{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }]}>
+            <View style={tw`mt-3 items-center`}>
               <TouchableOpacity
                 onPress={() => setForCompletionModalVisible(true)}
                 style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
@@ -520,21 +565,6 @@ export default function RequestCard({
               </TouchableOpacity>
             </View>
           )}
-
-          <TouchableOpacity
-            onPress={() => onToggleExpand(request.id)}
-            style={[tw`bg-[#88AB8E] rounded-full w-6 h-6 items-center justify-center`, { position: 'absolute', right: 0 }]}
-          >
-            <Svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-              <Path
-                d={request.isExpanded ? "M9 5L5 1L1 5" : "M1 1L5 5L9 1"}
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -546,11 +576,17 @@ export default function RequestCard({
 
       <CommentsSection
         visible={commentsModalVisible}
-        onClose={() => setCommentsModalVisible(false)}
+        onClose={() => {
+          setCommentsModalVisible(false);
+          setAutoPickOnOpen(false);
+        }}
         requestId={Number(request.id)}
         messages={remarks}
         onSendMessage={handleModalSend}
         refreshAttachmentsSignal={attachmentsRefreshSignal}
+        currentUserId={currentUserId}
+        autoPickOnOpen={autoPickOnOpen}
+        onAutoPickHandled={() => setAutoPickOnOpen(false)}
       />
 
       <ForCompletion

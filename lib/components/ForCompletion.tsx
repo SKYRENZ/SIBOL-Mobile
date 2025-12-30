@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, ScrollView, TextInput, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import tw from '../utils/tailwind';
 import { X as LucideX, Paperclip as LucidePaperclip, Minus as LucideMinus, Plus as LucidePlus } from 'lucide-react-native';
 import Button from './commons/Button';
-import { getTicketRemarks, MaintenanceRemark } from '../services/maintenanceService';
 
 interface Attachment {
   uri: string;
@@ -24,74 +23,25 @@ export default function ForCompletion({ visible, onClose, onMarkDone, requestId 
   const [remarks, setRemarks] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
-  const [historicalRemarks, setHistoricalRemarks] = useState<MaintenanceRemark[]>([]);
-  const [loadingRemarks, setLoadingRemarks] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const handleMarkDone = () => {
+    if (attachments.length === 0) {
+      Alert.alert('Missing Attachment', 'Please add at least one attachment');
+      return;
+    }
 
-  // ✅ NEW: tap-to-expand historical remark details
-  const [expandedRemarkIds, setExpandedRemarkIds] = useState<Set<number>>(new Set());
+    if (onMarkDone) {
+      onMarkDone(remarks, attachments);
+    }
 
-  const formatTimeOnly = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
+    setRemarks('');
+    setAttachments([]);
+    onClose();
   };
 
-  const formatFullStamp = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleString('en-US', {
-      month: 'short',
-      day: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
-
-  const toggleRemarkExpanded = (remarkId: number) => {
-    setExpandedRemarkIds(prev => {
-      const next = new Set(prev);
-      if (next.has(remarkId)) next.delete(remarkId);
-      else next.add(remarkId);
-      return next;
-    });
-  };
-
-  // ✅ NEW: Load remarks when modal opens
-  useEffect(() => {
-    if (visible && requestId) {
-      loadRemarks();
-    } else if (!visible) {
-      setHistoricalRemarks([]);
-    }
-  }, [visible, requestId]);
-
-  // ✅ NEW: Auto-scroll to bottom when remarks load
-  useEffect(() => {
-    if (historicalRemarks.length > 0 && scrollRef.current) {
-      setTimeout(() => {
-        scrollRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  }, [historicalRemarks.length]);
-
-  // ✅ NEW: Load historical remarks
-  const loadRemarks = async () => {
-    if (!requestId) return;
-    
-    setLoadingRemarks(true);
-    try {
-      const data = await getTicketRemarks(Number(requestId));
-      setHistoricalRemarks(data);
-    } catch (error) {
-      console.error('Error loading remarks:', error);
-    } finally {
-      setLoadingRemarks(false);
-    }
+  const handleClose = () => {
+    setRemarks('');
+    setAttachments([]);
+    onClose();
   };
 
   const handleImagePick = async () => {
@@ -119,29 +69,6 @@ export default function ForCompletion({ visible, onClose, onMarkDone, requestId 
 
       setAttachments(prev => [...prev, ...newAttachments]);
     }
-  };
-
-  const handleMarkDone = () => {
-    if (attachments.length === 0) {
-      Alert.alert('Missing Attachment', 'Please add at least one attachment');
-      return;
-    }
-
-    if (onMarkDone) {
-      onMarkDone(remarks, attachments);
-    }
-
-    setRemarks('');
-    setAttachments([]);
-    setHistoricalRemarks([]); // ✅ Clear remarks on close
-    onClose();
-  };
-
-  const handleClose = () => {
-    setRemarks('');
-    setAttachments([]);
-    setHistoricalRemarks([]); // ✅ Clear remarks on close
-    onClose();
   };
 
   const removeAttachment = (index: number) => {
@@ -185,81 +112,16 @@ export default function ForCompletion({ visible, onClose, onMarkDone, requestId 
 
                 <TouchableOpacity
                   onPress={handleClose}
-                  style={{ position: 'absolute', right: 16, top: 6, padding: 4 }} 
+                  style={{ position: 'absolute', right: 16, top: 6, padding: 4 }}
                   accessibilityLabel="Close"
                 >
                   <LucideX color="#14532D" size={18} strokeWidth={2} />
                 </TouchableOpacity>
               </View>
- 
-               <ScrollView ref={scrollRef} style={tw`flex-1`} showsVerticalScrollIndicator={false}>
-                 {/* ✅ NEW: Historical Remarks Section - Only show if there are remarks */}
-                 {historicalRemarks.length > 0 && (
-                   <View style={tw`mb-6`}>
-                     <Text style={tw`text-text-gray text-sm font-semibold mb-2`}>Previous Remarks:</Text>
-                     <View style={tw`bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-32`}>
-                       <ScrollView showsVerticalScrollIndicator={false}>
-                         {loadingRemarks ? (
-                           <Text style={tw`text-gray-500 text-xs text-center py-2`}>Loading remarks...</Text>
-                         ) : (
-                           historicalRemarks.map((remark) => {
-                             const isBrgy = remark.User_role === 'Barangay_staff' || remark.User_role === 'Admin';
-                             const isExpanded = expandedRemarkIds.has(remark.Remark_Id);
 
-                             return (
-                               <View
-                                 key={remark.Remark_Id}
-                                 style={{
-                                   marginBottom: 8,
-                                   alignSelf: isBrgy ? 'flex-start' : 'flex-end',
-                                   maxWidth: '78%',
-                                 }}
-                               >
-                                 <View style={{ marginBottom: 2, flexDirection: 'row' }}>
-                                   <Text style={{ fontWeight: '600', fontSize: 11, color: '#1F4D36' }}>
-                                     {isBrgy ? 'Barangay' : 'You'}
-                                   </Text>
-
-                                   {/* ✅ Time only */}
-                                   <Text style={tw`text-xs text-gray-400 ml-2`}>
-                                     {formatTimeOnly(remark.Created_at)}
-                                   </Text>
-                                 </View>
-
-                                 <TouchableOpacity
-                                   activeOpacity={0.85}
-                                   onPress={() => toggleRemarkExpanded(remark.Remark_Id)}
-                                   style={[
-                                     {
-                                       padding: 8,
-                                       borderRadius: 8,
-                                       backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF',
-                                     },
-                                     shadowStyle,
-                                   ]}
-                                 >
-                                   <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 12 }}>
-                                     {remark.Remark_text}
-                                   </Text>
-
-                                   {/* ✅ More info only on tap */}
-                                   {isExpanded && (
-                                     <Text style={{ marginTop: 6, fontSize: 10, color: isBrgy ? '#F1F5F9' : '#6B7280' }}>
-                                       {formatFullStamp(remark.Created_at)}
-                                     </Text>
-                                   )}
-                                 </TouchableOpacity>
-                               </View>
-                             );
-                           })
-                         )}
-                       </ScrollView>
-                     </View>
-                   </View>
-                 )}
-
-                 {/* Remarks Section */}
-                 <View style={tw`mb-6`}>
+              <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
+                {/* Remarks Section */}
+                <View style={tw`mb-6`}>
                   <Text style={tw`text-text-gray text-sm font-semibold mb-2`}>Remarks:</Text>
                   <TextInput
                     style={tw`border border-green-light rounded-lg p-3 text-gray-700 min-h-20 text-sm`}
@@ -270,10 +132,10 @@ export default function ForCompletion({ visible, onClose, onMarkDone, requestId 
                     multiline
                     textAlignVertical="top"
                   />
-                 </View>
- 
-                 {/* Attachment Section */}
-                 <View style={tw`mb-6`}>
+                </View>
+
+                {/* Attachment Section */}
+                <View style={tw`mb-6`}>
                   <View style={tw`flex-row justify-between items-center mb-2`}>
                     <Text style={tw`text-text-gray text-sm font-semibold`}>Attachment</Text>
                     {attachments.length > 0 && (
@@ -282,7 +144,7 @@ export default function ForCompletion({ visible, onClose, onMarkDone, requestId 
                       </TouchableOpacity>
                     )}
                   </View>
- 
+
                   {attachments.length === 0 && (
                     <TouchableOpacity
                       onPress={handleImagePick}
@@ -296,44 +158,44 @@ export default function ForCompletion({ visible, onClose, onMarkDone, requestId 
                       </View>
                     </TouchableOpacity>
                   )}
- 
-                   {/* Attachments List */}
-                   {attachments.length > 0 && (
-                     <View style={tw`mt-4`}>
-                       {attachments.map((attachment, index) => (
-                         <View
-                           key={index}
-                           style={tw`flex-row justify-between items-center bg-secondary rounded-lg p-2 mb-2`}
-                         >
+
+                  {/* Attachments List */}
+                  {attachments.length > 0 && (
+                    <View style={tw`mt-4`}>
+                      {attachments.map((attachment, index) => (
+                        <View
+                          key={index}
+                          style={tw`flex-row justify-between items-center bg-secondary rounded-lg p-2 mb-2`}
+                        >
                           <Text style={tw`text-gray-700 font-medium flex-1 mr-2 text-sm`} numberOfLines={1}>
-                             {attachment.name}
-                           </Text>
-                           <TouchableOpacity
-                             onPress={() => removeAttachment(index)}
-                             style={tw`p-1`}
-                           >
+                            {attachment.name}
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => removeAttachment(index)}
+                            style={tw`p-1`}
+                          >
                             <LucideMinus color="#DC2626" size={16} strokeWidth={2} />
-                           </TouchableOpacity>
-                         </View>
-                       ))}
-                     </View>
-                   )}
-                 </View>
-               </ScrollView>
- 
-               <View style={tw`mt-4 self-center w-full px-6`}> 
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+
+              <View style={tw`mt-4 self-center w-full px-6`}>
                 <Button
                   title="Mark as Done"
                   onPress={handleMarkDone}
                   disabled={attachments.length === 0}
-                  style={tw`w-full`} 
+                  style={tw`w-full`}
                   testID="for-completion-mark-done"
                 />
-               </View>
-             </View>
-           </TouchableWithoutFeedback>
-         </View>
-       </TouchableWithoutFeedback>
-     </Modal>
-   );
- }
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}

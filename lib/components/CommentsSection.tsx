@@ -8,11 +8,15 @@ import {
   TextInput,
   Image,
   Alert,
-  Dimensions,
+  Platform, // ✅ add
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+
+// ✅ use legacy FS for downloadAsync on SDK 54+
+import * as LegacyFS from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import tw from '../utils/tailwind';
-import { Image as LucideImage, Send as LucideSend, X as LucideX } from 'lucide-react-native';
+import { Image as LucideImage, Send as LucideSend, X as LucideX, Download as LucideDownload } from 'lucide-react-native';
 import {
   MaintenanceRemark,
   getTicketAttachments,
@@ -34,15 +38,33 @@ interface CommentsSectionProps {
   messages: MaintenanceRemark[];
   onSendMessage: (text: string, attachments: Attachment[]) => Promise<void>;
 
-  // ✅ parent can bump this to force re-fetch of server attachments
   refreshAttachmentsSignal?: number;
+  currentUserId?: number | null;
+
+  autoPickOnOpen?: boolean;
+  onAutoPickHandled?: () => void;
 }
 
 const isLikelyImage = (fileNameOrUrl: string, fileType?: string | null) => {
   const t = (fileType || '').toLowerCase();
   if (t.startsWith('image/')) return true;
+
   const s = (fileNameOrUrl || '').toLowerCase();
+
+  // ✅ Cloudinary image URLs often have no file extension
+  if (s.includes('/image/upload/')) return true;
+
   return /\.(png|jpe?g|gif|webp)$/i.test(s);
+};
+
+const guessFileName = (url: string, fallback = `attachment_${Date.now()}`) => {
+  try {
+    const clean = url.split('?')[0];
+    const last = clean.substring(clean.lastIndexOf('/') + 1);
+    return last || fallback;
+  } catch {
+    return fallback;
+  }
 };
 
 export default function CommentsSection({
@@ -52,6 +74,9 @@ export default function CommentsSection({
   messages,
   onSendMessage,
   refreshAttachmentsSignal = 0,
+  currentUserId = null,
+  autoPickOnOpen = false,
+  onAutoPickHandled,
 }: CommentsSectionProps) {
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef<ScrollView>(null);
@@ -59,16 +84,12 @@ export default function CommentsSection({
   const [uploadedAttachments, setUploadedAttachments] = useState<MaintenanceAttachment[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
 
-  // ✅ Pending attachments picked locally (not yet uploaded)
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
 
-  // ✅ tap-to-expand remark details
-  const [expandedRemarkIds, setExpandedRemarkIds] = useState<Set<number>>(new Set());
-
-  const formatTimeOnly = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-  };
+  // ✅ Preview modal state
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewIsImage, setPreviewIsImage] = useState(false);
 
   const formatFullStamp = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -79,15 +100,6 @@ export default function CommentsSection({
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
-    });
-  };
-
-  const toggleRemarkExpanded = (remarkId: number) => {
-    setExpandedRemarkIds(prev => {
-      const next = new Set(prev);
-      if (next.has(remarkId)) next.delete(remarkId);
-      else next.add(remarkId);
-      return next;
     });
   };
 
@@ -112,17 +124,16 @@ export default function CommentsSection({
   }, [visible]);
 
   useEffect(() => {
-    if (visible) {
-      loadAttachments();
-    }
+    if (visible) loadAttachments();
   }, [refreshAttachmentsSignal]);
 
-  // Clear drafts when closing
   useEffect(() => {
     if (!visible) {
       setNewMessage('');
       setPendingAttachments([]);
-      setExpandedRemarkIds(new Set());
+      setPreviewVisible(false);
+      setPreviewUrl(null);
+      setPreviewIsImage(false);
     }
   }, [visible]);
 
@@ -152,9 +163,30 @@ export default function CommentsSection({
     }
   };
 
+  // ✅ Auto-open picker when modal opens (one-shot)
+  const autoPickFiredRef = useRef(false);
+  useEffect(() => {
+    if (!visible) {
+      autoPickFiredRef.current = false;
+      return;
+    }
+    if (visible && autoPickOnOpen && !autoPickFiredRef.current) {
+      autoPickFiredRef.current = true;
+      setTimeout(async () => {
+        try {
+          await handlePickAttachments();
+        } finally {
+          onAutoPickHandled?.();
+        }
+      }, 0);
+    }
+  }, [visible, autoPickOnOpen, onAutoPickHandled]);
+
   const removePendingAttachment = (index: number) => {
     setPendingAttachments(prev => prev.filter((_, i) => i !== index));
   };
+
+  const canSend = newMessage.trim().length > 0 || pendingAttachments.length > 0;
 
   const handleSendMessage = async () => {
     const text = newMessage.trim();
@@ -176,9 +208,6 @@ export default function CommentsSection({
     elevation: 3,
   };
 
-  const { width: screenWidth } = Dimensions.get('window');
-
-  // ✅ Smaller square thumbnails
   const thumbSize = 56;
   const thumbRadius = 10;
 
@@ -186,6 +215,92 @@ export default function CommentsSection({
     () => uploadedAttachments.length > 0,
     [uploadedAttachments.length]
   );
+
+  const openPreview = (url: string, fileNameOrUrl?: string, fileType?: string | null) => {
+    setPreviewUrl(url);
+    setPreviewIsImage(isLikelyImage(fileNameOrUrl || url, fileType));
+    setPreviewVisible(true);
+  };
+
+  const handleDownload = async () => {
+    if (!previewUrl) return;
+
+    try {
+      // ✅ Web: download via blob + anchor
+      if (Platform.OS === 'web') {
+        const res = await fetch(previewUrl);
+        if (!res.ok) throw new Error(`Download failed (${res.status})`);
+        const blob = await res.blob();
+
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = guessFileName(previewUrl);
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+
+      // ✅ Native (iOS/Android): use legacy downloadAsync
+      const fileName = guessFileName(previewUrl);
+
+      const baseDir =
+        LegacyFS.documentDirectory ||
+        LegacyFS.cacheDirectory;
+
+      if (!baseDir) {
+        Alert.alert('Error', 'File system directory is not available on this platform.');
+        return;
+      }
+
+      const localUri = `${baseDir}${fileName}`;
+
+      await LegacyFS.downloadAsync(previewUrl, localUri);
+
+      // Share sheet (acts as "save/share/download" on mobile)
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert('Downloaded', `Saved to:\n${localUri}`);
+        return;
+      }
+
+      await Sharing.shareAsync(localUri);
+    } catch (err: any) {
+      console.error('Download/share error:', err);
+      Alert.alert('Error', err?.message || 'Failed to download the file');
+    }
+  };
+
+  // ✅ Combine remarks + uploaded attachments into one timeline (Messenger-like)
+  type TimelineItem =
+    | { kind: 'remark'; key: string; createdAt: string; isBrgy: boolean; text: string }
+    | { kind: 'attachment'; key: string; createdAt: string; isBrgy: boolean; url: string; name: string; type?: string | null };
+
+  const timeline: TimelineItem[] = useMemo(() => {
+    const remarkItems: TimelineItem[] = (messages || []).map(r => ({
+      kind: 'remark',
+      key: `r-${r.Remark_Id}`,
+      createdAt: r.Created_at,
+      isBrgy: r.User_role === 'Barangay_staff' || r.User_role === 'Admin',
+      text: r.Remark_text,
+    }));
+
+    const attachmentItems: TimelineItem[] = (uploadedAttachments || []).map(a => ({
+      kind: 'attachment',
+      key: `a-${a.Attachment_Id}`,
+      createdAt: a.Uploaded_at,
+      isBrgy: currentUserId ? a.Uploaded_by !== currentUserId : true,
+      url: a.File_path,
+      name: a.File_name,
+      type: a.File_type,
+    }));
+
+    return [...remarkItems, ...attachmentItems].sort(
+      (x, y) => new Date(x.createdAt).getTime() - new Date(y.createdAt).getTime()
+    );
+  }, [messages, uploadedAttachments, currentUserId]);
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -200,12 +315,10 @@ export default function CommentsSection({
             </TouchableOpacity>
           </View>
 
-          {/* ✅ Attachments section under header (UPLOADED ONLY) */}
+          {/* Uploaded attachments strip (small squares, clickable, no "Add") */}
           <View style={tw`px-4 pt-3 pb-2 border-b border-gray-100`}>
             <View style={tw`flex-row items-center justify-between mb-2`}>
               <Text style={tw`text-sm font-semibold text-gray-700`}>Attachments</Text>
-
-              {/* ✅ Removed "Add" (redundant) */}
               <Text style={tw`text-xs text-gray-400`}>
                 {uploadedAttachments.length > 0 ? `${uploadedAttachments.length}` : ''}
               </Text>
@@ -218,8 +331,10 @@ export default function CommentsSection({
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {uploadedAttachments.map((att) => (
-                  <View
+                  <TouchableOpacity
                     key={`uploaded_${att.Attachment_Id}`}
+                    activeOpacity={0.85}
+                    onPress={() => openPreview(att.File_path, att.File_name, att.File_type)}
                     style={[
                       tw`mr-2 bg-gray-50 border border-gray-200 overflow-hidden`,
                       { width: thumbSize, height: thumbSize, borderRadius: thumbRadius },
@@ -238,61 +353,73 @@ export default function CommentsSection({
                         </Text>
                       </View>
                     )}
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
             )}
           </View>
 
-          {/* Messages */}
+          {/* Timeline (remarks + attachments) */}
           <ScrollView ref={scrollRef} style={tw`flex-1 p-4`}>
-            {messages.length === 0 ? (
-              <Text style={tw`text-gray-400 text-center py-8`}>No remarks yet</Text>
+            {timeline.length === 0 ? (
+              <Text style={tw`text-gray-400 text-center py-8`}>No remarks or attachments yet</Text>
             ) : (
-              messages.map((remark) => {
-                const isBrgy = remark.User_role === 'Barangay_staff' || remark.User_role === 'Admin';
-                const isExpanded = expandedRemarkIds.has(remark.Remark_Id);
+              timeline.map((item) => {
+                const isBrgy = item.isBrgy;
 
                 return (
                   <View
-                    key={remark.Remark_Id}
+                    key={item.key}
                     style={{ marginBottom: 12, alignSelf: isBrgy ? 'flex-start' : 'flex-end', maxWidth: '78%' }}
                   >
-                    <View style={tw`flex-row mb-1`}>
-                      <Text style={[tw`font-semibold text-sm`, { color: '#1F4D36' }]}>
+                    {/* ✅ "You" aligned right (no time beside it) */}
+                    <View style={{ flexDirection: 'row', justifyContent: isBrgy ? 'flex-start' : 'flex-end', marginBottom: 4 }}>
+                      <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
                         {isBrgy ? 'Barangay' : 'You'}
-                      </Text>
-
-                      <Text style={tw`text-xs text-gray-500 ml-2`}>
-                        {formatTimeOnly(remark.Created_at)}
                       </Text>
                     </View>
 
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      onPress={() => toggleRemarkExpanded(remark.Remark_Id)}
+                    <View
                       style={[
                         { padding: 10, borderRadius: 10, backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF' },
                         shadowStyle,
                       ]}
                     >
-                      <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
-                        {remark.Remark_text}
-                      </Text>
-
-                      {isExpanded && (
-                        <Text style={{ marginTop: 6, fontSize: 11, color: isBrgy ? '#F1F5F9' : '#6B7280' }}>
-                          {formatFullStamp(remark.Created_at)}
+                      {item.kind === 'remark' ? (
+                        <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
+                          {item.text}
                         </Text>
+                      ) : (
+                        <TouchableOpacity
+                          activeOpacity={0.9}
+                          onPress={() => openPreview(item.url, item.name, item.type)}
+                        >
+                          {isLikelyImage(item.name || item.url, item.type) ? (
+                            <Image
+                              source={{ uri: item.url }}
+                              resizeMode="cover"
+                              style={{ width: 160, height: 160, borderRadius: 10 }}
+                            />
+                          ) : (
+                            <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
+                              Attachment
+                            </Text>
+                          )}
+                        </TouchableOpacity>
                       )}
-                    </TouchableOpacity>
+
+                      {/* ✅ Always show details under the bubble (no clicking) */}
+                      <Text style={{ marginTop: 6, fontSize: 11, color: isBrgy ? '#F1F5F9' : '#6B7280' }}>
+                        {formatFullStamp(item.createdAt)}
+                      </Text>
+                    </View>
                   </View>
                 );
               })
             )}
           </ScrollView>
 
-          {/* ✅ Pending attachments should appear ABOVE the input area */}
+          {/* Pending attachments ABOVE input */}
           {pendingAttachments.length > 0 && (
             <View style={tw`px-4 pb-2`}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -305,7 +432,6 @@ export default function CommentsSection({
                     ]}
                   >
                     <Image source={{ uri: att.uri }} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
-
                     <TouchableOpacity
                       onPress={() => removePendingAttachment(idx)}
                       style={{
@@ -323,10 +449,7 @@ export default function CommentsSection({
                   </View>
                 ))}
               </ScrollView>
-
-              <Text style={tw`text-[10px] text-gray-400 mt-1`}>
-                Selected: {pendingAttachments.length}
-              </Text>
+              <Text style={tw`text-[10px] text-gray-400 mt-1`}>Selected: {pendingAttachments.length}</Text>
             </View>
           )}
 
@@ -346,11 +469,57 @@ export default function CommentsSection({
                 multiline={false}
               />
 
-              <TouchableOpacity onPress={handleSendMessage} style={{ marginLeft: 8 }}>
+              <TouchableOpacity
+                onPress={handleSendMessage}
+                disabled={!canSend}
+                style={{ marginLeft: 8, opacity: canSend ? 1 : 0.35 }}
+              >
                 <LucideSend color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* ✅ Attachment preview + download */}
+          <Modal visible={previewVisible} transparent animationType="fade">
+            <View style={tw`flex-1 bg-black bg-opacity-70 items-center justify-center`}>
+              <View style={tw`bg-white rounded-lg w-11/12 max-h-5/6 overflow-hidden`}>
+                <View style={tw`flex-row justify-between items-center p-3 border-b border-gray-200`}>
+                  <Text style={tw`text-sm font-semibold text-gray-800`}>Attachment</Text>
+
+                  <View style={tw`flex-row items-center`}>
+                    <TouchableOpacity onPress={handleDownload} style={tw`mr-4`}>
+                      <LucideDownload color="#2E523A" size={18} strokeWidth={2} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setPreviewVisible(false);
+                        setPreviewUrl(null);
+                        setPreviewIsImage(false);
+                      }}
+                    >
+                      <LucideX color="#2E523A" size={18} strokeWidth={2} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={tw`p-3`}>
+                  {previewUrl && previewIsImage ? (
+                    <Image
+                      source={{ uri: previewUrl }}
+                      resizeMode="contain"
+                      style={{ width: '100%', height: 420, backgroundColor: '#111827', borderRadius: 10 }}
+                    />
+                  ) : (
+                    <View style={tw`h-40 items-center justify-center bg-gray-100 rounded-lg border border-gray-200`}>
+                      <Text style={tw`text-gray-600 text-sm`}>Preview not available</Text>
+                      <Text style={tw`text-gray-400 text-xs mt-1`}>Use Download to save/share</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+          </Modal>
 
         </View>
       </View>
