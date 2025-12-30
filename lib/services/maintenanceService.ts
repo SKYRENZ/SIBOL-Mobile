@@ -151,6 +151,26 @@ export async function getTicketRemarks(requestId: number): Promise<MaintenanceRe
   return response.data || [];
 }
 
+// ✅ NEW: Get ticket attachments
+export interface MaintenanceAttachment {
+  Attachment_Id: number;
+  Request_Id: number;
+  Uploaded_by: number;
+  File_path: string;
+  File_name: string;
+  File_type?: string | null;
+  File_size?: number | null;
+  Uploaded_at: string;
+  UploaderName?: string | null;
+  UploaderRole?: string | null;
+}
+
+// ✅ NEW: Get ticket attachments
+export async function getTicketAttachments(requestId: number): Promise<MaintenanceAttachment[]> {
+  const response = await apiClient.get(`/api/maintenance/${requestId}/attachments`);
+  return response.data || [];
+}
+
 export async function markOngoing(
   requestId: number,
   data: OperatorActionPayload

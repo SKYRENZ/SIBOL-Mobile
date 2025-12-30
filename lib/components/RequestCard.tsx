@@ -11,7 +11,7 @@ import {
   addAttachmentToTicket, 
   getTicketRemarks, 
   addRemark,
-  MaintenanceRemark 
+  MaintenanceRemark,
 } from '../services/maintenanceService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -37,6 +37,13 @@ interface RequestCardProps {
   onMarkDone?: (requestId: string, remarks: string, attachments: any[]) => Promise<void>;
 }
 
+interface RemarkAttachment {
+  uri: string;
+  name: string;
+  type: string;
+  size?: number;
+}
+
 export default function RequestCard({
   request,
   onToggleExpand,
@@ -55,6 +62,7 @@ export default function RequestCard({
 
   // ✅ NEW: tap-to-expand remark details
   const [expandedRemarkIds, setExpandedRemarkIds] = useState<Set<number>>(new Set());
+  const [attachmentsRefreshSignal, setAttachmentsRefreshSignal] = useState(0);
 
   const inlineScrollRef = useRef<any>(null);
 
@@ -162,22 +170,57 @@ export default function RequestCard({
     }
   };
 
-  // ✅ Handle sending remark from modal
-  const handleModalSend = async (text: string) => {
+  // ✅ Handle sending remark from modal (text + attachments)
+  const handleModalSend = async (text: string, attachments: RemarkAttachment[]) => {
     if (!text.trim() || !currentUserId) return;
-    
+
     try {
+      // 1) Upload + attach to ticket
+      if (attachments?.length) {
+        const uploadResults = await Promise.allSettled(
+          attachments.map(async (attachment) => {
+            const cloudinaryUrl = await uploadToCloudinary(
+              attachment.uri,
+              attachment.name,
+              attachment.type
+            );
+
+            await addAttachmentToTicket(
+              Number(request.id),
+              currentUserId,
+              cloudinaryUrl,
+              attachment.name,
+              attachment.type,
+              attachment.size
+            );
+
+            return attachment.name;
+          })
+        );
+
+        const failed = uploadResults.filter(r => r.status === 'rejected');
+        if (failed.length > 0) {
+          // Not blocking the remark, but let user know something failed
+          Alert.alert('Warning', `${failed.length} attachment(s) failed to upload.`);
+        }
+
+        // refresh attachment carousel in modal
+        setAttachmentsRefreshSignal(x => x + 1);
+      }
+
+      // 2) Add remark
       const newRemark = await addRemark(
         Number(request.id),
         text.trim(),
         currentUserId,
         currentUserRole
       );
-      
+
       setRemarks(prev => [...prev, newRemark]);
     } catch (error: any) {
-      console.error('Error adding remark:', error);
-      Alert.alert('Error', error?.message || 'Failed to add remark');
+      console.error('Error adding remark with attachments:', error);
+      Alert.alert('Error', error?.message || 'Failed to send remark');
+      throw error;
     }
   };
 
@@ -498,8 +541,10 @@ export default function RequestCard({
       <CommentsSection
         visible={commentsModalVisible}
         onClose={() => setCommentsModalVisible(false)}
+        requestId={Number(request.id)}
         messages={remarks}
         onSendMessage={handleModalSend}
+        refreshAttachmentsSignal={attachmentsRefreshSignal}
       />
 
       <ForCompletion
