@@ -158,9 +158,12 @@ export default function CommentsSection({
 
   const handleSendMessage = async () => {
     const text = newMessage.trim();
-    if (!text) return;
+
+    // ✅ Allow attachments-only sends
+    if (!text && pendingAttachments.length === 0) return;
 
     await onSendMessage(text, pendingAttachments);
+
     setNewMessage('');
     setPendingAttachments([]);
   };

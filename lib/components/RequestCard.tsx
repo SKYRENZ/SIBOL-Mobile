@@ -172,11 +172,17 @@ export default function RequestCard({
 
   // ✅ Handle sending remark from modal (text + attachments)
   const handleModalSend = async (text: string, attachments: RemarkAttachment[]) => {
-    if (!text.trim() || !currentUserId) return;
+    if (!currentUserId) return;
+
+    const trimmed = text.trim();
+    const hasAttachments = !!attachments?.length;
+
+    // ✅ allow attachments-only; block only if nothing to send
+    if (!trimmed && !hasAttachments) return;
 
     try {
       // 1) Upload + attach to ticket
-      if (attachments?.length) {
+      if (hasAttachments) {
         const uploadResults = await Promise.allSettled(
           attachments.map(async (attachment) => {
             const cloudinaryUrl = await uploadToCloudinary(
@@ -200,23 +206,23 @@ export default function RequestCard({
 
         const failed = uploadResults.filter(r => r.status === 'rejected');
         if (failed.length > 0) {
-          // Not blocking the remark, but let user know something failed
           Alert.alert('Warning', `${failed.length} attachment(s) failed to upload.`);
         }
 
-        // refresh attachment carousel in modal
+        // refresh attachments section in modal
         setAttachmentsRefreshSignal(x => x + 1);
       }
 
-      // 2) Add remark
-      const newRemark = await addRemark(
-        Number(request.id),
-        text.trim(),
-        currentUserId,
-        currentUserRole
-      );
-
-      setRemarks(prev => [...prev, newRemark]);
+      // 2) Add remark ONLY if user typed something
+      if (trimmed) {
+        const newRemark = await addRemark(
+          Number(request.id),
+          trimmed,
+          currentUserId,
+          currentUserRole
+        );
+        setRemarks(prev => [...prev, newRemark]);
+      }
     } catch (error: any) {
       console.error('Error adding remark with attachments:', error);
       Alert.alert('Error', error?.message || 'Failed to send remark');
