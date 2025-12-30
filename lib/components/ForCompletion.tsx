@@ -23,11 +23,43 @@ interface ForCompletionProps {
 export default function ForCompletion({ visible, onClose, onMarkDone, requestId }: ForCompletionProps) {
   const [remarks, setRemarks] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  
-  // ✅ NEW: State for historical remarks
+
   const [historicalRemarks, setHistoricalRemarks] = useState<MaintenanceRemark[]>([]);
   const [loadingRemarks, setLoadingRemarks] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+
+  // ✅ NEW: tap-to-expand historical remark details
+  const [expandedRemarkIds, setExpandedRemarkIds] = useState<Set<number>>(new Set());
+
+  const formatTimeOnly = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const formatFullStamp = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const toggleRemarkExpanded = (remarkId: number) => {
+    setExpandedRemarkIds(prev => {
+      const next = new Set(prev);
+      if (next.has(remarkId)) next.delete(remarkId);
+      else next.add(remarkId);
+      return next;
+    });
+  };
 
   // ✅ NEW: Load remarks when modal opens
   useEffect(() => {
@@ -133,8 +165,8 @@ export default function ForCompletion({ visible, onClose, onMarkDone, requestId 
               style={[
                 tw`bg-white p-4`,
                 {
-                  width: '85%',        
-                  height: '45%',       
+                  width: '85%',
+                  height: '45%',
                   borderRadius: 10,
                   alignSelf: 'center',
                   shadowColor: '#000',
@@ -172,38 +204,51 @@ export default function ForCompletion({ visible, onClose, onMarkDone, requestId 
                          ) : (
                            historicalRemarks.map((remark) => {
                              const isBrgy = remark.User_role === 'Barangay_staff' || remark.User_role === 'Admin';
+                             const isExpanded = expandedRemarkIds.has(remark.Remark_Id);
+
                              return (
-                               <View 
-                                 key={remark.Remark_Id} 
-                                 style={{ 
-                                   marginBottom: 8, 
-                                   alignSelf: isBrgy ? 'flex-start' : 'flex-end', 
-                                   maxWidth: '78%' 
+                               <View
+                                 key={remark.Remark_Id}
+                                 style={{
+                                   marginBottom: 8,
+                                   alignSelf: isBrgy ? 'flex-start' : 'flex-end',
+                                   maxWidth: '78%',
                                  }}
                                >
                                  <View style={{ marginBottom: 2, flexDirection: 'row' }}>
                                    <Text style={{ fontWeight: '600', fontSize: 11, color: '#1F4D36' }}>
                                      {isBrgy ? 'Barangay' : 'You'}
                                    </Text>
+
+                                   {/* ✅ Time only */}
                                    <Text style={tw`text-xs text-gray-400 ml-2`}>
-                                     {new Date(remark.Created_at).toLocaleString()}
+                                     {formatTimeOnly(remark.Created_at)}
                                    </Text>
                                  </View>
 
-                                 <View 
+                                 <TouchableOpacity
+                                   activeOpacity={0.85}
+                                   onPress={() => toggleRemarkExpanded(remark.Remark_Id)}
                                    style={[
-                                     { 
-                                       padding: 8, 
-                                       borderRadius: 8, 
-                                       backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF' 
-                                     }, 
-                                     shadowStyle
+                                     {
+                                       padding: 8,
+                                       borderRadius: 8,
+                                       backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF',
+                                     },
+                                     shadowStyle,
                                    ]}
                                  >
                                    <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 12 }}>
                                      {remark.Remark_text}
                                    </Text>
-                                 </View>
+
+                                   {/* ✅ More info only on tap */}
+                                   {isExpanded && (
+                                     <Text style={{ marginTop: 6, fontSize: 10, color: isBrgy ? '#F1F5F9' : '#6B7280' }}>
+                                       {formatFullStamp(remark.Created_at)}
+                                     </Text>
+                                   )}
+                                 </TouchableOpacity>
                                </View>
                              );
                            })

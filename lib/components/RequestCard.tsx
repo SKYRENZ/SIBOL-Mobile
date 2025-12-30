@@ -46,15 +46,47 @@ export default function RequestCard({
   const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
   const [commentsModalVisible, setCommentsModalVisible] = useState(false);
   const [forCompletionModalVisible, setForCompletionModalVisible] = useState(false);
-  
-  // ✅ Changed to use MaintenanceRemark
+
   const [remarks, setRemarks] = useState<MaintenanceRemark[]>([]);
   const [loadingRemarks, setLoadingRemarks] = useState(false);
   const [inlineNewMsg, setInlineNewMsg] = useState('');
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string>('Operator');
 
+  // ✅ NEW: tap-to-expand remark details
+  const [expandedRemarkIds, setExpandedRemarkIds] = useState<Set<number>>(new Set());
+
   const inlineScrollRef = useRef<any>(null);
+
+  const formatTimeOnly = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const formatFullStamp = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const toggleRemarkExpanded = (remarkId: number) => {
+    setExpandedRemarkIds(prev => {
+      const next = new Set(prev);
+      if (next.has(remarkId)) next.delete(remarkId);
+      else next.add(remarkId);
+      return next;
+    });
+  };
 
   // ✅ Load current user
   useEffect(() => {
@@ -256,10 +288,6 @@ export default function RequestCard({
           </TouchableOpacity>
         </View>
 
-        <Text style={tw`text-text-gray text-[10px] font-semibold mb-4`}>
-          {request.description}
-        </Text>
-
         <View style={tw`border-t border-green-light mb-4`} />
 
         <View style={tw`gap-2`}>
@@ -290,26 +318,18 @@ export default function RequestCard({
             </Text>
           </View>
 
+          {/* ✅ NEW: Issue Description (replaces the two "Remarks from ..." rows) */}
           <View style={tw`flex-row justify-between`}>
             <Text style={tw`text-[#4F6853] text-[11px] font-semibold`}>
-              Remarks from brgy:
+              Issue Description:
             </Text>
-            <Text style={tw`text-text-gray text-[11px] font-semibold`}>
-              {request.remarksBrgy}
+            <Text style={tw`text-text-gray text-[11px] font-semibold text-right flex-1 ml-4`}>
+              {request.description || '—'}
             </Text>
           </View>
 
           {request.isExpanded && (
             <>
-              <View style={tw`flex-row justify-between`}>
-                <Text style={tw`text-[#4F6853] text-[11px] font-semibold`}>
-                  Remarks from maintenance:
-                </Text>
-                <Text style={tw`text-text-gray text-[11px] font-semibold text-right flex-1 ml-4`}>
-                  {request.remarksMaintenance}
-                </Text>
-              </View>
-              
               {isPending && request.hasAttachment && (
                 <View style={tw`mb-3 flex-row items-center justify-between`}>
                   <Text style={tw`text-gray-700 font-semibold text-sm`}>Attachment from brgy</Text>
@@ -323,7 +343,8 @@ export default function RequestCard({
                 <View style={tw`mb-4`}>
                   <View style={tw`flex-row items-center justify-between mb-2`}>
                     <Text style={tw`text-gray-700 font-semibold text-sm`}>
-                      Comments
+                      {/* ✅ Comments -> Remarks */}
+                      Remarks
                     </Text>
                   </View>
 
@@ -346,38 +367,51 @@ export default function RequestCard({
                           ) : (
                             remarks.map((remark) => {
                               const isBrgy = remark.User_role === 'Barangay_staff' || remark.User_role === 'Admin';
+                              const isExpandedRemark = expandedRemarkIds.has(remark.Remark_Id);
+
                               return (
-                                <View 
-                                  key={remark.Remark_Id} 
-                                  style={{ 
-                                    marginBottom: 12, 
-                                    alignSelf: isBrgy ? 'flex-start' : 'flex-end', 
-                                    maxWidth: '78%' 
+                                <View
+                                  key={remark.Remark_Id}
+                                  style={{
+                                    marginBottom: 12,
+                                    alignSelf: isBrgy ? 'flex-start' : 'flex-end',
+                                    maxWidth: '78%',
                                   }}
                                 >
                                   <View style={{ marginBottom: 4, flexDirection: 'row' }}>
                                     <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
                                       {isBrgy ? 'Barangay' : 'You'}
                                     </Text>
+
+                                    {/* ✅ Time only */}
                                     <Text style={tw`text-xs text-gray-400 ml-2`}>
-                                      {new Date(remark.Created_at).toLocaleString()}
+                                      {formatTimeOnly(remark.Created_at)}
                                     </Text>
                                   </View>
 
-                                  <View 
+                                  {/* ✅ Tap bubble to show more info */}
+                                  <TouchableOpacity
+                                    activeOpacity={0.85}
+                                    onPress={() => toggleRemarkExpanded(remark.Remark_Id)}
                                     style={[
-                                      { 
-                                        padding: 10, 
-                                        borderRadius: 10, 
-                                        backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF' 
-                                      }, 
-                                      shadowStyle
+                                      {
+                                        padding: 10,
+                                        borderRadius: 10,
+                                        backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF',
+                                      },
+                                      shadowStyle,
                                     ]}
                                   >
                                     <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
                                       {remark.Remark_text}
                                     </Text>
-                                  </View>
+
+                                    {isExpandedRemark && (
+                                      <Text style={{ marginTop: 6, fontSize: 11, color: isBrgy ? '#F1F5F9' : '#6B7280' }}>
+                                        {formatFullStamp(remark.Created_at)}
+                                      </Text>
+                                    )}
+                                  </TouchableOpacity>
                                 </View>
                               );
                             })
@@ -394,7 +428,7 @@ export default function RequestCard({
 
                         <TextInput
                           style={[tw`flex-1 text-sm`, { paddingVertical: 0, height: 24, textAlignVertical: 'center' }]}
-                          placeholder="Type a message..."
+                          placeholder="Type a remark..."
                           placeholderTextColor="#8A8A8A"
                           value={inlineNewMsg}
                           onChangeText={setInlineNewMsg}
