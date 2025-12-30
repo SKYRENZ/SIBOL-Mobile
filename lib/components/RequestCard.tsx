@@ -155,6 +155,7 @@ export default function RequestCard({
 
   // ✅ Handle sending inline remark
   const handleInlineSend = async () => {
+    if (!canComment) return; // ✅ block inline send for Done (view-only)
     if (!inlineNewMsg.trim() || !currentUserId) return;
     
     try {
@@ -302,7 +303,22 @@ export default function RequestCard({
   };
 
   const isPending = request.status === 'Pending';
-  const buttonLabel = isPending ? 'For Completion' : 'Follow-up';
+  const isForReview = request.status === 'For review';
+  const isDone = request.status === 'Done';
+
+  // ✅ For review behaves like Pending (can chat + attach)
+  const canComment = isPending || isForReview;
+
+  // ✅ Done is view-only
+  const isViewOnly = isDone;
+
+  const buttonLabel = 'For Completion';
+  const followUpLabel = 'Follow up';
+
+  const handleFollowUp = () => {
+    // Follow-up just opens remarks modal (send message/attachments)
+    setCommentsModalVisible(true);
+  };
 
   const shadowStyle = {
     shadowColor: '#88AB8E',
@@ -391,13 +407,11 @@ export default function RequestCard({
                 </View>
               )}
 
-              {isPending && (
+              {/* ✅ SHOW Remarks section for Pending, For review, Done */}
+              {(isPending || isForReview || isDone) && (
                 <View style={tw`mb-4`}>
                   <View style={tw`flex-row items-center justify-between mb-2`}>
-                    <Text style={tw`text-gray-700 font-semibold text-sm`}>
-                      {/* ✅ Comments -> Remarks */}
-                      Remarks
-                    </Text>
+                    <Text style={tw`text-gray-700 font-semibold text-sm`}>Remarks</Text>
                   </View>
 
                   <View style={tw`bg-white border border-gray-300 rounded p-3 relative`}>
@@ -472,47 +486,62 @@ export default function RequestCard({
                       )}
                     </View>
 
-                    <View style={tw`mt-3`}>
-                      <View style={tw`flex-row items-center bg-white border border-gray-200 rounded-full px-3`} >
-                        {/* ✅ Small UI: open modal + picker */}
-                        <TouchableOpacity
-                          onPress={() => {
-                            setAutoPickOnOpen(true);
-                            setCommentsModalVisible(true);
-                          }}
-                          style={{ marginRight: 8 }}
-                        >
-                          <LucideImage color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
-                        </TouchableOpacity>
+                    {/* ✅ Inline input ONLY for Pending + For review */}
+                    {canComment && (
+                      <View style={tw`mt-3`}>
+                        <View style={tw`flex-row items-center bg-white border border-gray-200 rounded-full px-3`} >
+                          {/* ✅ Small UI: open modal + picker */}
+                          <TouchableOpacity
+                            onPress={() => {
+                              setAutoPickOnOpen(true);
+                              setCommentsModalVisible(true);
+                            }}
+                            style={{ marginRight: 8 }}
+                          >
+                            <LucideImage color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
+                          </TouchableOpacity>
 
-                        <TextInput
-                          style={[tw`flex-1 text-sm`, { paddingVertical: 0, height: 24, textAlignVertical: 'center' }]}
-                          placeholder="Type a remark..."
-                          placeholderTextColor="#8A8A8A"
-                          value={inlineNewMsg}
-                          onChangeText={setInlineNewMsg}
-                          multiline={false}
-                        />
+                          <TextInput
+                            style={[tw`flex-1 text-sm`, { paddingVertical: 0, height: 24, textAlignVertical: 'center' }]}
+                            placeholder="Type a remark..."
+                            placeholderTextColor="#8A8A8A"
+                            value={inlineNewMsg}
+                            onChangeText={setInlineNewMsg}
+                            multiline={false}
+                          />
 
-                        <TouchableOpacity onPress={handleInlineSend} style={{ marginLeft: 8 }}>
-                          <LucideSend color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
-                        </TouchableOpacity>
+                          <TouchableOpacity onPress={handleInlineSend} style={{ marginLeft: 8 }}>
+                            <LucideSend color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                    </View>
+                    )}
                   </View>
                 </View>
               )}
 
-              <View style={tw`mt-2 items-center`}>
-                <TouchableOpacity
-                  onPress={() => setForCompletionModalVisible(true)}
-                  style={tw`bg-[#2E523A] rounded-md py-2 px-6`}
-                >
-                  <Text style={tw`text-white text-[11px] font-bold`}>
-                    {buttonLabel}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              {/* ✅ Only Pending can show For Completion button (remove follow-up everywhere) */}
+              {isPending && (
+                <View style={tw`mt-2 items-center`}>
+                  <TouchableOpacity
+                    onPress={() => setForCompletionModalVisible(true)}
+                    style={tw`bg-[#2E523A] rounded-md py-2 px-6`}
+                  >
+                    <Text style={tw`text-white text-[11px] font-bold`}>{buttonLabel}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {isForReview && (
+                <View style={tw`mt-2 items-center`}>
+                  <TouchableOpacity
+                    onPress={handleFollowUp}
+                    style={tw`bg-[#2E523A] rounded-md py-2 px-6`}
+                  >
+                    <Text style={tw`text-white text-[11px] font-bold`}>{followUpLabel}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </>
           )}
         </View>
@@ -554,7 +583,7 @@ export default function RequestCard({
             </TouchableOpacity>
           </View>
 
-          {/* Row 2: For Completion button moved down */}
+          {/* Row 2: Status action button (collapsed) */}
           {!request.isExpanded && isPending && (
             <View style={tw`mt-3 items-center`}>
               <TouchableOpacity
@@ -562,6 +591,17 @@ export default function RequestCard({
                 style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
               >
                 <Text style={tw`text-white text-[11px] font-bold`}>{buttonLabel}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {!request.isExpanded && isForReview && (
+            <View style={tw`mt-3 items-center`}>
+              <TouchableOpacity
+                onPress={handleFollowUp}
+                style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
+              >
+                <Text style={tw`text-white text-[11px] font-bold`}>{followUpLabel}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -587,6 +627,7 @@ export default function RequestCard({
         currentUserId={currentUserId}
         autoPickOnOpen={autoPickOnOpen}
         onAutoPickHandled={() => setAutoPickOnOpen(false)}
+        readOnly={isViewOnly} // ✅ Done tab = view mode
       />
 
       <ForCompletion

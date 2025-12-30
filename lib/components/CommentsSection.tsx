@@ -8,7 +8,7 @@ import {
   TextInput,
   Image,
   Alert,
-  Platform, // ✅ add
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -43,6 +43,9 @@ interface CommentsSectionProps {
 
   autoPickOnOpen?: boolean;
   onAutoPickHandled?: () => void;
+
+  // ✅ NEW
+  readOnly?: boolean;
 }
 
 const isLikelyImage = (fileNameOrUrl: string, fileType?: string | null) => {
@@ -77,6 +80,7 @@ export default function CommentsSection({
   currentUserId = null,
   autoPickOnOpen = false,
   onAutoPickHandled,
+  readOnly = false, // ✅ NEW
 }: CommentsSectionProps) {
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef<ScrollView>(null);
@@ -138,6 +142,8 @@ export default function CommentsSection({
   }, [visible]);
 
   const handlePickAttachments = async () => {
+    if (readOnly) return; // ✅ block in view-only mode
+
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
       Alert.alert('Permission Required', 'Please allow access to your photo library');
@@ -163,9 +169,11 @@ export default function CommentsSection({
     }
   };
 
-  // ✅ Auto-open picker when modal opens (one-shot)
+  // ✅ Auto-open picker should not fire in read-only mode
   const autoPickFiredRef = useRef(false);
   useEffect(() => {
+    if (readOnly) return;
+
     if (!visible) {
       autoPickFiredRef.current = false;
       return;
@@ -180,18 +188,18 @@ export default function CommentsSection({
         }
       }, 0);
     }
-  }, [visible, autoPickOnOpen, onAutoPickHandled]);
+  }, [visible, autoPickOnOpen, onAutoPickHandled, readOnly]);
 
   const removePendingAttachment = (index: number) => {
     setPendingAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
-  const canSend = newMessage.trim().length > 0 || pendingAttachments.length > 0;
+  const canSend = !readOnly && (newMessage.trim().length > 0 || pendingAttachments.length > 0);
 
   const handleSendMessage = async () => {
-    const text = newMessage.trim();
+    if (readOnly) return; // ✅ block in view-only mode
 
-    // ✅ Allow attachments-only sends
+    const text = newMessage.trim();
     if (!text && pendingAttachments.length === 0) return;
 
     await onSendMessage(text, pendingAttachments);
@@ -420,7 +428,7 @@ export default function CommentsSection({
           </ScrollView>
 
           {/* Pending attachments ABOVE input */}
-          {pendingAttachments.length > 0 && (
+          {!readOnly && pendingAttachments.length > 0 && (
             <View style={tw`px-4 pb-2`}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {pendingAttachments.map((att, idx) => (
@@ -454,30 +462,32 @@ export default function CommentsSection({
           )}
 
           {/* Input Area */}
-          <View style={tw`border-t border-gray-200 p-4`}>
-            <View style={tw`flex-row items-center bg-white border border-gray-300 rounded-full px-3`}>
-              <TouchableOpacity onPress={handlePickAttachments} style={{ marginRight: 8 }}>
-                <LucideImage color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
-              </TouchableOpacity>
+          {!readOnly && (
+            <View style={tw`border-t border-gray-200 p-4`}>
+              <View style={tw`flex-row items-center bg-white border border-gray-300 rounded-full px-3`}>
+                <TouchableOpacity onPress={handlePickAttachments} style={{ marginRight: 8 }}>
+                  <LucideImage color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
+                </TouchableOpacity>
 
-              <TextInput
-                style={[tw`flex-1 text-sm`, { paddingVertical: 0, height: 36, textAlignVertical: 'center' }]}
-                placeholder="Type a remark..."
-                placeholderTextColor="#8A8A8A"
-                value={newMessage}
-                onChangeText={setNewMessage}
-                multiline={false}
-              />
+                <TextInput
+                  style={[tw`flex-1 text-sm`, { paddingVertical: 0, height: 36, textAlignVertical: 'center' }]}
+                  placeholder="Type a remark..."
+                  placeholderTextColor="#8A8A8A"
+                  value={newMessage}
+                  onChangeText={setNewMessage}
+                  multiline={false}
+                />
 
-              <TouchableOpacity
-                onPress={handleSendMessage}
-                disabled={!canSend}
-                style={{ marginLeft: 8, opacity: canSend ? 1 : 0.35 }}
-              >
-                <LucideSend color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleSendMessage}
+                  disabled={!canSend}
+                  style={{ marginLeft: 8, opacity: canSend ? 1 : 0.35 }}
+                >
+                  <LucideSend color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          )}
 
           {/* ✅ Attachment preview + download */}
           <Modal visible={previewVisible} transparent animationType="fade">
