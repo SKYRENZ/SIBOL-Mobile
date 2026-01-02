@@ -520,42 +520,24 @@ export default function RequestCard({
                 </View>
               )}
 
-              {/* ✅ Only Pending can show For Completion button (remove follow-up everywhere) */}
-              {isPending && (
-                <View style={tw`mt-2 items-center`}>
-                  <TouchableOpacity
-                    onPress={() => setForCompletionModalVisible(true)}
-                    style={tw`bg-[#2E523A] rounded-md py-2 px-6`}
-                  >
-                    <Text style={tw`text-white text-[11px] font-bold`}>{buttonLabel}</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {isForReview && (
-                <View style={tw`mt-2 items-center`}>
-                  <TouchableOpacity
-                    onPress={handleFollowUp}
-                    style={tw`bg-[#2E523A] rounded-md py-2 px-6`}
-                  >
-                    <Text style={tw`text-white text-[11px] font-bold`}>{followUpLabel}</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+              {/* ❌ REMOVE action buttons from here (moved to Bottom controls so arrow stays put) */}
+              {/*
+              {isPending && ( ...For Completion + Cancel Request... )}
+              {isForReview && ( ...Follow up... )}
+              */}
             </>
           )}
         </View>
 
         <View style={tw`h-4`} />
 
-        {/* Bottom controls (collapsed) */}
+        {/* Bottom controls */}
         <View style={tw`mt-2`}>
           {/* Row 1: Remarks (left) + Expand arrow (right) */}
           <View style={tw`flex-row items-center justify-between`}>
             {!request.isExpanded ? (
               <TouchableOpacity
                 onPress={() => {
-                  // ✅ Expand card (as requested) + open modal for attachments/messages
                   onToggleExpand(request.id);
                   setCommentsModalVisible(true);
                 }}
@@ -564,7 +546,8 @@ export default function RequestCard({
                 <Text style={tw`text-text-gray text-[11px] font-semibold`}>Remarks</Text>
               </TouchableOpacity>
             ) : (
-              <View />
+              // ✅ Keep the expand arrow in the same place even when expanded
+              <View style={tw`flex-1`} />
             )}
 
             <TouchableOpacity
@@ -583,19 +566,35 @@ export default function RequestCard({
             </TouchableOpacity>
           </View>
 
-          {/* Row 2: Status action button (collapsed) */}
-          {!request.isExpanded && isPending && (
+          {/* ✅ Divider line between expand row and action buttons */}
+          {(isPending || isForReview) && (
+            <View style={tw`border-t border-green-light mt-3`} />
+          )}
+
+          {/* Row 2: Action buttons (always BELOW the divider, so arrow never goes below them) */}
+          {isPending && (
             <View style={tw`mt-3 items-center`}>
-              <TouchableOpacity
-                onPress={() => setForCompletionModalVisible(true)}
-                style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
-              >
-                <Text style={tw`text-white text-[11px] font-bold`}>{buttonLabel}</Text>
-              </TouchableOpacity>
+              <View style={tw`flex-row items-center`}>
+                <TouchableOpacity
+                  onPress={() => setForCompletionModalVisible(true)}
+                  style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
+                >
+                  <Text style={tw`text-white text-[11px] font-bold`}>{buttonLabel}</Text>
+                </TouchableOpacity>
+
+                <View style={tw`w-3`} />
+
+                <TouchableOpacity
+                  onPress={() => setForCompletionModalVisible(true)}
+                  style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
+                >
+                  <Text style={tw`text-white text-[11px] font-bold`}>Cancel Request</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
-          {!request.isExpanded && isForReview && (
+          {isForReview && (
             <View style={tw`mt-3 items-center`}>
               <TouchableOpacity
                 onPress={handleFollowUp}
