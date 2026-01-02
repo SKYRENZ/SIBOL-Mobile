@@ -15,6 +15,8 @@ export default function ChatSupport() {
   const cloud4 = useRef(new Animated.Value(-80)).current;
   const cloud5 = useRef(new Animated.Value(-120)).current;
   const cloud6 = useRef(new Animated.Value(-180)).current;
+  const cloud7 = useRef(new Animated.Value(-110)).current;
+  const cloud8 = useRef(new Animated.Value(-160)).current;
 
   useEffect(() => {
     
@@ -36,15 +38,15 @@ export default function ChatSupport() {
       ).start();
     };
 
-    // Stagger clouds with tighter timing to ensure continuous coverage
-    // Each cloud starts every 2.5 seconds to avoid gaps
     animateCloud(cloud1, 0, -100);
     animateCloud(cloud2, 2500, -150);
     animateCloud(cloud3, 5000, -200);
     animateCloud(cloud4, 7500, -80);
     animateCloud(cloud5, 10000, -120);
     animateCloud(cloud6, 12500, -180);
-  }, [cloud1, cloud2, cloud3, cloud4, cloud5, cloud6]);
+    animateCloud(cloud7, 1250, -110);
+    animateCloud(cloud8, 3750, -160);
+  }, [cloud1, cloud2, cloud3, cloud4, cloud5, cloud6, cloud7, cloud8]);
 
   const handleContactPress = () => {
     Linking.openURL('mailto:uccsibol@gmail.com');
@@ -97,8 +99,8 @@ export default function ChatSupport() {
             source={require('../../assets/cloud.png')}
             style={[
               tw`absolute w-20 h-10`,
-              { 
-                top: 152, 
+              {
+                top: 152,
                 right: -20,
                 opacity: 0.8,
                 transform: [{ translateX: cloud2 }],
@@ -106,7 +108,37 @@ export default function ChatSupport() {
             ]}
             resizeMode="contain"
           />
-          
+
+          {/* Animated Clouds - Middle Left */}
+          <Animated.Image
+            source={require('../../assets/cloud.png')}
+            style={[
+              tw`absolute w-14 h-7`,
+              {
+                top: 320,
+                left: -20,
+                opacity: 0.65,
+                transform: [{ translateX: cloud7 }],
+              },
+            ]}
+            resizeMode="contain"
+          />
+
+          {/* Animated Clouds - Middle Right */}
+          <Animated.Image
+            source={require('../../assets/cloud.png')}
+            style={[
+              tw`absolute w-16 h-8`,
+              {
+                top: 380,
+                right: -30,
+                opacity: 0.7,
+                transform: [{ translateX: cloud8 }],
+              },
+            ]}
+            resizeMode="contain"
+          />
+
           {/* Greeting */}
           <Text style={tw`text-white text-[20px] font-bold text-center mb-4 font-inter`}>
             Hi, User#39239!
