@@ -24,10 +24,11 @@ export interface RequestItem {
   dueDate: string;
   remarksBrgy: string;
   remarksMaintenance: string;
-  status: 'Pending' | 'Done' | 'For review' | 'Canceled';
+  status: 'Pending' | 'Done' | 'For review' | 'Canceled' | 'Cancel Requested'; // ✅ add
   isChecked: boolean;
   isExpanded: boolean;
   hasAttachment: boolean;
+  priority?: string | null; // ✅ add (for priority display)
 }
 
 interface RequestCardProps {
@@ -308,8 +309,9 @@ export default function RequestCard({
   const isPending = request.status === 'Pending';
   const isForReview = request.status === 'For review';
   const isDone = request.status === 'Done';
+  const isCancelRequested = request.status === 'Cancel Requested'; // ✅ add
 
-  // ✅ For review behaves like Pending (can chat + attach)
+  // ✅ can chat only in Pending and For review (NOT Cancel Requested)
   const canComment = isPending || isForReview;
 
   // ✅ Done is view-only
@@ -371,6 +373,33 @@ export default function RequestCard({
             </Text>
           </View>
 
+          {/* ✅ NEW: Priority row with colors */}
+          <View style={tw`flex-row justify-between items-center`}>
+            <Text style={tw`text-[#4F6853] text-[11px] font-semibold`}>
+              Priority:
+            </Text>
+
+            {(() => {
+              const p = (request.priority || '').toLowerCase();
+              const pill =
+                p === 'critical'
+                  ? 'bg-red-600'
+                  : p === 'urgent'
+                    ? 'bg-orange-500'
+                    : p === 'mild'
+                      ? 'bg-blue-600'
+                      : 'bg-gray-400';
+
+              return (
+                <View style={tw`${pill} px-2 py-1 rounded-full`}>
+                  <Text style={tw`text-white text-[10px] font-bold`}>
+                    {request.priority || '—'}
+                  </Text>
+                </View>
+              );
+            })()}
+          </View>
+
           <View style={tw`flex-row justify-between`}>
             <Text style={tw`text-[#4F6853] text-[11px] font-semibold`}>
               Date Assigned:
@@ -410,8 +439,8 @@ export default function RequestCard({
                 </View>
               )}
 
-              {/* ✅ SHOW Remarks section for Pending, For review, Done */}
-              {(isPending || isForReview || isDone) && (
+              {/* ✅ SHOW Remarks section for Pending, For review, Done, Cancel Requested */}
+              {(isPending || isForReview || isDone || isCancelRequested) && (
                 <View style={tw`mb-4`}>
                   <View style={tw`flex-row items-center justify-between mb-2`}>
                     <Text style={tw`text-gray-700 font-semibold text-sm`}>Remarks</Text>
@@ -574,7 +603,7 @@ export default function RequestCard({
             <View style={tw`border-t border-green-light mt-3`} />
           )}
 
-          {/* Row 2: Action buttons (always BELOW the divider, so arrow never goes below them) */}
+          {/* Row 2: Action buttons */}
           {isPending && (
             <View style={tw`mt-3 items-center`}>
               <View style={tw`flex-row items-center`}>
@@ -603,6 +632,7 @@ export default function RequestCard({
             </View>
           )}
 
+          {/* ✅ Follow up ONLY for real For review, not Cancel Requested */}
           {isForReview && (
             <View style={tw`mt-3 items-center`}>
               <TouchableOpacity

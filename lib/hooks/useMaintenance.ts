@@ -79,11 +79,16 @@ export function useMaintenance() {
 
   // Filter tickets by status
   const pendingTickets = tickets.filter(t => t.Status === 'On-going');
-  const forReviewTickets = tickets.filter(t => t.Status === 'For Verification');
+
+  // ✅ include Cancel Requested in For review tab
+  const forReviewTickets = tickets.filter(
+    t => t.Status === 'For Verification' || t.Status === 'Cancel Requested'
+  );
+
   const doneTickets = tickets.filter(t => t.Status === 'Completed');
 
-  // ✅ include Cancel Requested
-  const canceledTickets = tickets.filter(t => t.Status === 'Cancelled' || t.Status === 'Cancel Requested');
+  // ✅ canceled tab only shows final cancelled
+  const canceledTickets = tickets.filter(t => t.Status === 'Cancelled');
 
   return {
     tickets,

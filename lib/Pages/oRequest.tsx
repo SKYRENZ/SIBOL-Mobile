@@ -45,24 +45,25 @@ export default function ORequest() {
 
   // Convert MaintenanceTicket to RequestItem format
   const convertToRequestItem = useCallback((ticket: MaintenanceTicket): RequestItem => {
-    const statusMap: { [key: string]: 'Pending' | 'For review' | 'Done' | 'Canceled' } = {
+    const statusMap: { [key: string]: RequestItem['status'] } = {
       'On-going': 'Pending',
       'For Verification': 'For review',
       'Completed': 'Done',
       'Cancelled': 'Canceled',
-      'Cancel Requested': 'Canceled', // ✅ add
+      'Cancel Requested': 'Cancel Requested', // ✅ keep label
     };
 
     return {
       id: String(ticket.Request_Id),
       title: ticket.Title || 'Untitled',
       description: ticket.Details || '',
-      requestNumber: formatRequestNumber(ticket), // ✅ CHANGED
+      requestNumber: formatRequestNumber(ticket),
       dateAssigned: ticket.Request_date ? new Date(ticket.Request_date).toLocaleDateString() : '',
       dueDate: ticket.Due_date ? new Date(ticket.Due_date).toLocaleDateString() : '',
       remarksBrgy: ticket.Remarks || 'No remarks',
       remarksMaintenance: 'No remarks from operator yet',
       status: statusMap[ticket.Status || ''] || 'Pending',
+      priority: ticket.Priority ?? null, // ✅ add
       isChecked: checkedIds.has(String(ticket.Request_Id)),
       isExpanded: expandedIds.has(String(ticket.Request_Id)),
       hasAttachment: !!ticket.Attachment,
