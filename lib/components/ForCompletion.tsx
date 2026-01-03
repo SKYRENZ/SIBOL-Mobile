@@ -12,26 +12,57 @@ interface Attachment {
   size?: number;
 }
 
+type ModalMode = 'completion' | 'cancel';
+
 interface ForCompletionProps {
   visible: boolean;
   onClose: () => void;
+
+  // completion mode
   onMarkDone?: (remarks: string, attachments: Attachment[]) => void;
-  requestId?: string; // ✅ NEW: Add requestId prop
+
+  // cancel mode
+  onCancelRequest?: (reason: string) => void;
+
+  requestId?: string;
+  mode?: ModalMode; // ✅ NEW
 }
 
-export default function ForCompletion({ visible, onClose, onMarkDone, requestId }: ForCompletionProps) {
+export default function ForCompletion({
+  visible,
+  onClose,
+  onMarkDone,
+  onCancelRequest,
+  requestId,
+  mode = 'completion',
+}: ForCompletionProps) {
   const [remarks, setRemarks] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
-  const handleMarkDone = () => {
+  const isCancel = mode === 'cancel';
+
+  const handleSubmit = () => {
+    if (isCancel) {
+      const reason = remarks.trim();
+      if (!reason) {
+        Alert.alert('Missing Reason', 'Please add a reason for cancellation');
+        return;
+      }
+      onCancelRequest?.(reason);
+
+      setRemarks('');
+      setAttachments([]);
+      onClose();
+      return;
+    }
+
+    // completion mode (existing behavior)
     if (attachments.length === 0) {
       Alert.alert('Missing Attachment', 'Please add at least one attachment');
       return;
     }
 
-    if (onMarkDone) {
-      onMarkDone(remarks, attachments);
-    }
+    onMarkDone?.(remarks, attachments);
 
     setRemarks('');
     setAttachments([]);
@@ -45,8 +76,9 @@ export default function ForCompletion({ visible, onClose, onMarkDone, requestId 
   };
 
   const handleImagePick = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (isCancel) return; // ✅ no attachments in cancel mode
 
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
       Alert.alert('Permission Required', 'Please allow access to your photo library');
       return;
@@ -75,14 +107,6 @@ export default function ForCompletion({ visible, onClose, onMarkDone, requestId 
     setAttachments(attachments.filter((_, i) => i !== index));
   };
 
-  const shadowStyle = {
-    shadowColor: '#88AB8E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  };
-
   return (
     <Modal visible={visible} transparent animationType="fade">
       <TouchableWithoutFeedback onPress={handleClose}>
@@ -107,7 +131,9 @@ export default function ForCompletion({ visible, onClose, onMarkDone, requestId 
               {/* Header */}
               <View style={tw`mb-4 relative`}>
                 <View style={tw`items-center`}>
-                  <Text style={tw`text-lg font-semibold text-text-gray text-center`}>Proof of maintenance</Text>
+                  <Text style={tw`text-lg font-semibold text-text-gray text-center`}>
+                    {isCancel ? 'Cancel Request' : 'Proof of maintenance'}
+                  </Text>
                 </View>
 
                 <TouchableOpacity
@@ -120,12 +146,14 @@ export default function ForCompletion({ visible, onClose, onMarkDone, requestId 
               </View>
 
               <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
-                {/* Remarks Section */}
+                {/* Remarks -> Reason */}
                 <View style={tw`mb-6`}>
-                  <Text style={tw`text-text-gray text-sm font-semibold mb-2`}>Remarks:</Text>
+                  <Text style={tw`text-text-gray text-sm font-semibold mb-2`}>
+                    {isCancel ? 'Reason:' : 'Remarks:'}
+                  </Text>
                   <TextInput
                     style={tw`border border-green-light rounded-lg p-3 text-gray-700 min-h-20 text-sm`}
-                    placeholder="Add remarks (optional)"
+                    placeholder={isCancel ? 'Add Reason' : 'Add remarks (optional)'}
                     placeholderTextColor="#AFC8AD"
                     value={remarks}
                     onChangeText={setRemarks}
@@ -134,62 +162,59 @@ export default function ForCompletion({ visible, onClose, onMarkDone, requestId 
                   />
                 </View>
 
-                {/* Attachment Section */}
-                <View style={tw`mb-6`}>
-                  <View style={tw`flex-row justify-between items-center mb-2`}>
-                    <Text style={tw`text-text-gray text-sm font-semibold`}>Attachment</Text>
-                    {attachments.length > 0 && (
-                      <TouchableOpacity onPress={handleImagePick} style={tw`p-1`}>
-                        <LucidePlus color="#14532D" size={18} strokeWidth={2} />
+                {/* ✅ Remove attachment section in cancel mode */}
+                {!isCancel && (
+                  <View style={tw`mb-6`}>
+                    <View style={tw`flex-row justify-between items-center mb-2`}>
+                      <Text style={tw`text-text-gray text-sm font-semibold`}>Attachment</Text>
+                      {attachments.length > 0 && (
+                        <TouchableOpacity onPress={handleImagePick} style={tw`p-1`}>
+                          <LucidePlus color="#14532D" size={18} strokeWidth={2} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {attachments.length === 0 && (
+                      <TouchableOpacity
+                        onPress={handleImagePick}
+                        style={tw`border border-green-light rounded-lg p-5 items-center justify-center min-h-24 bg-secondary`}
+                      >
+                        <View style={tw`items-center`}>
+                          <LucidePaperclip color="#14532D" size={26} strokeWidth={2} />
+                          <Text style={tw`text-text-gray text-xs font-medium text-center mt-2`}>
+                            attach here the photos for proof
+                          </Text>
+                        </View>
                       </TouchableOpacity>
                     )}
-                  </View>
 
-                  {attachments.length === 0 && (
-                    <TouchableOpacity
-                      onPress={handleImagePick}
-                      style={tw`border border-green-light rounded-lg p-5 items-center justify-center min-h-24 bg-secondary`}
-                    >
-                      <View style={tw`items-center`}>
-                        <LucidePaperclip color="#14532D" size={26} strokeWidth={2} />
-                        <Text style={tw`text-text-gray text-xs font-medium text-center mt-2`}>
-                          attach here the photos for proof
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  )}
-
-                  {/* Attachments List */}
-                  {attachments.length > 0 && (
-                    <View style={tw`mt-4`}>
-                      {attachments.map((attachment, index) => (
-                        <View
-                          key={index}
-                          style={tw`flex-row justify-between items-center bg-secondary rounded-lg p-2 mb-2`}
-                        >
-                          <Text style={tw`text-gray-700 font-medium flex-1 mr-2 text-sm`} numberOfLines={1}>
-                            {attachment.name}
-                          </Text>
-                          <TouchableOpacity
-                            onPress={() => removeAttachment(index)}
-                            style={tw`p-1`}
+                    {attachments.length > 0 && (
+                      <View style={tw`mt-4`}>
+                        {attachments.map((attachment, index) => (
+                          <View
+                            key={index}
+                            style={tw`flex-row justify-between items-center bg-secondary rounded-lg p-2 mb-2`}
                           >
-                            <LucideMinus color="#DC2626" size={16} strokeWidth={2} />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
+                            <Text style={tw`text-gray-700 font-medium flex-1 mr-2 text-sm`} numberOfLines={1}>
+                              {attachment.name}
+                            </Text>
+                            <TouchableOpacity onPress={() => removeAttachment(index)} style={tw`p-1`}>
+                              <LucideMinus color="#DC2626" size={16} strokeWidth={2} />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                )}
               </ScrollView>
 
               <View style={tw`mt-4 self-center w-full px-6`}>
                 <Button
-                  title="Mark as Done"
-                  onPress={handleMarkDone}
-                  disabled={attachments.length === 0}
+                  title={isCancel ? 'Cancel Request' : 'Mark as Done'}
+                  onPress={handleSubmit}
+                  disabled={isCancel ? remarks.trim().length === 0 : attachments.length === 0}
                   style={tw`w-full`}
-                  testID="for-completion-mark-done"
                 />
               </View>
             </View>

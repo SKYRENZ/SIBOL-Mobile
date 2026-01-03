@@ -27,6 +27,7 @@ export default function ORequest() {
     error,
     refresh,
     submitForVerification,
+    submitCancelRequest, // ✅ add
   } = useMaintenance();
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -48,7 +49,8 @@ export default function ORequest() {
       'On-going': 'Pending',
       'For Verification': 'For review',
       'Completed': 'Done',
-      'Cancelled': 'Canceled'
+      'Cancelled': 'Canceled',
+      'Cancel Requested': 'Canceled', // ✅ add
     };
 
     return {
@@ -137,6 +139,13 @@ export default function ORequest() {
     }
   }, [submitForVerification]);
 
+  const handleCancelRequest = useCallback(
+    async (requestId: string, reason: string) => {
+      await submitCancelRequest(Number(requestId), reason);
+    },
+    [submitCancelRequest]
+  );
+
   const handleRequestFormClose = useCallback(() => {
     setRequestFormVisible(false);
   }, []);
@@ -188,12 +197,13 @@ export default function ORequest() {
             </View>
           ) : (
             filteredRequests.map((request) => (
-              <RequestCard 
+              <RequestCard
                 key={request.id}
                 request={request}
                 onToggleExpand={toggleRequestExpanded}
                 onToggleCheck={toggleRequestChecked}
                 onMarkDone={handleMarkDone}
+                onCancelRequest={handleCancelRequest} // ✅ add
               />
             ))
           )}

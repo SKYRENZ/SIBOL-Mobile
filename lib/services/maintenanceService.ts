@@ -198,10 +198,12 @@ export async function addRemarks(
 
 export async function cancelTicket(
   requestId: number,
-  operatorAccountId: number
+  operatorAccountId: number,
+  reason?: string
 ): Promise<MaintenanceTicket> {
   const response = await apiClient.put(`/api/maintenance/${requestId}/cancel`, {
-    actor_account_id: operatorAccountId
+    actor_account_id: operatorAccountId,
+    reason, // ✅ send reason (required by backend for Operator)
   });
   return response.data;
 }

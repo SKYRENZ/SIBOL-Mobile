@@ -35,6 +35,7 @@ interface RequestCardProps {
   onToggleExpand: (id: string) => void;
   onToggleCheck: (id: string) => void;
   onMarkDone?: (requestId: string, remarks: string, attachments: any[]) => Promise<void>;
+  onCancelRequest?: (requestId: string, reason: string) => Promise<void>; // ✅ NEW
 }
 
 interface RemarkAttachment {
@@ -48,11 +49,13 @@ export default function RequestCard({
   request,
   onToggleExpand,
   onToggleCheck,
-  onMarkDone
+  onMarkDone,
+  onCancelRequest, // ✅ NEW
 }: RequestCardProps) {
   const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
   const [commentsModalVisible, setCommentsModalVisible] = useState(false);
   const [forCompletionModalVisible, setForCompletionModalVisible] = useState(false);
+  const [completionModalMode, setCompletionModalMode] = useState<'completion' | 'cancel'>('completion'); // ✅ NEW
 
   const [remarks, setRemarks] = useState<MaintenanceRemark[]>([]);
   const [loadingRemarks, setLoadingRemarks] = useState(false);
@@ -576,7 +579,10 @@ export default function RequestCard({
             <View style={tw`mt-3 items-center`}>
               <View style={tw`flex-row items-center`}>
                 <TouchableOpacity
-                  onPress={() => setForCompletionModalVisible(true)}
+                  onPress={() => {
+                    setCompletionModalMode('completion');
+                    setForCompletionModalVisible(true);
+                  }}
                   style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
                 >
                   <Text style={tw`text-white text-[11px] font-bold`}>{buttonLabel}</Text>
@@ -585,7 +591,10 @@ export default function RequestCard({
                 <View style={tw`w-3`} />
 
                 <TouchableOpacity
-                  onPress={() => setForCompletionModalVisible(true)}
+                  onPress={() => {
+                    setCompletionModalMode('cancel');
+                    setForCompletionModalVisible(true);
+                  }}
                   style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
                 >
                   <Text style={tw`text-white text-[11px] font-bold`}>Cancel Request</Text>
@@ -632,8 +641,17 @@ export default function RequestCard({
       <ForCompletion
         visible={forCompletionModalVisible}
         onClose={() => setForCompletionModalVisible(false)}
-        onMarkDone={handleMarkDone}
-        requestId={request.id} // ✅ Pass requestId
+        mode={completionModalMode} // ✅ NEW
+        onMarkDone={handleMarkDone} // completion mode
+        onCancelRequest={async (reason) => {
+          try {
+            await onCancelRequest?.(request.id, reason);
+            Alert.alert('Success', 'Cancellation request submitted');
+          } catch (e: any) {
+            Alert.alert('Error', e?.message || 'Failed to submit cancellation request');
+          }
+        }}
+        requestId={request.id}
       />
     </View>
   );

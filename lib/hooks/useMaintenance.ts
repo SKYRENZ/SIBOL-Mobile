@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
-  listAssignedTickets, 
-  markForVerification, 
-  MaintenanceTicket 
+import {
+  listAssignedTickets,
+  markForVerification,
+  cancelTicket, // ✅ add
+  MaintenanceTicket
 } from '../services/maintenanceService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -67,11 +68,22 @@ export function useMaintenance() {
     [currentUserId, fetchTickets]
   );
 
+  const submitCancelRequest = useCallback(
+    async (requestId: number, reason: string) => {
+      if (!currentUserId) throw new Error('User not found');
+      await cancelTicket(requestId, currentUserId, reason);
+      await fetchTickets();
+    },
+    [currentUserId, fetchTickets]
+  );
+
   // Filter tickets by status
   const pendingTickets = tickets.filter(t => t.Status === 'On-going');
   const forReviewTickets = tickets.filter(t => t.Status === 'For Verification');
   const doneTickets = tickets.filter(t => t.Status === 'Completed');
-  const canceledTickets = tickets.filter(t => t.Status === 'Cancelled');
+
+  // ✅ include Cancel Requested
+  const canceledTickets = tickets.filter(t => t.Status === 'Cancelled' || t.Status === 'Cancel Requested');
 
   return {
     tickets,
@@ -83,5 +95,6 @@ export function useMaintenance() {
     error,
     refresh: fetchTickets,
     submitForVerification,
+    submitCancelRequest, // ✅ export
   };
 }
