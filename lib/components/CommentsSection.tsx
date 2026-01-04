@@ -286,12 +286,20 @@ export default function CommentsSection({
     | { kind: 'remark'; key: string; createdAt: string; isBrgy: boolean; text: string }
     | { kind: 'attachment'; key: string; createdAt: string; isBrgy: boolean; url: string; name: string; type?: string | null };
 
+  const isBarangaySideRemark = (r: MaintenanceRemark) => {
+    const roleId = r.CreatedByRoleId ?? null;
+    if (roleId === 1 || roleId === 2) return true;
+
+    const roleName = (r.CreatedByRoleName ?? r.User_role ?? '').toLowerCase();
+    return roleName.includes('admin') || roleName.includes('barangay');
+  };
+
   const timeline: TimelineItem[] = useMemo(() => {
     const remarkItems: TimelineItem[] = (messages || []).map(r => ({
       kind: 'remark',
       key: `r-${r.Remark_Id}`,
       createdAt: r.Created_at,
-      isBrgy: r.User_role === 'Barangay_staff' || r.User_role === 'Admin',
+      isBrgy: isBarangaySideRemark(r), // ✅ changed
       text: r.Remark_text,
     }));
 

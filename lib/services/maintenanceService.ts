@@ -28,7 +28,10 @@ export interface MaintenanceRemark {
   User_role?: string;
   Created_at: string;
   CreatedByName?: string;
-  CreatedByRoleName?: string;
+
+  // ✅ add these (backend already returns them)
+  CreatedByRoleId?: number | null;
+  CreatedByRoleName?: string | null;
 }
 
 export interface CreateTicketPayload {

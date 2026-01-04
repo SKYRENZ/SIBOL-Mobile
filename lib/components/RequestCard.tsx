@@ -333,6 +333,17 @@ export default function RequestCard({
     elevation: 3,
   };
 
+  const isBarangaySideRemark = (remark: MaintenanceRemark) => {
+    const roleId = remark.CreatedByRoleId ?? null;
+    if (roleId === 1 || roleId === 2) return true; // Admin or Barangay
+
+    const roleName = (remark.CreatedByRoleName ?? remark.User_role ?? '').toLowerCase();
+    if (roleName.includes('admin')) return true;
+    if (roleName.includes('barangay')) return true;
+
+    return false;
+  };
+
   return (
     <View style={tw`mb-4 bg-green-light rounded-xl overflow-hidden`}> 
       <View style={tw`p-5 mb-6 relative overflow-visible`}>
@@ -464,7 +475,7 @@ export default function RequestCard({
                             <Text style={tw`text-gray-400 text-xs italic`}>No remarks yet</Text>
                           ) : (
                             remarks.map((remark) => {
-                              const isBrgy = remark.User_role === 'Barangay_staff' || remark.User_role === 'Admin';
+                              const isBrgy = isBarangaySideRemark(remark);
                               const isExpandedRemark = expandedRemarkIds.has(remark.Remark_Id);
 
                               return (
