@@ -168,8 +168,13 @@ export interface MaintenanceAttachment {
   File_type?: string | null;
   File_size?: number | null;
   Uploaded_at: string;
+
   UploaderName?: string | null;
   UploaderRole?: string | null;
+
+  // ✅ NEW
+  UploaderRoleId?: number | null;
+  UploaderRoleName?: string | null;
 }
 
 // ✅ NEW: Get ticket attachments

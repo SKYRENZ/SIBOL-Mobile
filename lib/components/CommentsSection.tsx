@@ -301,11 +301,13 @@ export default function CommentsSection({
   };
 
   const senderLabelForAttachment = (a: MaintenanceAttachment) => {
-    // If attachment was uploaded by current operator, label as You
     if (currentUserId && a.Uploaded_by === currentUserId) return 'You (Operator)';
 
     const name = (a.UploaderName && a.UploaderName.trim()) || 'Unknown';
-    const tag = roleTag(null, null, a.UploaderRole ?? null); // UploaderRole is usually a string
+
+    // ✅ Prefer roleId/roleName from backend
+    const tag = roleTag(a.UploaderRoleId ?? null, a.UploaderRoleName ?? null, a.UploaderRole ?? null);
+
     return `${name} (${tag})`;
   };
 
