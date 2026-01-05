@@ -17,6 +17,10 @@ export interface MaintenanceTicket {
   Attachment?: string;
   Remarks?: string;
   AssignedOperatorName?: string;
+
+  // ✅ NEW (optional fields from history endpoint)
+  CancelLogReason?: string | null;
+  CancelApprovedAt?: string | null;
 }
 
 // ✅ NEW: Interface for remarks
@@ -241,4 +245,12 @@ export async function listTicketsByStatus(
     }
   });
   return response.data;
+}
+
+// ✅ NEW: Operator Cancelled tab (history-based, NOT status-based)
+export async function listOperatorCancelledHistoryTickets(operatorAccountId: number): Promise<MaintenanceTicket[]> {
+  const response = await apiClient.get('/api/maintenance/operator-cancelled-history', {
+    params: { operator_account_id: operatorAccountId },
+  });
+  return response.data || [];
 }

@@ -50,7 +50,7 @@ export default function ORequest() {
       'For Verification': 'For review',
       'Completed': 'Done',
       'Cancelled': 'Canceled',
-      'Cancel Requested': 'Cancel Requested', // ✅ keep label
+      'Cancel Requested': 'Cancel Requested',
     };
 
     return {
@@ -63,7 +63,7 @@ export default function ORequest() {
       remarksBrgy: ticket.Remarks || 'No remarks',
       remarksMaintenance: 'No remarks from operator yet',
       status: statusMap[ticket.Status || ''] || 'Pending',
-      priority: ticket.Priority ?? null, // ✅ add
+      priority: ticket.Priority ?? null,
       isChecked: checkedIds.has(String(ticket.Request_Id)),
       isExpanded: expandedIds.has(String(ticket.Request_Id)),
       hasAttachment: !!ticket.Attachment,
@@ -74,12 +74,20 @@ export default function ORequest() {
     switch (activeFilter) {
       case 'Pending':
         return pendingTickets.map(convertToRequestItem);
+
       case 'For review':
         return forReviewTickets.map(convertToRequestItem);
+
       case 'Done':
         return doneTickets.map(convertToRequestItem);
+
       case 'Canceled':
-        return canceledTickets.map(convertToRequestItem);
+        // ✅ IMPORTANT: history tab must stay "Canceled" even if current status becomes On-going again
+        return canceledTickets.map(t => ({
+          ...convertToRequestItem(t),
+          status: 'Canceled',
+        }));
+
       default:
         return [];
     }
