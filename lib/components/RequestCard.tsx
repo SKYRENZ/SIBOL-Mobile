@@ -344,6 +344,25 @@ export default function RequestCard({
     return false;
   };
 
+  const roleTag = (roleId?: number | null, roleName?: string | null, legacy?: string | null) => {
+    if (roleId === 1 || roleId === 2) return 'Barangay';
+    if (roleId === 3) return 'Operator';
+
+    const s = String(roleName ?? legacy ?? '').toLowerCase();
+    if (s.includes('admin') || s.includes('barangay')) return 'Barangay';
+    if (s.includes('operator')) return 'Operator';
+    return 'User';
+  };
+
+  const senderLabel = (remark: MaintenanceRemark) => {
+    const name =
+      (remark.CreatedByName && remark.CreatedByName.trim()) ||
+      (remark.Created_by === currentUserId ? 'You' : 'Unknown');
+
+    const tag = roleTag(remark.CreatedByRoleId, remark.CreatedByRoleName, remark.User_role ?? null);
+    return `${name} (${tag})`;
+  };
+
   return (
     <View style={tw`mb-4 bg-green-light rounded-xl overflow-hidden`}> 
       <View style={tw`p-5 mb-6 relative overflow-visible`}>
@@ -489,7 +508,7 @@ export default function RequestCard({
                                 >
                                   <View style={{ marginBottom: 4, flexDirection: 'row' }}>
                                     <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
-                                      {isBrgy ? 'Barangay' : 'You'}
+                                      {senderLabel(remark)}
                                     </Text>
 
                                     {/* ✅ Time only */}

@@ -281,17 +281,45 @@ export default function CommentsSection({
     }
   };
 
+  const roleTag = (roleId?: number | null, roleName?: string | null, legacy?: string | null) => {
+    if (roleId === 1 || roleId === 2) return 'Barangay';
+    if (roleId === 3) return 'Operator';
+
+    const s = String(roleName ?? legacy ?? '').toLowerCase();
+    if (s.includes('admin') || s.includes('barangay') || s.includes('staff')) return 'Barangay';
+    if (s.includes('operator')) return 'Operator';
+    return 'User';
+  };
+
+  const senderLabelForRemark = (r: MaintenanceRemark) => {
+    const name =
+      (r.CreatedByName && r.CreatedByName.trim()) ||
+      (currentUserId && r.Created_by === currentUserId ? 'You' : 'Unknown');
+
+    const tag = roleTag(r.CreatedByRoleId, r.CreatedByRoleName, r.User_role ?? null);
+    return `${name} (${tag})`;
+  };
+
+  const senderLabelForAttachment = (a: MaintenanceAttachment) => {
+    // If attachment was uploaded by current operator, label as You
+    if (currentUserId && a.Uploaded_by === currentUserId) return 'You (Operator)';
+
+    const name = (a.UploaderName && a.UploaderName.trim()) || 'Unknown';
+    const tag = roleTag(null, null, a.UploaderRole ?? null); // UploaderRole is usually a string
+    return `${name} (${tag})`;
+  };
+
   // ✅ Combine remarks + uploaded attachments into one timeline (Messenger-like)
   type TimelineItem =
-    | { kind: 'remark'; key: string; createdAt: string; isBrgy: boolean; text: string }
-    | { kind: 'attachment'; key: string; createdAt: string; isBrgy: boolean; url: string; name: string; type?: string | null };
+    | { kind: 'remark'; key: string; createdAt: string; isBrgy: boolean; text: string; senderLabel: string }
+    | { kind: 'attachment'; key: string; createdAt: string; isBrgy: boolean; url: string; name: string; type?: string | null; senderLabel: string };
 
   const isBarangaySideRemark = (r: MaintenanceRemark) => {
     const roleId = r.CreatedByRoleId ?? null;
     if (roleId === 1 || roleId === 2) return true;
 
     const roleName = (r.CreatedByRoleName ?? r.User_role ?? '').toLowerCase();
-    return roleName.includes('admin') || roleName.includes('barangay');
+    return roleName.includes('admin') || roleName.includes('barangay') || roleName.includes('staff');
   };
 
   const timeline: TimelineItem[] = useMemo(() => {
@@ -299,8 +327,9 @@ export default function CommentsSection({
       kind: 'remark',
       key: `r-${r.Remark_Id}`,
       createdAt: r.Created_at,
-      isBrgy: isBarangaySideRemark(r), // ✅ changed
+      isBrgy: isBarangaySideRemark(r),
       text: r.Remark_text,
+      senderLabel: senderLabelForRemark(r), // ✅ use name + role
     }));
 
     const attachmentItems: TimelineItem[] = (uploadedAttachments || []).map(a => ({
@@ -311,6 +340,7 @@ export default function CommentsSection({
       url: a.File_path,
       name: a.File_name,
       type: a.File_type,
+      senderLabel: senderLabelForAttachment(a), // ✅ use name + role
     }));
 
     return [...remarkItems, ...attachmentItems].sort(
@@ -388,10 +418,10 @@ export default function CommentsSection({
                     key={item.key}
                     style={{ marginBottom: 12, alignSelf: isBrgy ? 'flex-start' : 'flex-end', maxWidth: '78%' }}
                   >
-                    {/* ✅ "You" aligned right (no time beside it) */}
+                    {/* ✅ show real sender label */}
                     <View style={{ flexDirection: 'row', justifyContent: isBrgy ? 'flex-start' : 'flex-end', marginBottom: 4 }}>
                       <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
-                        {isBrgy ? 'Barangay' : 'You'}
+                        {item.senderLabel}
                       </Text>
                     </View>
 
