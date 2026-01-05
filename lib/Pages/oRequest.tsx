@@ -70,7 +70,7 @@ export default function ORequest() {
     };
   }, [expandedIds, checkedIds]);
 
-  const getFilteredTickets = useCallback(() => {
+  const getFilteredTickets = useCallback((): RequestItem[] => {
     switch (activeFilter) {
       case 'Pending':
         return pendingTickets.map(convertToRequestItem);
@@ -83,9 +83,11 @@ export default function ORequest() {
 
       case 'Canceled':
         // ✅ IMPORTANT: history tab must stay "Canceled" even if current status becomes On-going again
-        return canceledTickets.map(t => ({
+        return canceledTickets.map((t): RequestItem => ({
           ...convertToRequestItem(t),
-          status: 'Canceled',
+          status: 'Canceled' as const, // ✅ keep literal type (not string)
+          // ✅ snapshot cutoff: only show remarks/attachments up to when THIS operator requested cancel
+          cancelCutoffAt: t.CancelRequestedAt ?? t.CancelApprovedAt ?? null,
         }));
 
       default:

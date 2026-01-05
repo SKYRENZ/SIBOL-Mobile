@@ -44,8 +44,10 @@ interface CommentsSectionProps {
   autoPickOnOpen?: boolean;
   onAutoPickHandled?: () => void;
 
-  // ✅ NEW
   readOnly?: boolean;
+
+  // ✅ NEW: only show attachments up to this datetime (Operator Cancelled-history snapshot)
+  cutoffAt?: string | null;
 }
 
 const isLikelyImage = (fileNameOrUrl: string, fileType?: string | null) => {
@@ -80,7 +82,8 @@ export default function CommentsSection({
   currentUserId = null,
   autoPickOnOpen = false,
   onAutoPickHandled,
-  readOnly = false, // ✅ NEW
+  readOnly = false,
+  cutoffAt = null, // ✅ NEW
 }: CommentsSectionProps) {
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef<ScrollView>(null);
@@ -111,7 +114,7 @@ export default function CommentsSection({
     if (!requestId) return;
     setLoadingAttachments(true);
     try {
-      const data = await getTicketAttachments(requestId);
+      const data = await getTicketAttachments(requestId, cutoffAt ?? undefined); // ✅ apply cutoff
       setUploadedAttachments(data);
     } catch (err) {
       console.error('Error loading attachments:', err);

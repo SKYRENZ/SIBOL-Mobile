@@ -19,7 +19,9 @@ export interface MaintenanceTicket {
   AssignedOperatorName?: string;
 
   // ✅ NEW (optional fields from history endpoint)
+  CancelLogId?: number | null;
   CancelLogReason?: string | null;
+  CancelRequestedAt?: string | null; // ✅ NEW: use as cutoff
   CancelApprovedAt?: string | null;
 }
 
@@ -153,8 +155,10 @@ export async function addRemark(
 }
 
 // ✅ NEW: Get all remarks for a ticket
-export async function getTicketRemarks(requestId: number): Promise<MaintenanceRemark[]> {
-  const response = await apiClient.get(`/api/maintenance/${requestId}/remarks`);
+export async function getTicketRemarks(requestId: number, before?: string): Promise<MaintenanceRemark[]> {
+  const response = await apiClient.get(`/api/maintenance/${requestId}/remarks`, {
+    params: before ? { before } : undefined,
+  });
   return response.data || [];
 }
 
@@ -178,8 +182,10 @@ export interface MaintenanceAttachment {
 }
 
 // ✅ NEW: Get ticket attachments
-export async function getTicketAttachments(requestId: number): Promise<MaintenanceAttachment[]> {
-  const response = await apiClient.get(`/api/maintenance/${requestId}/attachments`);
+export async function getTicketAttachments(requestId: number, before?: string): Promise<MaintenanceAttachment[]> {
+  const response = await apiClient.get(`/api/maintenance/${requestId}/attachments`, {
+    params: before ? { before } : undefined,
+  });
   return response.data || [];
 }
 

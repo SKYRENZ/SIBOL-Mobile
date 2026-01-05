@@ -24,11 +24,14 @@ export interface RequestItem {
   dueDate: string;
   remarksBrgy: string;
   remarksMaintenance: string;
-  status: 'Pending' | 'Done' | 'For review' | 'Canceled' | 'Cancel Requested'; // ✅ add
+  status: 'Pending' | 'Done' | 'For review' | 'Canceled' | 'Cancel Requested';
   isChecked: boolean;
   isExpanded: boolean;
   hasAttachment: boolean;
-  priority?: string | null; // ✅ add (for priority display)
+  priority?: string | null;
+
+  // ✅ NEW: for Operator Cancelled-history snapshot
+  cancelCutoffAt?: string | null;
 }
 
 interface RequestCardProps {
@@ -139,7 +142,8 @@ export default function RequestCard({
   const loadRemarks = async () => {
     setLoadingRemarks(true);
     try {
-      const data = await getTicketRemarks(Number(request.id));
+      const before = request.status === 'Canceled' ? (request.cancelCutoffAt ?? undefined) : undefined;
+      const data = await getTicketRemarks(Number(request.id), before);
       setRemarks(data);
     } catch (error) {
       console.error('Error loading remarks:', error);
@@ -690,7 +694,8 @@ export default function RequestCard({
         currentUserId={currentUserId}
         autoPickOnOpen={autoPickOnOpen}
         onAutoPickHandled={() => setAutoPickOnOpen(false)}
-        readOnly={isViewOnly} // ✅ Canceled + Done = view mode
+        readOnly={isViewOnly}
+        cutoffAt={request.status === 'Canceled' ? (request.cancelCutoffAt ?? null) : null} // ✅ NEW
       />
 
       <ForCompletion
