@@ -1,15 +1,21 @@
-import React, { useState } from 'react';
-import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNavbar from '../components/oBotNav';
 import OWasteInput from '../components/oWasteInput';
-import Tabs from '../components/commons/Tabs'; 
+import Tabs from '../components/commons/Tabs';
 import OMenu from '../components/oMenu';
+import OWasteCollectionMap from '../components/OWasteCollectionMap';
+import { listWasteContainers, WasteContainer } from '../services/wasteContainerService';
 
 export default function oMap({ navigation }: any) {
   const [showWasteModal, setShowWasteModal] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<string>('Map'); 
+  const [selectedTab, setSelectedTab] = useState<string>('Map');
+
+  const [containers, setContainers] = useState<WasteContainer[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [errorText, setErrorText] = useState<string>('');
 
   const handleTabChange = (value: string) => {
     setSelectedTab(value);
@@ -19,6 +25,31 @@ export default function oMap({ navigation }: any) {
       navigation.navigate('OSchedule');
     }
   };
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      setLoading(true);
+      setErrorText('');
+      try {
+        const rows = await listWasteContainers();
+        if (!mounted) return;
+        setContainers(rows);
+      } catch (e: any) {
+        if (!mounted) return;
+        setContainers([]);
+        setErrorText(e?.message || 'Failed to load map data.');
+      } finally {
+        if (!mounted) return;
+        setLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -34,8 +65,22 @@ export default function oMap({ navigation }: any) {
         </View>
       </View>
 
-      {/* Map content area */}
       <View style={styles.mapArea}>
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#2E523A" />
+          </View>
+        ) : errorText ? (
+          <View style={styles.center}>
+            <Text style={styles.error}>{errorText}</Text>
+          </View>
+        ) : containers.length === 0 ? (
+          <View style={styles.center}>
+            <Text style={styles.empty}>No waste containers found.</Text>
+          </View>
+        ) : (
+          <OWasteCollectionMap containers={containers} />
+        )}
       </View>
 
       <TouchableOpacity
@@ -50,13 +95,12 @@ export default function oMap({ navigation }: any) {
         <BottomNavbar onMenuPress={() => setMenuVisible(true)} />
       </View>
 
-      {/* Waste input modal */}
       <OWasteInput visible={showWasteModal} onClose={() => setShowWasteModal(false)} />
-      
-      <OMenu 
-        visible={menuVisible} 
-        onClose={() => setMenuVisible(false)} 
-        onNavigate={() => setMenuVisible(false)} 
+
+      <OMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onNavigate={() => setMenuVisible(false)}
       />
     </SafeAreaView>
   );
@@ -70,24 +114,40 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     backgroundColor: '#fff',
   },
-
   title: {
     textAlign: 'center',
     fontSize: 16,
     color: '#2b6b2b',
     fontWeight: '600',
-    marginBottom: 18, 
+    marginBottom: 18,
   },
-
   tabsWrap: {
-    width: '86%',        
-    alignSelf: 'center',  
-    marginBottom: 14,   
+    width: '86%',
+    alignSelf: 'center',
+    marginBottom: 14,
   },
-
   mapArea: {
     flex: 1,
     backgroundColor: '#fff',
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+    width: '100%',
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  error: {
+    color: '#B00020',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  empty: {
+    color: '#2E523A',
+    textAlign: 'center',
+    fontWeight: '600',
   },
   fab: {
     position: 'absolute',
@@ -105,6 +165,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowRadius: 6,
   },
-  bottomNavWrapper: {
-  },
+  bottomNavWrapper: {},
 });
