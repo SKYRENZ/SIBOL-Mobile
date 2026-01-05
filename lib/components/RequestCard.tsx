@@ -309,13 +309,14 @@ export default function RequestCard({
   const isPending = request.status === 'Pending';
   const isForReview = request.status === 'For review';
   const isDone = request.status === 'Done';
-  const isCancelRequested = request.status === 'Cancel Requested'; // ✅ add
+  const isCancelRequested = request.status === 'Cancel Requested';
+  const isCanceled = request.status === 'Canceled'; // ✅ NEW
 
-  // ✅ can chat only in Pending and For review (NOT Cancel Requested)
+  // ✅ can chat only in Pending and For review (NOT Cancel Requested / Canceled / Done)
   const canComment = isPending || isForReview;
 
-  // ✅ Done is view-only
-  const isViewOnly = isDone;
+  // ✅ Done + Canceled are view-only
+  const isViewOnly = isDone || isCanceled;
 
   const buttonLabel = 'For Completion';
   const followUpLabel = 'Follow up';
@@ -333,15 +334,11 @@ export default function RequestCard({
     elevation: 3,
   };
 
-  const isBarangaySideRemark = (remark: MaintenanceRemark) => {
-    const roleId = remark.CreatedByRoleId ?? null;
-    if (roleId === 1 || roleId === 2) return true; // Admin or Barangay
+  // REMOVE / stop using this for bubble side:
+  // const isBarangaySideRemark = (remark: MaintenanceRemark) => { ... }
 
-    const roleName = (remark.CreatedByRoleName ?? remark.User_role ?? '').toLowerCase();
-    if (roleName.includes('admin')) return true;
-    if (roleName.includes('barangay')) return true;
-
-    return false;
+  const isMineRemark = (remark: MaintenanceRemark) => {
+    return !!currentUserId && remark.Created_by === currentUserId;
   };
 
   const roleTag = (roleId?: number | null, roleName?: string | null, legacy?: string | null) => {
@@ -469,8 +466,8 @@ export default function RequestCard({
                 </View>
               )}
 
-              {/* ✅ SHOW Remarks section for Pending, For review, Done, Cancel Requested */}
-              {(isPending || isForReview || isDone || isCancelRequested) && (
+              {/* ✅ SHOW Remarks section for Pending, For review, Done, Cancel Requested, Canceled */}
+              {(isPending || isForReview || isDone || isCancelRequested || isCanceled) && (
                 <View style={tw`mb-4`}>
                   <View style={tw`flex-row items-center justify-between mb-2`}>
                     <Text style={tw`text-gray-700 font-semibold text-sm`}>Remarks</Text>
@@ -494,7 +491,7 @@ export default function RequestCard({
                             <Text style={tw`text-gray-400 text-xs italic`}>No remarks yet</Text>
                           ) : (
                             remarks.map((remark) => {
-                              const isBrgy = isBarangaySideRemark(remark);
+                              const isMine = isMineRemark(remark); // ✅ me vs others
                               const isExpandedRemark = expandedRemarkIds.has(remark.Remark_Id);
 
                               return (
@@ -502,7 +499,7 @@ export default function RequestCard({
                                   key={remark.Remark_Id}
                                   style={{
                                     marginBottom: 12,
-                                    alignSelf: isBrgy ? 'flex-start' : 'flex-end',
+                                    alignSelf: isMine ? 'flex-end' : 'flex-start', // ✅
                                     maxWidth: '78%',
                                   }}
                                 >
@@ -511,13 +508,11 @@ export default function RequestCard({
                                       {senderLabel(remark)}
                                     </Text>
 
-                                    {/* ✅ Time only */}
                                     <Text style={tw`text-xs text-gray-400 ml-2`}>
                                       {formatTimeOnly(remark.Created_at)}
                                     </Text>
                                   </View>
 
-                                  {/* ✅ Tap bubble to show more info */}
                                   <TouchableOpacity
                                     activeOpacity={0.85}
                                     onPress={() => toggleRemarkExpanded(remark.Remark_Id)}
@@ -525,17 +520,17 @@ export default function RequestCard({
                                       {
                                         padding: 10,
                                         borderRadius: 10,
-                                        backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF',
+                                        backgroundColor: isMine ? '#FFFFFF' : '#88AB8E', // ✅
                                       },
                                       shadowStyle,
                                     ]}
                                   >
-                                    <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
+                                    <Text style={{ color: isMine ? '#1F4D36' : '#FFFFFF', fontSize: 14 }}>
                                       {remark.Remark_text}
                                     </Text>
 
                                     {isExpandedRemark && (
-                                      <Text style={{ marginTop: 6, fontSize: 11, color: isBrgy ? '#F1F5F9' : '#6B7280' }}>
+                                      <Text style={{ marginTop: 6, fontSize: 11, color: isMine ? '#6B7280' : '#F1F5F9' }}>
                                         {formatFullStamp(remark.Created_at)}
                                       </Text>
                                     )}
@@ -695,7 +690,7 @@ export default function RequestCard({
         currentUserId={currentUserId}
         autoPickOnOpen={autoPickOnOpen}
         onAutoPickHandled={() => setAutoPickOnOpen(false)}
-        readOnly={isViewOnly} // ✅ Done tab = view mode
+        readOnly={isViewOnly} // ✅ Canceled + Done = view mode
       />
 
       <ForCompletion
