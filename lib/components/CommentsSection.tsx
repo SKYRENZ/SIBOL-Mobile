@@ -292,57 +292,41 @@ export default function CommentsSection({
   };
 
   const senderLabelForRemark = (r: MaintenanceRemark) => {
-    const name =
-      (r.CreatedByName && r.CreatedByName.trim()) ||
-      (currentUserId && r.Created_by === currentUserId ? 'You' : 'Unknown');
-
+    const name = (r.CreatedByName && r.CreatedByName.trim()) || 'Unknown';
     const tag = roleTag(r.CreatedByRoleId, r.CreatedByRoleName, r.User_role ?? null);
     return `${name} (${tag})`;
   };
 
   const senderLabelForAttachment = (a: MaintenanceAttachment) => {
-    if (currentUserId && a.Uploaded_by === currentUserId) return 'You (Operator)';
-
     const name = (a.UploaderName && a.UploaderName.trim()) || 'Unknown';
-
-    // ✅ Prefer roleId/roleName from backend
     const tag = roleTag(a.UploaderRoleId ?? null, a.UploaderRoleName ?? null, a.UploaderRole ?? null);
-
     return `${name} (${tag})`;
   };
 
   // ✅ Combine remarks + uploaded attachments into one timeline (Messenger-like)
   type TimelineItem =
-    | { kind: 'remark'; key: string; createdAt: string; isBrgy: boolean; text: string; senderLabel: string }
-    | { kind: 'attachment'; key: string; createdAt: string; isBrgy: boolean; url: string; name: string; type?: string | null; senderLabel: string };
-
-  const isBarangaySideRemark = (r: MaintenanceRemark) => {
-    const roleId = r.CreatedByRoleId ?? null;
-    if (roleId === 1 || roleId === 2) return true;
-
-    const roleName = (r.CreatedByRoleName ?? r.User_role ?? '').toLowerCase();
-    return roleName.includes('admin') || roleName.includes('barangay') || roleName.includes('staff');
-  };
+    | { kind: 'remark'; key: string; createdAt: string; isMine: boolean; text: string; senderLabel: string }
+    | { kind: 'attachment'; key: string; createdAt: string; isMine: boolean; url: string; name: string; type?: string | null; senderLabel: string };
 
   const timeline: TimelineItem[] = useMemo(() => {
     const remarkItems: TimelineItem[] = (messages || []).map(r => ({
       kind: 'remark',
       key: `r-${r.Remark_Id}`,
       createdAt: r.Created_at,
-      isBrgy: isBarangaySideRemark(r),
+      isMine: !!currentUserId && r.Created_by === currentUserId, // ✅ me vs others
       text: r.Remark_text,
-      senderLabel: senderLabelForRemark(r), // ✅ use name + role
+      senderLabel: senderLabelForRemark(r),
     }));
 
     const attachmentItems: TimelineItem[] = (uploadedAttachments || []).map(a => ({
       kind: 'attachment',
       key: `a-${a.Attachment_Id}`,
       createdAt: a.Uploaded_at,
-      isBrgy: currentUserId ? a.Uploaded_by !== currentUserId : true,
+      isMine: !!currentUserId && a.Uploaded_by === currentUserId, // ✅ me vs others
       url: a.File_path,
       name: a.File_name,
       type: a.File_type,
-      senderLabel: senderLabelForAttachment(a), // ✅ use name + role
+      senderLabel: senderLabelForAttachment(a),
     }));
 
     return [...remarkItems, ...attachmentItems].sort(
@@ -413,15 +397,14 @@ export default function CommentsSection({
               <Text style={tw`text-gray-400 text-center py-8`}>No remarks or attachments yet</Text>
             ) : (
               timeline.map((item) => {
-                const isBrgy = item.isBrgy;
+                const isMine = item.isMine;
 
                 return (
                   <View
                     key={item.key}
-                    style={{ marginBottom: 12, alignSelf: isBrgy ? 'flex-start' : 'flex-end', maxWidth: '78%' }}
+                    style={{ marginBottom: 12, alignSelf: isMine ? 'flex-end' : 'flex-start', maxWidth: '78%' }}
                   >
-                    {/* ✅ show real sender label */}
-                    <View style={{ flexDirection: 'row', justifyContent: isBrgy ? 'flex-start' : 'flex-end', marginBottom: 4 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: isMine ? 'flex-end' : 'flex-start', marginBottom: 4 }}>
                       <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
                         {item.senderLabel}
                       </Text>
@@ -429,12 +412,12 @@ export default function CommentsSection({
 
                     <View
                       style={[
-                        { padding: 10, borderRadius: 10, backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF' },
+                        { padding: 10, borderRadius: 10, backgroundColor: isMine ? '#FFFFFF' : '#88AB8E' },
                         shadowStyle,
                       ]}
                     >
                       {item.kind === 'remark' ? (
-                        <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
+                        <Text style={{ color: isMine ? '#1F4D36' : '#FFFFFF', fontSize: 14 }}>
                           {item.text}
                         </Text>
                       ) : (
@@ -449,7 +432,7 @@ export default function CommentsSection({
                               style={{ width: 160, height: 160, borderRadius: 10 }}
                             />
                           ) : (
-                            <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
+                            <Text style={{ color: isMine ? '#1F4D36' : '#FFFFFF', fontSize: 14 }}>
                               Attachment
                             </Text>
                           )}
@@ -457,7 +440,7 @@ export default function CommentsSection({
                       )}
 
                       {/* ✅ Always show details under the bubble (no clicking) */}
-                      <Text style={{ marginTop: 6, fontSize: 11, color: isBrgy ? '#F1F5F9' : '#6B7280' }}>
+                      <Text style={{ marginTop: 6, fontSize: 11, color: isMine ? '#6B7280' : '#F1F5F9' }}>
                         {formatFullStamp(item.createdAt)}
                       </Text>
                     </View>
