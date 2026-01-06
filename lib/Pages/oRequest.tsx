@@ -34,6 +34,14 @@ export default function ORequest() {
 
   const filters: FilterTab[] = ['Pending', 'For review', 'Done', 'Canceled'];
 
+  // ✅ NEW: Web-like request number format (YYYYMMREQID, no dashes)
+  const formatRequestNumber = (ticket: MaintenanceTicket) => {
+    const baseDate = ticket.Request_date ? new Date(ticket.Request_date) : new Date();
+    const yyyy = String(baseDate.getFullYear());
+    const mm = String(baseDate.getMonth() + 1).padStart(2, '0');
+    return `${yyyy}${mm}${ticket.Request_Id}`;
+  };
+
   // Convert MaintenanceTicket to RequestItem format
   const convertToRequestItem = useCallback((ticket: MaintenanceTicket): RequestItem => {
     const statusMap: { [key: string]: 'Pending' | 'For review' | 'Done' | 'Canceled' } = {
@@ -47,7 +55,7 @@ export default function ORequest() {
       id: String(ticket.Request_Id),
       title: ticket.Title || 'Untitled',
       description: ticket.Details || '',
-      requestNumber: String(ticket.Request_Id),
+      requestNumber: formatRequestNumber(ticket), // ✅ CHANGED
       dateAssigned: ticket.Request_date ? new Date(ticket.Request_date).toLocaleDateString() : '',
       dueDate: ticket.Due_date ? new Date(ticket.Due_date).toLocaleDateString() : '',
       remarksBrgy: ticket.Remarks || 'No remarks',

@@ -1,12 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import tw from '../utils/tailwind';
 import AttachmentModal from './AttachmentModal';
 import CommentsSection from './CommentsSection';
 import ForCompletion from './ForCompletion';
 import { Image as LucideImage, Send as LucideSend, Check as LucideCheck } from 'lucide-react-native';
-import { uploadToCloudinary, addAttachmentToTicket } from '../services/maintenanceService';
+import { 
+  uploadToCloudinary, 
+  addAttachmentToTicket, 
+  getTicketRemarks, 
+  addRemark,
+  MaintenanceRemark,
+} from '../services/maintenanceService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface RequestItem {
@@ -31,6 +37,13 @@ interface RequestCardProps {
   onMarkDone?: (requestId: string, remarks: string, attachments: any[]) => Promise<void>;
 }
 
+interface RemarkAttachment {
+  uri: string;
+  name: string;
+  type: string;
+  size?: number;
+}
+
 export default function RequestCard({
   request,
   onToggleExpand,
@@ -41,20 +54,50 @@ export default function RequestCard({
   const [commentsModalVisible, setCommentsModalVisible] = useState(false);
   const [forCompletionModalVisible, setForCompletionModalVisible] = useState(false);
 
-  const [inlineMessages, setInlineMessages] = useState<Array<{
-    id: string;
-    sender: 'Brgy' | 'Operator';
-    message: string;
-    time: string;
-    hasAttachment: boolean;
-    attachmentName?: string;
-  }>>([
-    { id: '1', sender: 'Brgy', message: 'Please make sure to replace the entire filter unit, not just the cartridge.', time: 'Aug 14, 2:30 PM', hasAttachment: false },
-    { id: '2', sender: 'Operator', message: 'Understood. I will replace the complete unit tomorrow morning.', time: 'Aug 14, 3:15 PM', hasAttachment: false },
-    { id: '3', sender: 'Brgy', message: 'Attached the reference photo.', time: 'Aug 14, 3:45 PM', hasAttachment: true, attachmentName: 'brokenfilter.png' },
-  ]);
+  const [remarks, setRemarks] = useState<MaintenanceRemark[]>([]);
+  const [loadingRemarks, setLoadingRemarks] = useState(false);
   const [inlineNewMsg, setInlineNewMsg] = useState('');
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string>('Operator');
+
+  // ✅ NEW: tap-to-expand remark details
+  const [expandedRemarkIds, setExpandedRemarkIds] = useState<Set<number>>(new Set());
+  const [attachmentsRefreshSignal, setAttachmentsRefreshSignal] = useState(0);
+
+  // ✅ NEW: open modal and auto-open picker (for small UI attach button)
+  const [autoPickOnOpen, setAutoPickOnOpen] = useState(false);
+
+  const inlineScrollRef = useRef<any>(null);
+
+  const formatTimeOnly = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const formatFullStamp = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const toggleRemarkExpanded = (remarkId: number) => {
+    setExpandedRemarkIds(prev => {
+      const next = new Set(prev);
+      if (next.has(remarkId)) next.delete(remarkId);
+      else next.add(remarkId);
+      return next;
+    });
+  };
 
   // ✅ Load current user
   useEffect(() => {
@@ -64,6 +107,15 @@ export default function RequestCard({
         if (userStr) {
           const user = JSON.parse(userStr);
           setCurrentUserId(user.Account_id || user.account_id);
+          
+          const roleId = user.Roles || user.role;
+          const roleMap: { [key: number]: string } = {
+            1: 'Admin',
+            2: 'Barangay_staff',
+            3: 'Operator',
+            4: 'Household'
+          };
+          setCurrentUserRole(roleMap[roleId] || 'Operator');
         }
       } catch (err) {
         console.error('Error loading user:', err);
@@ -72,44 +124,76 @@ export default function RequestCard({
     loadUser();
   }, []);
 
-  const handleInlineSend = () => {
-    if (!inlineNewMsg.trim()) return;
-    setInlineMessages([
-      ...inlineMessages,
-      { id: String(inlineMessages.length + 1), sender: 'Operator', message: inlineNewMsg, time: new Date().toLocaleTimeString(), hasAttachment: false }
-    ]);
-    setInlineNewMsg('');
-  };
-
-  const handleModalSend = (text: string) => {
-    if (!text.trim()) return;
-    setInlineMessages([
-      ...inlineMessages,
-      { id: String(inlineMessages.length + 1), sender: 'Operator', message: text, time: new Date().toLocaleTimeString(), hasAttachment: false }
-    ]);
-  };
-
-  const handleMarkDone = async (remarks: string, attachments: any[]) => {
-    if (!currentUserId) {
-      Alert.alert('Error', 'User not found. Please sign in again.');
-      return;
+  // ✅ Load remarks when card is expanded
+  useEffect(() => {
+    if (request.isExpanded && !loadingRemarks && remarks.length === 0) {
+      loadRemarks();
     }
+  }, [request.isExpanded]);
+
+  // ✅ Load remarks from backend
+  const loadRemarks = async () => {
+    setLoadingRemarks(true);
+    try {
+      const data = await getTicketRemarks(Number(request.id));
+      setRemarks(data);
+    } catch (error) {
+      console.error('Error loading remarks:', error);
+    } finally {
+      setLoadingRemarks(false);
+    }
+  };
+
+  // ✅ Scroll to bottom when remarks change
+  useEffect(() => {
+    if (inlineScrollRef.current && typeof inlineScrollRef.current.scrollToEnd === 'function') {
+      setTimeout(() => {
+        inlineScrollRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [remarks.length]);
+
+  // ✅ Handle sending inline remark
+  const handleInlineSend = async () => {
+    if (!canComment) return; // ✅ block inline send for Done (view-only)
+    if (!inlineNewMsg.trim() || !currentUserId) return;
+    
+    try {
+      const newRemark = await addRemark(
+        Number(request.id),
+        inlineNewMsg.trim(),
+        currentUserId,
+        currentUserRole
+      );
+      
+      setRemarks(prev => [...prev, newRemark]);
+      setInlineNewMsg('');
+    } catch (error: any) {
+      console.error('Error adding remark:', error);
+      Alert.alert('Error', error?.message || 'Failed to add remark');
+    }
+  };
+
+  // ✅ Handle sending remark from modal (text + attachments)
+  const handleModalSend = async (text: string, attachments: RemarkAttachment[]) => {
+    if (!currentUserId) return;
+
+    const trimmed = text.trim();
+    const hasAttachments = !!attachments?.length;
+
+    // ✅ allow attachments-only; block only if nothing to send
+    if (!trimmed && !hasAttachments) return;
 
     try {
-      // ✅ Upload all attachments to Cloudinary first
-      if (attachments.length > 0) {
-        console.log(`Uploading ${attachments.length} completion attachment(s)`);
-        
+      // 1) Upload + attach to ticket
+      if (hasAttachments) {
         const uploadResults = await Promise.allSettled(
           attachments.map(async (attachment) => {
-            console.log('Uploading completion attachment:', attachment.name);
-            
             const cloudinaryUrl = await uploadToCloudinary(
               attachment.uri,
               attachment.name,
               attachment.type
             );
-            console.log('Cloudinary URL:', cloudinaryUrl);
 
             await addAttachmentToTicket(
               Number(request.id),
@@ -119,7 +203,61 @@ export default function RequestCard({
               attachment.type,
               attachment.size
             );
-            console.log('Completion attachment added to ticket:', attachment.name);
+
+            return attachment.name;
+          })
+        );
+
+        const failed = uploadResults.filter(r => r.status === 'rejected');
+        if (failed.length > 0) {
+          Alert.alert('Warning', `${failed.length} attachment(s) failed to upload.`);
+        }
+
+        // refresh attachments section in modal
+        setAttachmentsRefreshSignal(x => x + 1);
+      }
+
+      // 2) Add remark ONLY if user typed something
+      if (trimmed) {
+        const newRemark = await addRemark(
+          Number(request.id),
+          trimmed,
+          currentUserId,
+          currentUserRole
+        );
+        setRemarks(prev => [...prev, newRemark]);
+      }
+    } catch (error: any) {
+      console.error('Error adding remark with attachments:', error);
+      Alert.alert('Error', error?.message || 'Failed to send remark');
+      throw error;
+    }
+  };
+
+  const handleMarkDone = async (completionRemarks: string, attachments: any[]) => {
+    if (!currentUserId) {
+      Alert.alert('Error', 'User not found. Please sign in again.');
+      return;
+    }
+
+    try {
+      if (attachments.length > 0) {
+        const uploadResults = await Promise.allSettled(
+          attachments.map(async (attachment) => {
+            const cloudinaryUrl = await uploadToCloudinary(
+              attachment.uri,
+              attachment.name,
+              attachment.type
+            );
+
+            await addAttachmentToTicket(
+              Number(request.id),
+              currentUserId,
+              cloudinaryUrl,
+              attachment.name,
+              attachment.type,
+              attachment.size
+            );
 
             return attachment.name;
           })
@@ -128,28 +266,35 @@ export default function RequestCard({
         const failed = uploadResults.filter(r => r.status === 'rejected');
         const succeeded = uploadResults.filter(r => r.status === 'fulfilled');
 
-        // ✅ Then mark for verification
+        if (completionRemarks.trim()) {
+          await addRemark(
+            Number(request.id),
+            `[COMPLETION] ${completionRemarks}`,
+            currentUserId,
+            currentUserRole
+          );
+        }
+
         if (onMarkDone) {
-          await onMarkDone(request.id, remarks, attachments);
+          await onMarkDone(request.id, completionRemarks, attachments);
         }
 
         if (failed.length > 0) {
-          console.error('Failed uploads:', failed);
           Alert.alert(
             'Partial Success',
             `Request marked for verification.\n${succeeded.length} of ${attachments.length} photos uploaded successfully.`
           );
         } else {
-          console.log('All completion attachments uploaded successfully');
           Alert.alert('Success', `Request marked for verification with ${attachments.length} photo(s)`);
         }
       } else {
-        // ✅ No attachments, just mark for verification
         if (onMarkDone) {
-          await onMarkDone(request.id, remarks, attachments);
+          await onMarkDone(request.id, completionRemarks, attachments);
         }
         Alert.alert('Success', 'Request marked for verification');
       }
+      
+      await loadRemarks();
     } catch (error: any) {
       console.error('Error in handleMarkDone:', error);
       Alert.alert('Error', error?.message || 'Failed to mark request as done');
@@ -158,7 +303,22 @@ export default function RequestCard({
   };
 
   const isPending = request.status === 'Pending';
-  const buttonLabel = isPending ? 'For Completion' : 'Follow-up';
+  const isForReview = request.status === 'For review';
+  const isDone = request.status === 'Done';
+
+  // ✅ For review behaves like Pending (can chat + attach)
+  const canComment = isPending || isForReview;
+
+  // ✅ Done is view-only
+  const isViewOnly = isDone;
+
+  const buttonLabel = 'For Completion';
+  const followUpLabel = 'Follow up';
+
+  const handleFollowUp = () => {
+    // Follow-up just opens remarks modal (send message/attachments)
+    setCommentsModalVisible(true);
+  };
 
   const shadowStyle = {
     shadowColor: '#88AB8E',
@@ -168,19 +328,9 @@ export default function RequestCard({
     elevation: 3,
   };
 
-  const inlineScrollRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (inlineScrollRef.current && typeof inlineScrollRef.current.scrollToEnd === 'function') {
-      inlineScrollRef.current.scrollToEnd({ animated: true });
-    }
-  }, [inlineMessages.length]);
-
   return (
     <View style={tw`mb-4 bg-green-light rounded-xl overflow-hidden`}> 
-      <View
-        style={tw`p-5 mb-6 relative overflow-visible`}
-      >
+      <View style={tw`p-5 mb-6 relative overflow-visible`}>
         <View style={tw`flex-row items-center justify-between mb-3`}>
           <View style={tw`flex-row items-center gap-3`}>
             <Text style={tw`text-primary text-[13px] font-bold`}>
@@ -205,10 +355,6 @@ export default function RequestCard({
             )}
           </TouchableOpacity>
         </View>
-
-        <Text style={tw`text-text-gray text-[10px] font-semibold mb-4`}>
-          {request.description}
-        </Text>
 
         <View style={tw`border-t border-green-light mb-4`} />
 
@@ -240,26 +386,18 @@ export default function RequestCard({
             </Text>
           </View>
 
+          {/* ✅ NEW: Issue Description (replaces the two "Remarks from ..." rows) */}
           <View style={tw`flex-row justify-between`}>
             <Text style={tw`text-[#4F6853] text-[11px] font-semibold`}>
-              Remarks from brgy:
+              Issue Description:
             </Text>
-            <Text style={tw`text-text-gray text-[11px] font-semibold`}>
-              {request.remarksBrgy}
+            <Text style={tw`text-text-gray text-[11px] font-semibold text-right flex-1 ml-4`}>
+              {request.description || '—'}
             </Text>
           </View>
 
           {request.isExpanded && (
             <>
-              <View style={tw`flex-row justify-between`}>
-                <Text style={tw`text-[#4F6853] text-[11px] font-semibold`}>
-                  Remarks from maintenance:
-                </Text>
-                <Text style={tw`text-text-gray text-[11px] font-semibold text-right flex-1 ml-4`}>
-                  {request.remarksMaintenance}
-                </Text>
-              </View>
-              
               {isPending && request.hasAttachment && (
                 <View style={tw`mb-3 flex-row items-center justify-between`}>
                   <Text style={tw`text-gray-700 font-semibold text-sm`}>Attachment from brgy</Text>
@@ -269,12 +407,11 @@ export default function RequestCard({
                 </View>
               )}
 
-              {isPending && (
+              {/* ✅ SHOW Remarks section for Pending, For review, Done */}
+              {(isPending || isForReview || isDone) && (
                 <View style={tw`mb-4`}>
                   <View style={tw`flex-row items-center justify-between mb-2`}>
-                    <Text style={tw`text-gray-700 font-semibold text-sm`}>
-                      Comments
-                    </Text>
+                    <Text style={tw`text-gray-700 font-semibold text-sm`}>Remarks</Text>
                   </View>
 
                   <View style={tw`bg-white border border-gray-300 rounded p-3 relative`}>
@@ -284,79 +421,171 @@ export default function RequestCard({
                       </TouchableOpacity>
                     </View>
 
-                    {/* messages area */}
                     <View style={tw`min-h-24 max-h-40`}>
-                      <ScrollView ref={inlineScrollRef}>
-                        {inlineMessages.map(msg => {
-                          const isBrgy = msg.sender === 'Brgy';
-                          return (
-                            <View key={msg.id} style={{ marginBottom: 12, alignSelf: isBrgy ? 'flex-start' : 'flex-end', maxWidth: '78%' }}>
-                              <View style={{ marginBottom: 4, flexDirection: 'row' }}>
-                                <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
-                                  {isBrgy ? 'Barangay' : 'You'}
-                                </Text>
-                                <Text style={tw`text-xs text-gray-400 ml-2`}>{msg.time}</Text>
-                              </View>
+                      {loadingRemarks ? (
+                        <View style={tw`items-center justify-center py-4`}>
+                          <Text style={tw`text-gray-500 text-xs`}>Loading remarks...</Text>
+                        </View>
+                      ) : (
+                        <ScrollView ref={inlineScrollRef}>
+                          {remarks.length === 0 ? (
+                            <Text style={tw`text-gray-400 text-xs italic`}>No remarks yet</Text>
+                          ) : (
+                            remarks.map((remark) => {
+                              const isBrgy = remark.User_role === 'Barangay_staff' || remark.User_role === 'Admin';
+                              const isExpandedRemark = expandedRemarkIds.has(remark.Remark_Id);
 
-                              <View style={[{ padding: 10, borderRadius: 10, backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF' }, shadowStyle]}>
-                                <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
-                                  {msg.message}
-                                </Text>
-                                {msg.hasAttachment && msg.attachmentName && (
-                                  <TouchableOpacity onPress={() => setAttachmentModalVisible(true)} style={tw`mt-2`}>
-                                    <Text style={{ color: '#F9F4D3', textDecorationLine: 'underline', fontSize: 12 }}>{msg.attachmentName}</Text>
+                              return (
+                                <View
+                                  key={remark.Remark_Id}
+                                  style={{
+                                    marginBottom: 12,
+                                    alignSelf: isBrgy ? 'flex-start' : 'flex-end',
+                                    maxWidth: '78%',
+                                  }}
+                                >
+                                  <View style={{ marginBottom: 4, flexDirection: 'row' }}>
+                                    <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
+                                      {isBrgy ? 'Barangay' : 'You'}
+                                    </Text>
+
+                                    {/* ✅ Time only */}
+                                    <Text style={tw`text-xs text-gray-400 ml-2`}>
+                                      {formatTimeOnly(remark.Created_at)}
+                                    </Text>
+                                  </View>
+
+                                  {/* ✅ Tap bubble to show more info */}
+                                  <TouchableOpacity
+                                    activeOpacity={0.85}
+                                    onPress={() => toggleRemarkExpanded(remark.Remark_Id)}
+                                    style={[
+                                      {
+                                        padding: 10,
+                                        borderRadius: 10,
+                                        backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF',
+                                      },
+                                      shadowStyle,
+                                    ]}
+                                  >
+                                    <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
+                                      {remark.Remark_text}
+                                    </Text>
+
+                                    {isExpandedRemark && (
+                                      <Text style={{ marginTop: 6, fontSize: 11, color: isBrgy ? '#F1F5F9' : '#6B7280' }}>
+                                        {formatFullStamp(remark.Created_at)}
+                                      </Text>
+                                    )}
                                   </TouchableOpacity>
-                                )}
-                              </View>
-                            </View>
-                          );
-                        })}
-                      </ScrollView>
-                     </View>
-
-                    <View style={tw`mt-3`}>
-                      <View style={tw`flex-row items-center bg-white border border-gray-200 rounded-full px-3`} >
-                        <TouchableOpacity onPress={() => { /* open image picker */ }} style={{ marginRight: 8 }}>
-                          <LucideImage color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
-                        </TouchableOpacity>
-
-                        <TextInput
-                          style={[tw`flex-1 text-sm`, { paddingVertical: 0, height: 24, textAlignVertical: 'center' }]}
-                          placeholder="Type a message..."
-                          placeholderTextColor="#8A8A8A"
-                          value={inlineNewMsg}
-                          onChangeText={setInlineNewMsg}
-                          multiline={false}
-                        />
-
-                        <TouchableOpacity onPress={handleInlineSend} style={{ marginLeft: 8 }}>
-                          <LucideSend color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
-                        </TouchableOpacity>
-                      </View>
+                                </View>
+                              );
+                            })
+                          )}
+                        </ScrollView>
+                      )}
                     </View>
+
+                    {/* ✅ Inline input ONLY for Pending + For review */}
+                    {canComment && (
+                      <View style={tw`mt-3`}>
+                        <View style={tw`flex-row items-center bg-white border border-gray-200 rounded-full px-3`} >
+                          {/* ✅ Small UI: open modal + picker */}
+                          <TouchableOpacity
+                            onPress={() => {
+                              setAutoPickOnOpen(true);
+                              setCommentsModalVisible(true);
+                            }}
+                            style={{ marginRight: 8 }}
+                          >
+                            <LucideImage color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
+                          </TouchableOpacity>
+
+                          <TextInput
+                            style={[tw`flex-1 text-sm`, { paddingVertical: 0, height: 24, textAlignVertical: 'center' }]}
+                            placeholder="Type a remark..."
+                            placeholderTextColor="#8A8A8A"
+                            value={inlineNewMsg}
+                            onChangeText={setInlineNewMsg}
+                            multiline={false}
+                          />
+
+                          <TouchableOpacity onPress={handleInlineSend} style={{ marginLeft: 8 }}>
+                            <LucideSend color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
                   </View>
                 </View>
               )}
 
-              <View style={tw`mt-2 items-center`}>
-                <TouchableOpacity
-                  onPress={() => setForCompletionModalVisible(true)}
-                  style={tw`bg-[#2E523A] rounded-md py-2 px-6`}
-                >
-                  <Text style={tw`text-white text-[11px] font-bold`}>
-                    {buttonLabel}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              {/* ✅ Only Pending can show For Completion button (remove follow-up everywhere) */}
+              {isPending && (
+                <View style={tw`mt-2 items-center`}>
+                  <TouchableOpacity
+                    onPress={() => setForCompletionModalVisible(true)}
+                    style={tw`bg-[#2E523A] rounded-md py-2 px-6`}
+                  >
+                    <Text style={tw`text-white text-[11px] font-bold`}>{buttonLabel}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {isForReview && (
+                <View style={tw`mt-2 items-center`}>
+                  <TouchableOpacity
+                    onPress={handleFollowUp}
+                    style={tw`bg-[#2E523A] rounded-md py-2 px-6`}
+                  >
+                    <Text style={tw`text-white text-[11px] font-bold`}>{followUpLabel}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </>
           )}
         </View>
 
         <View style={tw`h-4`} />
 
-        <View style={tw`mt-2 relative`}>
+        {/* Bottom controls (collapsed) */}
+        <View style={tw`mt-2`}>
+          {/* Row 1: Remarks (left) + Expand arrow (right) */}
+          <View style={tw`flex-row items-center justify-between`}>
+            {!request.isExpanded ? (
+              <TouchableOpacity
+                onPress={() => {
+                  // ✅ Expand card (as requested) + open modal for attachments/messages
+                  onToggleExpand(request.id);
+                  setCommentsModalVisible(true);
+                }}
+                style={tw`bg-white border border-gray-300 rounded-full px-3 py-2`}
+              >
+                <Text style={tw`text-text-gray text-[11px] font-semibold`}>Remarks</Text>
+              </TouchableOpacity>
+            ) : (
+              <View />
+            )}
+
+            <TouchableOpacity
+              onPress={() => onToggleExpand(request.id)}
+              style={tw`bg-[#88AB8E] rounded-full w-8 h-8 items-center justify-center`}
+            >
+              <Svg width="10" height="6" viewBox="0 0 10 6" fill="none">
+                <Path
+                  d={request.isExpanded ? "M9 5L5 1L1 5" : "M1 1L5 5L9 1"}
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+          </View>
+
+          {/* Row 2: Status action button (collapsed) */}
           {!request.isExpanded && isPending && (
-            <View style={[{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }]}>
+            <View style={tw`mt-3 items-center`}>
               <TouchableOpacity
                 onPress={() => setForCompletionModalVisible(true)}
                 style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
@@ -366,20 +595,16 @@ export default function RequestCard({
             </View>
           )}
 
-          <TouchableOpacity
-            onPress={() => onToggleExpand(request.id)}
-            style={[tw`bg-[#88AB8E] rounded-full w-6 h-6 items-center justify-center`, { position: 'absolute', right: 0 }]}
-          >
-            <Svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-              <Path
-                d={request.isExpanded ? "M9 5L5 1L1 5" : "M1 1L5 5L9 1"}
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </TouchableOpacity>
+          {!request.isExpanded && isForReview && (
+            <View style={tw`mt-3 items-center`}>
+              <TouchableOpacity
+                onPress={handleFollowUp}
+                style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
+              >
+                <Text style={tw`text-white text-[11px] font-bold`}>{followUpLabel}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
 
@@ -391,15 +616,25 @@ export default function RequestCard({
 
       <CommentsSection
         visible={commentsModalVisible}
-        onClose={() => setCommentsModalVisible(false)}
-        messages={inlineMessages}
+        onClose={() => {
+          setCommentsModalVisible(false);
+          setAutoPickOnOpen(false);
+        }}
+        requestId={Number(request.id)}
+        messages={remarks}
         onSendMessage={handleModalSend}
+        refreshAttachmentsSignal={attachmentsRefreshSignal}
+        currentUserId={currentUserId}
+        autoPickOnOpen={autoPickOnOpen}
+        onAutoPickHandled={() => setAutoPickOnOpen(false)}
+        readOnly={isViewOnly} // ✅ Done tab = view mode
       />
 
       <ForCompletion
         visible={forCompletionModalVisible}
         onClose={() => setForCompletionModalVisible(false)}
         onMarkDone={handleMarkDone}
+        requestId={request.id} // ✅ Pass requestId
       />
     </View>
   );
