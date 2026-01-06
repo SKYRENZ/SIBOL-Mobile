@@ -20,13 +20,13 @@ import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from 
 import Container from '../components/primitives/Container';
 import { Bell } from 'lucide-react-native';
 import { CameraWrapper } from '../components/CameraWrapper';
-import HMenu from '../components/hMenu';
+import { useMenu } from '../components/MenuProvider';
 import { scanQr } from '../services/apiClient';
 import { decodeQrFromImage } from '../utils/qrDecoder';
 import { getMyPoints } from '../services/profileService';
 
 export default function hDashboard() {
-  const [menuVisible, setMenuVisible] = useState(false);
+  const { openMenu } = useMenu();
   const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<{ awarded: number; totalPoints: number } | null>(null);
   const [isProcessingScan, setIsProcessingScan] = useState(false);
@@ -440,14 +440,8 @@ export default function hDashboard() {
       </View>
 
       <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
-        <BottomNavbar onScan={handleOpenScanner} onMenuPress={() => setMenuVisible(true)} />
+        <BottomNavbar onScan={handleOpenScanner} onMenuPress={openMenu} />
       </View>
-
-      {/* HMenu overlay rendered at page level so it covers full screen */}
-      <HMenu visible={menuVisible} onClose={() => setMenuVisible(false)} onNavigate={(route) => {
-        // handle page navigation here if you have navigation available
-        setMenuVisible(false);
-      }} />
      </SafeAreaView>
    );
  }
