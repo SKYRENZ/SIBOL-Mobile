@@ -9,6 +9,7 @@ interface Attachment {
   uri: string;
   name: string;
   type: string;
+  size?: number;
 }
 
 interface ForCompletionProps {
@@ -29,24 +30,25 @@ export default function ForCompletion({ visible, onClose, onMarkDone }: ForCompl
       return;
     }
 
+    // ✅ Enable multiple selection
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
-      quality: 1,
+      allowsMultipleSelection: true, // ✅ Changed from false to true
+      quality: 0.8, // ✅ Reduced quality for better upload
     });
 
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      const fileName = asset.fileName || `image_${Date.now()}.jpg`;
-      
-      setAttachments([
-        ...attachments,
-        {
-          uri: asset.uri,
-          name: fileName,
-          type: asset.type || 'image/jpeg',
-        },
-      ]);
+    if (!result.canceled && result.assets.length > 0) {
+      // ✅ Handle multiple assets
+      const newAttachments = result.assets.map((asset, index) => ({
+        uri: asset.uri,
+        name: asset.fileName || `completion_${Date.now()}_${index}.jpg`,
+        type: asset.mimeType || 'image/jpeg',
+        size: asset.fileSize,
+      }));
+
+      // ✅ Add new attachments to existing ones
+      setAttachments(prev => [...prev, ...newAttachments]);
     }
   };
 

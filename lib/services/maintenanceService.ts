@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import { Platform } from 'react-native';
 
 export interface MaintenanceTicket {
   Request_Id: number;
@@ -35,13 +36,88 @@ export interface AddRemarksPayload {
   remarks: string;
 }
 
-// ✅ 1. CREATE TICKET (Operator creates maintenance request)
+export async function uploadToCloudinary(uri: string, fileName: string, mimeType?: string): Promise<string> {
+  try {
+    const formData = new FormData();
+    
+    if (Platform.OS === 'web') {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const file = new File([blob], fileName, { type: mimeType || 'image/jpeg' });
+      formData.append('file', file);
+    } else {
+      formData.append('file', {
+        uri: uri,
+        name: fileName,
+        type: mimeType || 'image/jpeg',
+      } as any);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+    const response = await fetch(`${apiClient.defaults.baseURL}/api/upload`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Authorization': await getAuthHeader(),
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Upload failed' }));
+      throw new Error(errorData.message || `Upload failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.filepath;
+  } catch (error: any) {
+    throw new Error(error?.message || 'Failed to upload file. Please try again.');
+  }
+}
+
+async function getAuthHeader(): Promise<string> {
+  try {
+    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+    const token = await AsyncStorage.getItem('token');
+    return token ? `Bearer ${token}` : '';
+  } catch (err) {
+    console.error('Error getting auth token:', err);
+    return '';
+  }
+}
+
+export async function getPriorities(): Promise<Array<{ Priority_id: number; Priority: string }>> {
+  const response = await apiClient.get('/api/maintenance/priorities');
+  return response.data;
+}
+
 export async function createTicket(data: CreateTicketPayload): Promise<MaintenanceTicket> {
   const response = await apiClient.post('/api/maintenance', data);
   return response.data;
 }
 
-// ✅ 2. MARK ON-GOING (Operator starts working on ticket)
+export async function addAttachmentToTicket(
+  requestId: number,
+  uploadedBy: number,
+  filepath: string,
+  filename: string,
+  filetype?: string,
+  filesize?: number
+): Promise<any> {
+  const response = await apiClient.post(`/api/maintenance/${requestId}/attachments`, {
+    uploaded_by: uploadedBy,
+    filepath,
+    filename,
+    filetype,
+    filesize,
+  });
+  return response.data;
+}
+
 export async function markOngoing(
   requestId: number,
   data: OperatorActionPayload
@@ -50,7 +126,6 @@ export async function markOngoing(
   return response.data;
 }
 
-// ✅ 3. MARK FOR VERIFICATION (Operator finishes work)
 export async function markForVerification(
   requestId: number,
   data: OperatorActionPayload
@@ -59,7 +134,6 @@ export async function markForVerification(
   return response.data;
 }
 
-// ✅ 4. ADD REMARKS (Operator adds notes/updates)
 export async function addRemarks(
   requestId: number,
   data: AddRemarksPayload
@@ -68,7 +142,6 @@ export async function addRemarks(
   return response.data;
 }
 
-// ✅ 5. CANCEL TICKET (Operator can cancel their own tickets)
 export async function cancelTicket(
   requestId: number,
   operatorAccountId: number
@@ -79,13 +152,11 @@ export async function cancelTicket(
   return response.data;
 }
 
-// ✅ 6. GET SINGLE TICKET (View ticket details)
 export async function getTicket(requestId: number): Promise<MaintenanceTicket> {
   const response = await apiClient.get(`/api/maintenance/${requestId}`);
   return response.data;
 }
 
-// ✅ 7. LIST OPERATOR'S TICKETS (Filter by operator)
 export async function listMyTickets(operatorAccountId: number): Promise<MaintenanceTicket[]> {
   const response = await apiClient.get('/api/maintenance', {
     params: { created_by: operatorAccountId }
@@ -93,7 +164,6 @@ export async function listMyTickets(operatorAccountId: number): Promise<Maintena
   return response.data;
 }
 
-// ✅ 8. LIST ASSIGNED TICKETS (Tickets assigned to operator)
 export async function listAssignedTickets(operatorAccountId: number): Promise<MaintenanceTicket[]> {
   const response = await apiClient.get('/api/maintenance', {
     params: { assigned_to: operatorAccountId }
@@ -101,7 +171,6 @@ export async function listAssignedTickets(operatorAccountId: number): Promise<Ma
   return response.data;
 }
 
-// ✅ 9. LIST TICKETS BY STATUS (Filter tickets)
 export async function listTicketsByStatus(
   operatorAccountId: number, 
   status: string
