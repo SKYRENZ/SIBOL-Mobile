@@ -2,8 +2,10 @@ import React from 'react';
 import { View, TouchableOpacity, Text, Platform } from 'react-native';
 import tw from '../utils/tailwind';
 import { Menu, MessageSquare, Home as HomeIcon, ArrowLeft, QrCode } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 
 export default function BottomNavbar({ onScan, onMenuPress }: { onScan?: () => void; onMenuPress?: () => void }) {
+	const navigation = useNavigation<any>();
 	return (
 		<>
 			<View style={tw.style(`h-22 flex-row justify-around items-end bg-primary relative`, Platform.OS === 'android' ? 'pb-8' : 'pb-4')}>
@@ -11,7 +13,7 @@ export default function BottomNavbar({ onScan, onMenuPress }: { onScan?: () => v
 					<Menu color="white" size={22} />
 					<Text style={tw`text-[11px] font-semibold text-white mt-1 font-inter`}>Menu</Text>
 				</TouchableOpacity>
-				<TouchableOpacity style={tw`items-center min-w-[60px]`}>
+				<TouchableOpacity style={tw`items-center min-w-[60px]`} onPress={() => navigation.navigate('ChatSupport')}>
 					<MessageSquare color="white" size={22} />
 					<Text style={tw`text-[11px] font-semibold text-white mt-1 font-inter`}>Chat Support</Text>
 				</TouchableOpacity>
