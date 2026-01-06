@@ -92,7 +92,13 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
 								tw`bg-[#193827]`,
 							]}
 						>
-							<View style={{ width: '100%', backgroundColor: '#A6BCAF', paddingHorizontal: 12, paddingTop: 20, paddingBottom: 14 }}>
+							<TouchableOpacity
+								style={{ width: '100%', backgroundColor: '#A6BCAF', paddingHorizontal: 12, paddingTop: 20, paddingBottom: 14 }}
+								onPress={() => {
+									navigation.navigate('OProfile' as never);
+									onClose();
+								}}
+							>
 								<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
 									<View>
 										<Text style={{ fontSize: 14, fontWeight: '600', color: '#18472f' }}>User#39239!</Text>
@@ -103,7 +109,7 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
 										<User color="#18472f" size={22} />
 									</View>
 								</View>
-							</View>
+							</TouchableOpacity>
 
 							<View style={tw`h-[1px] bg-[#264A3C] my-2`} />
 

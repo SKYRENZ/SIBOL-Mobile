@@ -129,6 +129,15 @@ export default function ORequest() {
     }
   }, [submitForVerification]);
 
+  const handleRequestFormClose = useCallback(() => {
+    setRequestFormVisible(false);
+  }, []);
+
+  const handleRequestFormSave = useCallback(() => {
+    setRequestFormVisible(false);
+    refresh();
+  }, [refresh]);
+
   const filteredRequests = getFilteredTickets();
 
   return (
@@ -199,7 +208,8 @@ export default function ORequest() {
 
       <RequestForm
         visible={requestFormVisible}
-        onClose={() => setRequestFormVisible(false)}
+        onClose={handleRequestFormClose}
+        onSave={handleRequestFormSave}
       />
 
       <OMenu
