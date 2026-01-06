@@ -46,16 +46,16 @@ const menuItems = [
       route: 'Map' // Update this if you have a specific map route
     },
     { 
-      id: 'settings', 
-      label: 'Settings', 
-      icon: Settings,
-      route: 'Settings' // Update this if you have a specific settings route
-    },
-    { 
       id: 'chat', 
       label: 'Chat Support', 
       icon: MessageSquare,
-      route: 'Chat' // Update this if you have a specific chat route
+      route: 'ChatSupport' // Update this if you have a specific settings route
+    },
+    { 
+      id: 'settings', 
+      label: 'Settings', 
+      icon: Settings,
+      route: 'Settings' // Update this if you have a specific chat route
     },
 ];
 

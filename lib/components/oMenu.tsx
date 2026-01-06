@@ -117,7 +117,7 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
 								<TouchableOpacity
 									style={tw`flex-row items-center py-3 px-3 rounded`}
 									onPress={() => {
-										navigation.navigate('oMaintenance' as never);
+										navigation.navigate('OMaintenance' as never);
 										onClose();
 									}}
 								>

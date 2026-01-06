@@ -20,17 +20,16 @@ import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from 
 import Container from '../components/primitives/Container';
 import { Bell } from 'lucide-react-native';
 import { CameraWrapper } from '../components/CameraWrapper';
-import { useMenu } from '../components/MenuProvider';
 import { scanQr } from '../services/apiClient';
 import { decodeQrFromImage } from '../utils/qrDecoder';
 import { getMyPoints } from '../services/profileService';
 
 export default function hDashboard() {
-  const { openMenu } = useMenu();
   const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<{ awarded: number; totalPoints: number } | null>(null);
   const [isProcessingScan, setIsProcessingScan] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // ✅ Add state for QRMessage modal
   const [showQRMessage, setShowQRMessage] = useState(false);
@@ -53,6 +52,18 @@ export default function hDashboard() {
     }
     
     setShowScanner(true);
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const data = await getMyPoints();
+      setUserPoints(data.points);
+    } catch (err) {
+      console.error('[hDashboard] Failed to refresh points', err);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleCloseScanner = () => {
@@ -385,6 +396,16 @@ export default function hDashboard() {
           <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-6 mt-4`} />
         </Container>
 
+        {/* ✅ Refresh overlay */}
+        {isRefreshing && (
+          <View style={tw`absolute inset-0 bg-white bg-opacity-90 items-center justify-center z-50`}>
+            <ActivityIndicator size="large" color="#2E523A" />
+            <Text style={tw`text-[#2E523A] font-semibold text-base mt-2`}>
+              Refreshing...
+            </Text>
+          </View>
+        )}
+
         {/* ✅ Camera Modal with Processing Overlay */}
         <Modal 
           visible={showScanner} 
@@ -440,7 +461,7 @@ export default function hDashboard() {
       </View>
 
       <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
-        <BottomNavbar onScan={handleOpenScanner} onMenuPress={openMenu} />
+        <BottomNavbar onScan={handleOpenScanner} currentPage="Home" onRefresh={handleRefresh} />
       </View>
      </SafeAreaView>
    );
