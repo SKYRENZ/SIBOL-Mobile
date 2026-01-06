@@ -9,46 +9,19 @@ interface Attachment {
   uri: string;
   name: string;
   type: string;
+  size?: number;
 }
 
 interface ForCompletionProps {
   visible: boolean;
   onClose: () => void;
   onMarkDone?: (remarks: string, attachments: Attachment[]) => void;
+  requestId?: string; // ✅ NEW: Add requestId prop
 }
 
-export default function ForCompletion({ visible, onClose, onMarkDone }: ForCompletionProps) {
+export default function ForCompletion({ visible, onClose, onMarkDone, requestId }: ForCompletionProps) {
   const [remarks, setRemarks] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-
-  const handleImagePick = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (permissionResult.granted === false) {
-      Alert.alert('Permission Required', 'Please allow access to your photo library');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: false,
-      quality: 1,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      const fileName = asset.fileName || `image_${Date.now()}.jpg`;
-      
-      setAttachments([
-        ...attachments,
-        {
-          uri: asset.uri,
-          name: fileName,
-          type: asset.type || 'image/jpeg',
-        },
-      ]);
-    }
-  };
 
   const handleMarkDone = () => {
     if (attachments.length === 0) {
@@ -71,8 +44,43 @@ export default function ForCompletion({ visible, onClose, onMarkDone }: ForCompl
     onClose();
   };
 
+  const handleImagePick = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission Required', 'Please allow access to your photo library');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      const newAttachments = result.assets.map((asset, index) => ({
+        uri: asset.uri,
+        name: asset.fileName || `completion_${Date.now()}_${index}.jpg`,
+        type: asset.mimeType || 'image/jpeg',
+        size: asset.fileSize,
+      }));
+
+      setAttachments(prev => [...prev, ...newAttachments]);
+    }
+  };
+
   const removeAttachment = (index: number) => {
     setAttachments(attachments.filter((_, i) => i !== index));
+  };
+
+  const shadowStyle = {
+    shadowColor: '#88AB8E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   };
 
   return (
@@ -84,8 +92,8 @@ export default function ForCompletion({ visible, onClose, onMarkDone }: ForCompl
               style={[
                 tw`bg-white p-4`,
                 {
-                  width: '85%',        
-                  height: '45%',       
+                  width: '85%',
+                  height: '45%',
                   borderRadius: 10,
                   alignSelf: 'center',
                   shadowColor: '#000',
@@ -104,16 +112,16 @@ export default function ForCompletion({ visible, onClose, onMarkDone }: ForCompl
 
                 <TouchableOpacity
                   onPress={handleClose}
-                  style={{ position: 'absolute', right: 16, top: 6, padding: 4 }} 
+                  style={{ position: 'absolute', right: 16, top: 6, padding: 4 }}
                   accessibilityLabel="Close"
                 >
                   <LucideX color="#14532D" size={18} strokeWidth={2} />
                 </TouchableOpacity>
               </View>
- 
-               <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
-                 {/* Remarks Section */}
-                 <View style={tw`mb-6`}>
+
+              <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
+                {/* Remarks Section */}
+                <View style={tw`mb-6`}>
                   <Text style={tw`text-text-gray text-sm font-semibold mb-2`}>Remarks:</Text>
                   <TextInput
                     style={tw`border border-green-light rounded-lg p-3 text-gray-700 min-h-20 text-sm`}
@@ -124,10 +132,10 @@ export default function ForCompletion({ visible, onClose, onMarkDone }: ForCompl
                     multiline
                     textAlignVertical="top"
                   />
-                 </View>
- 
-                 {/* Attachment Section */}
-                 <View style={tw`mb-6`}>
+                </View>
+
+                {/* Attachment Section */}
+                <View style={tw`mb-6`}>
                   <View style={tw`flex-row justify-between items-center mb-2`}>
                     <Text style={tw`text-text-gray text-sm font-semibold`}>Attachment</Text>
                     {attachments.length > 0 && (
@@ -136,7 +144,7 @@ export default function ForCompletion({ visible, onClose, onMarkDone }: ForCompl
                       </TouchableOpacity>
                     )}
                   </View>
- 
+
                   {attachments.length === 0 && (
                     <TouchableOpacity
                       onPress={handleImagePick}
@@ -150,44 +158,44 @@ export default function ForCompletion({ visible, onClose, onMarkDone }: ForCompl
                       </View>
                     </TouchableOpacity>
                   )}
- 
-                   {/* Attachments List */}
-                   {attachments.length > 0 && (
-                     <View style={tw`mt-4`}>
-                       {attachments.map((attachment, index) => (
-                         <View
-                           key={index}
-                           style={tw`flex-row justify-between items-center bg-secondary rounded-lg p-2 mb-2`}
-                         >
+
+                  {/* Attachments List */}
+                  {attachments.length > 0 && (
+                    <View style={tw`mt-4`}>
+                      {attachments.map((attachment, index) => (
+                        <View
+                          key={index}
+                          style={tw`flex-row justify-between items-center bg-secondary rounded-lg p-2 mb-2`}
+                        >
                           <Text style={tw`text-gray-700 font-medium flex-1 mr-2 text-sm`} numberOfLines={1}>
-                             {attachment.name}
-                           </Text>
-                           <TouchableOpacity
-                             onPress={() => removeAttachment(index)}
-                             style={tw`p-1`}
-                           >
+                            {attachment.name}
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => removeAttachment(index)}
+                            style={tw`p-1`}
+                          >
                             <LucideMinus color="#DC2626" size={16} strokeWidth={2} />
-                           </TouchableOpacity>
-                         </View>
-                       ))}
-                     </View>
-                   )}
-                 </View>
-               </ScrollView>
- 
-               <View style={tw`mt-4 self-center w-full px-6`}> 
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+
+              <View style={tw`mt-4 self-center w-full px-6`}>
                 <Button
                   title="Mark as Done"
                   onPress={handleMarkDone}
                   disabled={attachments.length === 0}
-                  style={tw`w-full`} 
+                  style={tw`w-full`}
                   testID="for-completion-mark-done"
                 />
-               </View>
-             </View>
-           </TouchableWithoutFeedback>
-         </View>
-       </TouchableWithoutFeedback>
-     </Modal>
-   );
- }
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}

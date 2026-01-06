@@ -22,6 +22,8 @@ import oSchedule from './lib/Pages/oSchedule';
 import OAdditive from './lib/Pages/oAdditive';
 import HRewards from './lib/Pages/hRewards';
 import ChatSupport from './lib/Pages/ChatSupport';
+import WiFiConnectivity from './lib/Pages/WiFiConnectivity';
+import OProfile from './lib/Pages/oProfile';
 
 const Stack = createNativeStackNavigator();
 
@@ -30,7 +32,7 @@ export default function App() {
     <ResponsiveProvider>
       <NavigationContainer>
         <Stack.Navigator 
-          initialRouteName="HDashboard"
+          initialRouteName="SignIn"
           screenOptions={{
             headerShown: false,
           }}
@@ -51,8 +53,10 @@ export default function App() {
           <Stack.Screen name="OWasteRecord" component={oWasteRecord} />
           <Stack.Screen name="OSchedule" component={oSchedule} />
           <Stack.Screen name="ChatSupport" component={ChatSupport} />
+          <Stack.Screen name="OProfile" component={OProfile} />
           <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+          <Stack.Screen name="WiFiConnectivity" component={WiFiConnectivity} />
         </Stack.Navigator>
         <StatusBar style="auto" />
       </NavigationContainer>
