@@ -15,13 +15,11 @@ import * as ImagePicker from 'expo-image-picker';
 import tw from '../utils/tailwind';
 import { Pencil } from 'lucide-react-native';
 import BottomNavbar from '../components/oBotNav';
-import OMenu from '../components/oMenu';
 import Button from '../components/commons/Button';
 import AreaCovered from '../components/AreaCovered';
 
 export default function OProfile() {
   const navigation = useNavigation();
-  const [menuVisible, setMenuVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<'personal' | 'area'>('personal');
   const [showNavigationModal, setShowNavigationModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
@@ -351,14 +349,6 @@ export default function OProfile() {
 
       <BottomNavbar
         currentPage="Back"
-        onMenuPress={() => setMenuVisible(true)}
-      />
-      <OMenu
-        visible={menuVisible}
-        onClose={() => setMenuVisible(false)}
-        onNavigate={(route) => {
-          setMenuVisible(false);
-        }}
       />
     </SafeAreaView>
   );

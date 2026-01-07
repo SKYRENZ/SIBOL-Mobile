@@ -13,7 +13,6 @@ import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import Tabs from '../components/commons/Tabs';
 import ListCard from '../components/commons/ListCard';
-import OMenu from '../components/oMenu';
 import SearchBox from '../components/commons/Search';
 
 import { fetchMyCollections, listAreas, NormalizedArea } from '../services/wasteCollectionService';
@@ -21,7 +20,6 @@ import { fetchMyCollections, listAreas, NormalizedArea } from '../services/waste
 export default function OWasteRecord({ navigation }: any) {
   const [selectedTab, setSelectedTab] = useState<string>('Waste Input');
   const [searchQuery, setSearchQuery] = useState('');
-  const [menuVisible, setMenuVisible] = useState(false);
 
   const [records, setRecords] = useState<any[]>([]);
   const [areas, setAreas] = useState<NormalizedArea[]>([]);
@@ -142,13 +140,6 @@ export default function OWasteRecord({ navigation }: any) {
       </ScrollView>
 
       <BottomNavbar 
-        onMenuPress={() => setMenuVisible(true)}
-      />
-
-      <OMenu 
-        visible={menuVisible} 
-        onClose={() => setMenuVisible(false)} 
-        onNavigate={() => setMenuVisible(false)} 
       />
     </SafeAreaView>
   );

@@ -22,9 +22,9 @@ export default function OProcess() {
 
   const handleMainTabChange = (tab: string) => {
     if (tab === 'Maintenance') {
-      navigation.navigate('oMaintenance');
-    } else if (tab === 'oAdditive') {
-      navigation.navigate('oAdditive');
+      navigation.navigate('OMaintenance');
+    } else if (tab === 'Additive') {
+      navigation.navigate('OAdditive');
     } else {
       setSelectedMainTab(tab as MainTabType);
     }

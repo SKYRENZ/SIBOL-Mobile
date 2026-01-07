@@ -8,14 +8,12 @@ import Tabs from '../components/commons/Tabs';
 import RequestForm from '../components/RequestForm';
 import { useMaintenance } from '../hooks/useMaintenance';
 import { MaintenanceTicket } from '../services/maintenanceService';
-import OMenu from '../components/oMenu';
 
 type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
 
 export default function ORequest() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Pending');
   const scrollViewRef = useRef<ScrollView>(null);
-  const [menuVisible, setMenuVisible] = useState(false);
   const [requestFormVisible, setRequestFormVisible] = useState(false);
   
   const {
@@ -211,7 +209,6 @@ export default function ORequest() {
       <BottomNavbar
         currentPage="Request"
         onRefresh={handleRefresh}
-        onMenuPress={() => setMenuVisible(true)}
       />
 
       <RequestForm
@@ -220,11 +217,7 @@ export default function ORequest() {
         onSave={handleRequestFormSave}
       />
 
-      <OMenu
-        visible={menuVisible}
-        onClose={() => setMenuVisible(false)}
-        onNavigate={() => setMenuVisible(false)}
-      />
+      {/* Menu rendered globally by MenuProvider */}
     </View>
   );
 }

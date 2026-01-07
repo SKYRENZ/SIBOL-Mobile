@@ -4,13 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import BottomNavbar from '../components/oBotNav';
 import OWasteInput from '../components/oWasteInput';
 import Tabs from '../components/commons/Tabs';
-import OMenu from '../components/oMenu';
 import OWasteCollectionMap from '../components/OWasteCollectionMap';
 import { listWasteContainers, WasteContainer } from '../services/wasteContainerService';
 
 export default function oMap({ navigation }: any) {
   const [showWasteModal, setShowWasteModal] = useState(false);
-  const [menuVisible, setMenuVisible] = useState(false);
   const [selectedTab, setSelectedTab] = useState<string>('Map');
 
   const [containers, setContainers] = useState<WasteContainer[]>([]);
@@ -92,16 +90,12 @@ export default function oMap({ navigation }: any) {
       </TouchableOpacity>
 
       <View style={styles.bottomNavWrapper}>
-        <BottomNavbar onMenuPress={() => setMenuVisible(true)} />
+        <BottomNavbar />
       </View>
 
       <OWasteInput visible={showWasteModal} onClose={() => setShowWasteModal(false)} />
 
-      <OMenu
-        visible={menuVisible}
-        onClose={() => setMenuVisible(false)}
-        onNavigate={() => setMenuVisible(false)}
-      />
+      {/* Global menu rendered by MenuProvider */}
     </SafeAreaView>
   );
 }

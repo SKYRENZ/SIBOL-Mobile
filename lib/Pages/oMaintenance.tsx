@@ -50,9 +50,9 @@ export default function OMaintenance() {
               activeTab={selectedTab}
               onTabChange={(val) => {
                 if (val === 'Additive') {
-                  navigation.navigate('oAdditive');
+                  navigation.navigate('OAdditive');
                 } else if (val === 'Process') {
-                  navigation.navigate('oProcess');
+                  navigation.navigate('OProcess');
                 } else {
                   setSelectedTab(val as TabType);
                 }

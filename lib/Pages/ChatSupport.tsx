@@ -262,7 +262,7 @@ export default function ChatSupport() {
 
       {/* Bottom Navigation */}
       <View style={tw`absolute bottom-0 left-0 right-0`}>
-        <BottomNavbar />
+        <BottomNavbar currentPage="Chat" />
       </View>
     </SafeAreaView>
   );
