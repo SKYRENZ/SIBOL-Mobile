@@ -24,6 +24,8 @@ import HRewards from './lib/Pages/hRewards';
 import ChatSupport from './lib/Pages/ChatSupport';
 import WiFiConnectivity from './lib/Pages/WiFiConnectivity';
 import OProfile from './lib/Pages/oProfile';
+import HProfile from './lib/Pages/hProfile';
+import HMap from './lib/Pages/hMap';
 
 const Stack = createNativeStackNavigator();
 
@@ -44,6 +46,7 @@ export default function App() {
           <Stack.Screen name="VerifyEmail" component={EmailVerification} />
           <Stack.Screen name="AdminPending" component={AdminPending} />
           <Stack.Screen name="HDashboard" component={HDashboard} />
+          <Stack.Screen name="HMap" component={HMap} />
           <Stack.Screen name="HRewards" component={HRewards} />
           <Stack.Screen name="ODashboard" component={ODashboard} />
           <Stack.Screen name="ORequest" component={ORequest} />
@@ -55,6 +58,7 @@ export default function App() {
           <Stack.Screen name="OSchedule" component={OSchedule} />
           <Stack.Screen name="ChatSupport" component={ChatSupport} />
           <Stack.Screen name="OProfile" component={OProfile} />
+          <Stack.Screen name="HProfile" component={HProfile} />
           <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
           <Stack.Screen name="WiFiConnectivity" component={WiFiConnectivity} />
