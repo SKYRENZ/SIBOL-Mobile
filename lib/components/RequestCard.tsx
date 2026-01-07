@@ -24,10 +24,14 @@ export interface RequestItem {
   dueDate: string;
   remarksBrgy: string;
   remarksMaintenance: string;
-  status: 'Pending' | 'Done' | 'For review' | 'Canceled';
+  status: 'Pending' | 'Done' | 'For review' | 'Canceled' | 'Cancel Requested';
   isChecked: boolean;
   isExpanded: boolean;
   hasAttachment: boolean;
+  priority?: string | null;
+
+  // ✅ NEW: for Operator Cancelled-history snapshot
+  cancelCutoffAt?: string | null;
 }
 
 interface RequestCardProps {
@@ -35,6 +39,7 @@ interface RequestCardProps {
   onToggleExpand: (id: string) => void;
   onToggleCheck: (id: string) => void;
   onMarkDone?: (requestId: string, remarks: string, attachments: any[]) => Promise<void>;
+  onCancelRequest?: (requestId: string, reason: string) => Promise<void>; // ✅ NEW
 }
 
 interface RemarkAttachment {
@@ -48,11 +53,13 @@ export default function RequestCard({
   request,
   onToggleExpand,
   onToggleCheck,
-  onMarkDone
+  onMarkDone,
+  onCancelRequest, // ✅ NEW
 }: RequestCardProps) {
   const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
   const [commentsModalVisible, setCommentsModalVisible] = useState(false);
   const [forCompletionModalVisible, setForCompletionModalVisible] = useState(false);
+  const [completionModalMode, setCompletionModalMode] = useState<'completion' | 'cancel'>('completion'); // ✅ NEW
 
   const [remarks, setRemarks] = useState<MaintenanceRemark[]>([]);
   const [loadingRemarks, setLoadingRemarks] = useState(false);
@@ -135,7 +142,8 @@ export default function RequestCard({
   const loadRemarks = async () => {
     setLoadingRemarks(true);
     try {
-      const data = await getTicketRemarks(Number(request.id));
+      const before = request.status === 'Canceled' ? (request.cancelCutoffAt ?? undefined) : undefined;
+      const data = await getTicketRemarks(Number(request.id), before);
       setRemarks(data);
     } catch (error) {
       console.error('Error loading remarks:', error);
@@ -305,12 +313,14 @@ export default function RequestCard({
   const isPending = request.status === 'Pending';
   const isForReview = request.status === 'For review';
   const isDone = request.status === 'Done';
+  const isCancelRequested = request.status === 'Cancel Requested';
+  const isCanceled = request.status === 'Canceled'; // ✅ NEW
 
-  // ✅ For review behaves like Pending (can chat + attach)
+  // ✅ can chat only in Pending and For review (NOT Cancel Requested / Canceled / Done)
   const canComment = isPending || isForReview;
 
-  // ✅ Done is view-only
-  const isViewOnly = isDone;
+  // ✅ Done + Canceled are view-only
+  const isViewOnly = isDone || isCanceled;
 
   const buttonLabel = 'For Completion';
   const followUpLabel = 'Follow up';
@@ -326,6 +336,32 @@ export default function RequestCard({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
+  };
+
+  // REMOVE / stop using this for bubble side:
+  // const isBarangaySideRemark = (remark: MaintenanceRemark) => { ... }
+
+  const isMineRemark = (remark: MaintenanceRemark) => {
+    return !!currentUserId && remark.Created_by === currentUserId;
+  };
+
+  const roleTag = (roleId?: number | null, roleName?: string | null, legacy?: string | null) => {
+    if (roleId === 1 || roleId === 2) return 'Barangay';
+    if (roleId === 3) return 'Operator';
+
+    const s = String(roleName ?? legacy ?? '').toLowerCase();
+    if (s.includes('admin') || s.includes('barangay')) return 'Barangay';
+    if (s.includes('operator')) return 'Operator';
+    return 'User';
+  };
+
+  const senderLabel = (remark: MaintenanceRemark) => {
+    const name =
+      (remark.CreatedByName && remark.CreatedByName.trim()) ||
+      (remark.Created_by === currentUserId ? 'You' : 'Unknown');
+
+    const tag = roleTag(remark.CreatedByRoleId, remark.CreatedByRoleName, remark.User_role ?? null);
+    return `${name} (${tag})`;
   };
 
   return (
@@ -368,6 +404,33 @@ export default function RequestCard({
             </Text>
           </View>
 
+          {/* ✅ NEW: Priority row with colors */}
+          <View style={tw`flex-row justify-between items-center`}>
+            <Text style={tw`text-[#4F6853] text-[11px] font-semibold`}>
+              Priority:
+            </Text>
+
+            {(() => {
+              const p = (request.priority || '').toLowerCase();
+              const pill =
+                p === 'critical'
+                  ? 'bg-red-600'
+                  : p === 'urgent'
+                    ? 'bg-orange-500'
+                    : p === 'mild'
+                      ? 'bg-blue-600'
+                      : 'bg-gray-400';
+
+              return (
+                <View style={tw`${pill} px-2 py-1 rounded-full`}>
+                  <Text style={tw`text-white text-[10px] font-bold`}>
+                    {request.priority || '—'}
+                  </Text>
+                </View>
+              );
+            })()}
+          </View>
+
           <View style={tw`flex-row justify-between`}>
             <Text style={tw`text-[#4F6853] text-[11px] font-semibold`}>
               Date Assigned:
@@ -407,8 +470,8 @@ export default function RequestCard({
                 </View>
               )}
 
-              {/* ✅ SHOW Remarks section for Pending, For review, Done */}
-              {(isPending || isForReview || isDone) && (
+              {/* ✅ SHOW Remarks section for Pending, For review, Done, Cancel Requested, Canceled */}
+              {(isPending || isForReview || isDone || isCancelRequested || isCanceled) && (
                 <View style={tw`mb-4`}>
                   <View style={tw`flex-row items-center justify-between mb-2`}>
                     <Text style={tw`text-gray-700 font-semibold text-sm`}>Remarks</Text>
@@ -432,7 +495,7 @@ export default function RequestCard({
                             <Text style={tw`text-gray-400 text-xs italic`}>No remarks yet</Text>
                           ) : (
                             remarks.map((remark) => {
-                              const isBrgy = remark.User_role === 'Barangay_staff' || remark.User_role === 'Admin';
+                              const isMine = isMineRemark(remark); // ✅ me vs others
                               const isExpandedRemark = expandedRemarkIds.has(remark.Remark_Id);
 
                               return (
@@ -440,22 +503,20 @@ export default function RequestCard({
                                   key={remark.Remark_Id}
                                   style={{
                                     marginBottom: 12,
-                                    alignSelf: isBrgy ? 'flex-start' : 'flex-end',
+                                    alignSelf: isMine ? 'flex-end' : 'flex-start', // ✅
                                     maxWidth: '78%',
                                   }}
                                 >
                                   <View style={{ marginBottom: 4, flexDirection: 'row' }}>
                                     <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
-                                      {isBrgy ? 'Barangay' : 'You'}
+                                      {senderLabel(remark)}
                                     </Text>
 
-                                    {/* ✅ Time only */}
                                     <Text style={tw`text-xs text-gray-400 ml-2`}>
                                       {formatTimeOnly(remark.Created_at)}
                                     </Text>
                                   </View>
 
-                                  {/* ✅ Tap bubble to show more info */}
                                   <TouchableOpacity
                                     activeOpacity={0.85}
                                     onPress={() => toggleRemarkExpanded(remark.Remark_Id)}
@@ -463,17 +524,17 @@ export default function RequestCard({
                                       {
                                         padding: 10,
                                         borderRadius: 10,
-                                        backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF',
+                                        backgroundColor: isMine ? '#FFFFFF' : '#88AB8E', // ✅
                                       },
                                       shadowStyle,
                                     ]}
                                   >
-                                    <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
+                                    <Text style={{ color: isMine ? '#1F4D36' : '#FFFFFF', fontSize: 14 }}>
                                       {remark.Remark_text}
                                     </Text>
 
                                     {isExpandedRemark && (
-                                      <Text style={{ marginTop: 6, fontSize: 11, color: isBrgy ? '#F1F5F9' : '#6B7280' }}>
+                                      <Text style={{ marginTop: 6, fontSize: 11, color: isMine ? '#6B7280' : '#F1F5F9' }}>
                                         {formatFullStamp(remark.Created_at)}
                                       </Text>
                                     )}
@@ -520,42 +581,24 @@ export default function RequestCard({
                 </View>
               )}
 
-              {/* ✅ Only Pending can show For Completion button (remove follow-up everywhere) */}
-              {isPending && (
-                <View style={tw`mt-2 items-center`}>
-                  <TouchableOpacity
-                    onPress={() => setForCompletionModalVisible(true)}
-                    style={tw`bg-[#2E523A] rounded-md py-2 px-6`}
-                  >
-                    <Text style={tw`text-white text-[11px] font-bold`}>{buttonLabel}</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {isForReview && (
-                <View style={tw`mt-2 items-center`}>
-                  <TouchableOpacity
-                    onPress={handleFollowUp}
-                    style={tw`bg-[#2E523A] rounded-md py-2 px-6`}
-                  >
-                    <Text style={tw`text-white text-[11px] font-bold`}>{followUpLabel}</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+              {/* ❌ REMOVE action buttons from here (moved to Bottom controls so arrow stays put) */}
+              {/*
+              {isPending && ( ...For Completion + Cancel Request... )}
+              {isForReview && ( ...Follow up... )}
+              */}
             </>
           )}
         </View>
 
         <View style={tw`h-4`} />
 
-        {/* Bottom controls (collapsed) */}
+        {/* Bottom controls */}
         <View style={tw`mt-2`}>
           {/* Row 1: Remarks (left) + Expand arrow (right) */}
           <View style={tw`flex-row items-center justify-between`}>
             {!request.isExpanded ? (
               <TouchableOpacity
                 onPress={() => {
-                  // ✅ Expand card (as requested) + open modal for attachments/messages
                   onToggleExpand(request.id);
                   setCommentsModalVisible(true);
                 }}
@@ -564,7 +607,8 @@ export default function RequestCard({
                 <Text style={tw`text-text-gray text-[11px] font-semibold`}>Remarks</Text>
               </TouchableOpacity>
             ) : (
-              <View />
+              // ✅ Keep the expand arrow in the same place even when expanded
+              <View style={tw`flex-1`} />
             )}
 
             <TouchableOpacity
@@ -583,19 +627,42 @@ export default function RequestCard({
             </TouchableOpacity>
           </View>
 
-          {/* Row 2: Status action button (collapsed) */}
-          {!request.isExpanded && isPending && (
+          {/* ✅ Divider line between expand row and action buttons */}
+          {(isPending || isForReview) && (
+            <View style={tw`border-t border-green-light mt-3`} />
+          )}
+
+          {/* Row 2: Action buttons */}
+          {isPending && (
             <View style={tw`mt-3 items-center`}>
-              <TouchableOpacity
-                onPress={() => setForCompletionModalVisible(true)}
-                style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
-              >
-                <Text style={tw`text-white text-[11px] font-bold`}>{buttonLabel}</Text>
-              </TouchableOpacity>
+              <View style={tw`flex-row items-center`}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setCompletionModalMode('completion');
+                    setForCompletionModalVisible(true);
+                  }}
+                  style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
+                >
+                  <Text style={tw`text-white text-[11px] font-bold`}>{buttonLabel}</Text>
+                </TouchableOpacity>
+
+                <View style={tw`w-3`} />
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setCompletionModalMode('cancel');
+                    setForCompletionModalVisible(true);
+                  }}
+                  style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
+                >
+                  <Text style={tw`text-white text-[11px] font-bold`}>Cancel Request</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
-          {!request.isExpanded && isForReview && (
+          {/* ✅ Follow up ONLY for real For review, not Cancel Requested */}
+          {isForReview && (
             <View style={tw`mt-3 items-center`}>
               <TouchableOpacity
                 onPress={handleFollowUp}
@@ -627,14 +694,24 @@ export default function RequestCard({
         currentUserId={currentUserId}
         autoPickOnOpen={autoPickOnOpen}
         onAutoPickHandled={() => setAutoPickOnOpen(false)}
-        readOnly={isViewOnly} // ✅ Done tab = view mode
+        readOnly={isViewOnly}
+        cutoffAt={request.status === 'Canceled' ? (request.cancelCutoffAt ?? null) : null} // ✅ NEW
       />
 
       <ForCompletion
         visible={forCompletionModalVisible}
         onClose={() => setForCompletionModalVisible(false)}
-        onMarkDone={handleMarkDone}
-        requestId={request.id} // ✅ Pass requestId
+        mode={completionModalMode} // ✅ NEW
+        onMarkDone={handleMarkDone} // completion mode
+        onCancelRequest={async (reason) => {
+          try {
+            await onCancelRequest?.(request.id, reason);
+            Alert.alert('Success', 'Cancellation request submitted');
+          } catch (e: any) {
+            Alert.alert('Error', e?.message || 'Failed to submit cancellation request');
+          }
+        }}
+        requestId={request.id}
       />
     </View>
   );

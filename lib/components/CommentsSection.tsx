@@ -44,8 +44,10 @@ interface CommentsSectionProps {
   autoPickOnOpen?: boolean;
   onAutoPickHandled?: () => void;
 
-  // ✅ NEW
   readOnly?: boolean;
+
+  // ✅ NEW: only show attachments up to this datetime (Operator Cancelled-history snapshot)
+  cutoffAt?: string | null;
 }
 
 const isLikelyImage = (fileNameOrUrl: string, fileType?: string | null) => {
@@ -80,7 +82,8 @@ export default function CommentsSection({
   currentUserId = null,
   autoPickOnOpen = false,
   onAutoPickHandled,
-  readOnly = false, // ✅ NEW
+  readOnly = false,
+  cutoffAt = null, // ✅ NEW
 }: CommentsSectionProps) {
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef<ScrollView>(null);
@@ -111,7 +114,7 @@ export default function CommentsSection({
     if (!requestId) return;
     setLoadingAttachments(true);
     try {
-      const data = await getTicketAttachments(requestId);
+      const data = await getTicketAttachments(requestId, cutoffAt ?? undefined); // ✅ apply cutoff
       setUploadedAttachments(data);
     } catch (err) {
       console.error('Error loading attachments:', err);
@@ -281,28 +284,52 @@ export default function CommentsSection({
     }
   };
 
+  const roleTag = (roleId?: number | null, roleName?: string | null, legacy?: string | null) => {
+    if (roleId === 1 || roleId === 2) return 'Barangay';
+    if (roleId === 3) return 'Operator';
+
+    const s = String(roleName ?? legacy ?? '').toLowerCase();
+    if (s.includes('admin') || s.includes('barangay') || s.includes('staff')) return 'Barangay';
+    if (s.includes('operator')) return 'Operator';
+    return 'User';
+  };
+
+  const senderLabelForRemark = (r: MaintenanceRemark) => {
+    const name = (r.CreatedByName && r.CreatedByName.trim()) || 'Unknown';
+    const tag = roleTag(r.CreatedByRoleId, r.CreatedByRoleName, r.User_role ?? null);
+    return `${name} (${tag})`;
+  };
+
+  const senderLabelForAttachment = (a: MaintenanceAttachment) => {
+    const name = (a.UploaderName && a.UploaderName.trim()) || 'Unknown';
+    const tag = roleTag(a.UploaderRoleId ?? null, a.UploaderRoleName ?? null, a.UploaderRole ?? null);
+    return `${name} (${tag})`;
+  };
+
   // ✅ Combine remarks + uploaded attachments into one timeline (Messenger-like)
   type TimelineItem =
-    | { kind: 'remark'; key: string; createdAt: string; isBrgy: boolean; text: string }
-    | { kind: 'attachment'; key: string; createdAt: string; isBrgy: boolean; url: string; name: string; type?: string | null };
+    | { kind: 'remark'; key: string; createdAt: string; isMine: boolean; text: string; senderLabel: string }
+    | { kind: 'attachment'; key: string; createdAt: string; isMine: boolean; url: string; name: string; type?: string | null; senderLabel: string };
 
   const timeline: TimelineItem[] = useMemo(() => {
     const remarkItems: TimelineItem[] = (messages || []).map(r => ({
       kind: 'remark',
       key: `r-${r.Remark_Id}`,
       createdAt: r.Created_at,
-      isBrgy: r.User_role === 'Barangay_staff' || r.User_role === 'Admin',
+      isMine: !!currentUserId && r.Created_by === currentUserId, // ✅ me vs others
       text: r.Remark_text,
+      senderLabel: senderLabelForRemark(r),
     }));
 
     const attachmentItems: TimelineItem[] = (uploadedAttachments || []).map(a => ({
       kind: 'attachment',
       key: `a-${a.Attachment_Id}`,
       createdAt: a.Uploaded_at,
-      isBrgy: currentUserId ? a.Uploaded_by !== currentUserId : true,
+      isMine: !!currentUserId && a.Uploaded_by === currentUserId, // ✅ me vs others
       url: a.File_path,
       name: a.File_name,
       type: a.File_type,
+      senderLabel: senderLabelForAttachment(a),
     }));
 
     return [...remarkItems, ...attachmentItems].sort(
@@ -373,28 +400,27 @@ export default function CommentsSection({
               <Text style={tw`text-gray-400 text-center py-8`}>No remarks or attachments yet</Text>
             ) : (
               timeline.map((item) => {
-                const isBrgy = item.isBrgy;
+                const isMine = item.isMine;
 
                 return (
                   <View
                     key={item.key}
-                    style={{ marginBottom: 12, alignSelf: isBrgy ? 'flex-start' : 'flex-end', maxWidth: '78%' }}
+                    style={{ marginBottom: 12, alignSelf: isMine ? 'flex-end' : 'flex-start', maxWidth: '78%' }}
                   >
-                    {/* ✅ "You" aligned right (no time beside it) */}
-                    <View style={{ flexDirection: 'row', justifyContent: isBrgy ? 'flex-start' : 'flex-end', marginBottom: 4 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: isMine ? 'flex-end' : 'flex-start', marginBottom: 4 }}>
                       <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
-                        {isBrgy ? 'Barangay' : 'You'}
+                        {item.senderLabel}
                       </Text>
                     </View>
 
                     <View
                       style={[
-                        { padding: 10, borderRadius: 10, backgroundColor: isBrgy ? '#88AB8E' : '#FFFFFF' },
+                        { padding: 10, borderRadius: 10, backgroundColor: isMine ? '#FFFFFF' : '#88AB8E' },
                         shadowStyle,
                       ]}
                     >
                       {item.kind === 'remark' ? (
-                        <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
+                        <Text style={{ color: isMine ? '#1F4D36' : '#FFFFFF', fontSize: 14 }}>
                           {item.text}
                         </Text>
                       ) : (
@@ -409,7 +435,7 @@ export default function CommentsSection({
                               style={{ width: 160, height: 160, borderRadius: 10 }}
                             />
                           ) : (
-                            <Text style={{ color: isBrgy ? '#FFFFFF' : '#1F4D36', fontSize: 14 }}>
+                            <Text style={{ color: isMine ? '#1F4D36' : '#FFFFFF', fontSize: 14 }}>
                               Attachment
                             </Text>
                           )}
@@ -417,7 +443,7 @@ export default function CommentsSection({
                       )}
 
                       {/* ✅ Always show details under the bubble (no clicking) */}
-                      <Text style={{ marginTop: 6, fontSize: 11, color: isBrgy ? '#F1F5F9' : '#6B7280' }}>
+                      <Text style={{ marginTop: 6, fontSize: 11, color: isMine ? '#6B7280' : '#F1F5F9' }}>
                         {formatFullStamp(item.createdAt)}
                       </Text>
                     </View>

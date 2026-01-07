@@ -25,6 +25,7 @@ export default function ORequest() {
     error,
     refresh,
     submitForVerification,
+    submitCancelRequest, // ✅ add
   } = useMaintenance();
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -42,39 +43,51 @@ export default function ORequest() {
 
   // Convert MaintenanceTicket to RequestItem format
   const convertToRequestItem = useCallback((ticket: MaintenanceTicket): RequestItem => {
-    const statusMap: { [key: string]: 'Pending' | 'For review' | 'Done' | 'Canceled' } = {
+    const statusMap: { [key: string]: RequestItem['status'] } = {
       'On-going': 'Pending',
       'For Verification': 'For review',
       'Completed': 'Done',
-      'Cancelled': 'Canceled'
+      'Cancelled': 'Canceled',
+      'Cancel Requested': 'Cancel Requested',
     };
 
     return {
       id: String(ticket.Request_Id),
       title: ticket.Title || 'Untitled',
       description: ticket.Details || '',
-      requestNumber: formatRequestNumber(ticket), // ✅ CHANGED
+      requestNumber: formatRequestNumber(ticket),
       dateAssigned: ticket.Request_date ? new Date(ticket.Request_date).toLocaleDateString() : '',
       dueDate: ticket.Due_date ? new Date(ticket.Due_date).toLocaleDateString() : '',
       remarksBrgy: ticket.Remarks || 'No remarks',
       remarksMaintenance: 'No remarks from operator yet',
       status: statusMap[ticket.Status || ''] || 'Pending',
+      priority: ticket.Priority ?? null,
       isChecked: checkedIds.has(String(ticket.Request_Id)),
       isExpanded: expandedIds.has(String(ticket.Request_Id)),
       hasAttachment: !!ticket.Attachment,
     };
   }, [expandedIds, checkedIds]);
 
-  const getFilteredTickets = useCallback(() => {
+  const getFilteredTickets = useCallback((): RequestItem[] => {
     switch (activeFilter) {
       case 'Pending':
         return pendingTickets.map(convertToRequestItem);
+
       case 'For review':
         return forReviewTickets.map(convertToRequestItem);
+
       case 'Done':
         return doneTickets.map(convertToRequestItem);
+
       case 'Canceled':
-        return canceledTickets.map(convertToRequestItem);
+        // ✅ IMPORTANT: history tab must stay "Canceled" even if current status becomes On-going again
+        return canceledTickets.map((t): RequestItem => ({
+          ...convertToRequestItem(t),
+          status: 'Canceled' as const, // ✅ keep literal type (not string)
+          // ✅ snapshot cutoff: only show remarks/attachments up to when THIS operator requested cancel
+          cancelCutoffAt: t.CancelRequestedAt ?? t.CancelApprovedAt ?? null,
+        }));
+
       default:
         return [];
     }
@@ -135,6 +148,13 @@ export default function ORequest() {
     }
   }, [submitForVerification]);
 
+  const handleCancelRequest = useCallback(
+    async (requestId: string, reason: string) => {
+      await submitCancelRequest(Number(requestId), reason);
+    },
+    [submitCancelRequest]
+  );
+
   const handleRequestFormClose = useCallback(() => {
     setRequestFormVisible(false);
   }, []);
@@ -186,12 +206,13 @@ export default function ORequest() {
             </View>
           ) : (
             filteredRequests.map((request) => (
-              <RequestCard 
+              <RequestCard
                 key={request.id}
                 request={request}
                 onToggleExpand={toggleRequestExpanded}
                 onToggleCheck={toggleRequestChecked}
                 onMarkDone={handleMarkDone}
+                onCancelRequest={handleCancelRequest} // ✅ add
               />
             ))
           )}

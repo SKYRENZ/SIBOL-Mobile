@@ -17,6 +17,12 @@ export interface MaintenanceTicket {
   Attachment?: string;
   Remarks?: string;
   AssignedOperatorName?: string;
+
+  // ✅ NEW (optional fields from history endpoint)
+  CancelLogId?: number | null;
+  CancelLogReason?: string | null;
+  CancelRequestedAt?: string | null; // ✅ NEW: use as cutoff
+  CancelApprovedAt?: string | null;
 }
 
 // ✅ NEW: Interface for remarks
@@ -28,7 +34,10 @@ export interface MaintenanceRemark {
   User_role?: string;
   Created_at: string;
   CreatedByName?: string;
-  CreatedByRoleName?: string;
+
+  // ✅ add these (backend already returns them)
+  CreatedByRoleId?: number | null;
+  CreatedByRoleName?: string | null;
 }
 
 export interface CreateTicketPayload {
@@ -146,8 +155,10 @@ export async function addRemark(
 }
 
 // ✅ NEW: Get all remarks for a ticket
-export async function getTicketRemarks(requestId: number): Promise<MaintenanceRemark[]> {
-  const response = await apiClient.get(`/api/maintenance/${requestId}/remarks`);
+export async function getTicketRemarks(requestId: number, before?: string): Promise<MaintenanceRemark[]> {
+  const response = await apiClient.get(`/api/maintenance/${requestId}/remarks`, {
+    params: before ? { before } : undefined,
+  });
   return response.data || [];
 }
 
@@ -161,13 +172,20 @@ export interface MaintenanceAttachment {
   File_type?: string | null;
   File_size?: number | null;
   Uploaded_at: string;
+
   UploaderName?: string | null;
   UploaderRole?: string | null;
+
+  // ✅ NEW
+  UploaderRoleId?: number | null;
+  UploaderRoleName?: string | null;
 }
 
 // ✅ NEW: Get ticket attachments
-export async function getTicketAttachments(requestId: number): Promise<MaintenanceAttachment[]> {
-  const response = await apiClient.get(`/api/maintenance/${requestId}/attachments`);
+export async function getTicketAttachments(requestId: number, before?: string): Promise<MaintenanceAttachment[]> {
+  const response = await apiClient.get(`/api/maintenance/${requestId}/attachments`, {
+    params: before ? { before } : undefined,
+  });
   return response.data || [];
 }
 
@@ -198,10 +216,12 @@ export async function addRemarks(
 
 export async function cancelTicket(
   requestId: number,
-  operatorAccountId: number
+  operatorAccountId: number,
+  reason?: string
 ): Promise<MaintenanceTicket> {
   const response = await apiClient.put(`/api/maintenance/${requestId}/cancel`, {
-    actor_account_id: operatorAccountId
+    actor_account_id: operatorAccountId,
+    reason, // ✅ send reason (required by backend for Operator)
   });
   return response.data;
 }
@@ -236,4 +256,12 @@ export async function listTicketsByStatus(
     }
   });
   return response.data;
+}
+
+// ✅ NEW: Operator Cancelled tab (history-based, NOT status-based)
+export async function listOperatorCancelledHistoryTickets(operatorAccountId: number): Promise<MaintenanceTicket[]> {
+  const response = await apiClient.get('/api/maintenance/operator-cancelled-history', {
+    params: { operator_account_id: operatorAccountId },
+  });
+  return response.data || [];
 }
