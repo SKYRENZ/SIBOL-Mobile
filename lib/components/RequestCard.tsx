@@ -277,7 +277,7 @@ export default function RequestCard({
         if (completionRemarks.trim()) {
           await addRemark(
             Number(request.id),
-            `[COMPLETION] ${completionRemarks}`,
+            `${completionRemarks}`,
             currentUserId,
             currentUserRole
           );
