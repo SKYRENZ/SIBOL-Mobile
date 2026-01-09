@@ -21,6 +21,8 @@ import {
   MaintenanceRemark,
   getTicketAttachments,
   MaintenanceAttachment,
+  getTicketEvents,            // ✅ NEW
+  MaintenanceEvent,           // ✅ NEW
 } from '../services/maintenanceService';
 
 interface Attachment {
@@ -83,7 +85,7 @@ export default function CommentsSection({
   autoPickOnOpen = false,
   onAutoPickHandled,
   readOnly = false,
-  cutoffAt = null, // ✅ NEW
+  cutoffAt = null,
 }: CommentsSectionProps) {
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef<ScrollView>(null);
@@ -98,6 +100,9 @@ export default function CommentsSection({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewIsImage, setPreviewIsImage] = useState(false);
 
+  const [ticketEvents, setTicketEvents] = useState<MaintenanceEvent[]>([]); // ✅ NEW
+  const [loadingEvents, setLoadingEvents] = useState(false);               // ✅ NEW
+
   const formatFullStamp = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleString('en-US', {
@@ -110,11 +115,75 @@ export default function CommentsSection({
     });
   };
 
+  const normalizeRoleName = (role?: string | null) => {
+    if (!role) return '';
+    return role.replace(/_staff/gi, '').trim();
+  };
+
+  const roleTag = (roleId?: number | null, roleName?: string | null, legacy?: string | null) => {
+    if (roleId === 1 || roleId === 2) return 'Barangay';
+    if (roleId === 3) return 'Operator';
+
+    const s = String(roleName ?? legacy ?? '').toLowerCase();
+    if (s.includes('admin') || s.includes('barangay') || s.includes('staff')) return 'Barangay';
+    if (s.includes('operator')) return 'Operator';
+    return 'User';
+  };
+
+  const senderLabelForRemark = (r: MaintenanceRemark) => {
+    const name = (r.CreatedByName && r.CreatedByName.trim()) || 'Unknown';
+    const tag = roleTag(r.CreatedByRoleId, r.CreatedByRoleName, r.User_role ?? null);
+    return `${name} (${tag})`;
+  };
+
+  const senderLabelForAttachment = (a: MaintenanceAttachment) => {
+    const name = (a.UploaderName && a.UploaderName.trim()) || 'Unknown';
+    const tag = roleTag(a.UploaderRoleId ?? null, a.UploaderRoleName ?? null, a.UploaderRole ?? null);
+    return `${name} (${tag})`;
+  };
+
+  const eventTitle = (t: string) => {
+    switch (t) {
+      case 'REQUESTED': return 'Requested';
+      case 'ACCEPTED': return 'Accepted';
+      case 'REASSIGNED': return 'Reassigned';
+      case 'FOR_VERIFICATION': return 'For Verification';
+      case 'CANCEL_REQUESTED': return 'Cancel Requested';
+      case 'CANCELLED': return 'Cancelled';
+      case 'COMPLETED': return 'Completed';
+      case 'DELETED': return 'Deleted';
+      default:
+        return t
+          .toLowerCase()
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, c => c.toUpperCase());
+    }
+  };
+
+  const formatActor = (name?: string | null, roleName?: string | null) => {
+    const n = (name || 'Unknown').trim();
+    const r = normalizeRoleName(roleName || '');
+    return r ? `${n} (${r})` : n;
+  };
+
+  const loadEvents = async () => {
+    if (!requestId) return;
+    setLoadingEvents(true);
+    try {
+      const data = await getTicketEvents(requestId, cutoffAt ?? undefined); // ✅ apply cutoff if needed
+      setTicketEvents(data || []);
+    } catch (err) {
+      console.error('Error loading events:', err);
+    } finally {
+      setLoadingEvents(false);
+    }
+  };
+
   const loadAttachments = async () => {
     if (!requestId) return;
     setLoadingAttachments(true);
     try {
-      const data = await getTicketAttachments(requestId, cutoffAt ?? undefined); // ✅ apply cutoff
+      const data = await getTicketAttachments(requestId, cutoffAt ?? undefined);
       setUploadedAttachments(data);
     } catch (err) {
       console.error('Error loading attachments:', err);
@@ -125,14 +194,18 @@ export default function CommentsSection({
 
   useEffect(() => {
     if (visible) {
+      loadEvents();       // ✅ NEW
       loadAttachments();
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     }
-  }, [visible]);
+  }, [visible, cutoffAt]);
 
   useEffect(() => {
-    if (visible) loadAttachments();
-  }, [refreshAttachmentsSignal]);
+    if (visible) {
+      loadEvents();       // ✅ NEW (optional refresh hook)
+      loadAttachments();
+    }
+  }, [refreshAttachmentsSignal, cutoffAt]);
 
   useEffect(() => {
     if (!visible) {
@@ -141,6 +214,7 @@ export default function CommentsSection({
       setPreviewVisible(false);
       setPreviewUrl(null);
       setPreviewIsImage(false);
+      setTicketEvents([]); // ✅ NEW
     }
   }, [visible]);
 
@@ -284,39 +358,51 @@ export default function CommentsSection({
     }
   };
 
-  const roleTag = (roleId?: number | null, roleName?: string | null, legacy?: string | null) => {
-    if (roleId === 1 || roleId === 2) return 'Barangay';
-    if (roleId === 3) return 'Operator';
-
-    const s = String(roleName ?? legacy ?? '').toLowerCase();
-    if (s.includes('admin') || s.includes('barangay') || s.includes('staff')) return 'Barangay';
-    if (s.includes('operator')) return 'Operator';
-    return 'User';
-  };
-
-  const senderLabelForRemark = (r: MaintenanceRemark) => {
-    const name = (r.CreatedByName && r.CreatedByName.trim()) || 'Unknown';
-    const tag = roleTag(r.CreatedByRoleId, r.CreatedByRoleName, r.User_role ?? null);
-    return `${name} (${tag})`;
-  };
-
-  const senderLabelForAttachment = (a: MaintenanceAttachment) => {
-    const name = (a.UploaderName && a.UploaderName.trim()) || 'Unknown';
-    const tag = roleTag(a.UploaderRoleId ?? null, a.UploaderRoleName ?? null, a.UploaderRole ?? null);
-    return `${name} (${tag})`;
-  };
-
-  // ✅ Combine remarks + uploaded attachments into one timeline (Messenger-like)
+  // ✅ Combine events + remarks + uploaded attachments into one timeline
   type TimelineItem =
+    | {
+        kind: 'event';
+        key: string;
+        createdAt: string;
+        title: string;
+        actorDisplay: string;
+        toDisplay?: string | null;
+        reason?: string | null;
+      }
     | { kind: 'remark'; key: string; createdAt: string; isMine: boolean; text: string; senderLabel: string }
     | { kind: 'attachment'; key: string; createdAt: string; isMine: boolean; url: string; name: string; type?: string | null; senderLabel: string };
 
   const timeline: TimelineItem[] = useMemo(() => {
+    const eventItems: TimelineItem[] = (ticketEvents || []).map(ev => {
+      const title = eventTitle(ev.Event_type);
+
+      const actorDisplay = formatActor(ev.ActorName, ev.ActorRoleName ?? null);
+
+      const isReassigned = ev.Event_type === 'REASSIGNED';
+      const toDisplay =
+        isReassigned && ev.ToActorName
+          ? formatActor(ev.ToActorName, ev.ToActorRoleName ?? null)
+          : null;
+
+      const isCancelRequested = ev.Event_type === 'CANCEL_REQUESTED';
+      const reason = isCancelRequested ? (ev.Notes || '').trim() : null;
+
+      return {
+        kind: 'event',
+        key: `e-${ev.Event_Id}`,
+        createdAt: ev.Created_At,
+        title,
+        actorDisplay,
+        toDisplay,
+        reason: reason || null,
+      };
+    });
+
     const remarkItems: TimelineItem[] = (messages || []).map(r => ({
       kind: 'remark',
       key: `r-${r.Remark_Id}`,
       createdAt: r.Created_at,
-      isMine: !!currentUserId && r.Created_by === currentUserId, // ✅ me vs others
+      isMine: !!currentUserId && r.Created_by === currentUserId,
       text: r.Remark_text,
       senderLabel: senderLabelForRemark(r),
     }));
@@ -325,17 +411,17 @@ export default function CommentsSection({
       kind: 'attachment',
       key: `a-${a.Attachment_Id}`,
       createdAt: a.Uploaded_at,
-      isMine: !!currentUserId && a.Uploaded_by === currentUserId, // ✅ me vs others
+      isMine: !!currentUserId && a.Uploaded_by === currentUserId,
       url: a.File_path,
       name: a.File_name,
       type: a.File_type,
       senderLabel: senderLabelForAttachment(a),
     }));
 
-    return [...remarkItems, ...attachmentItems].sort(
+    return [...eventItems, ...remarkItems, ...attachmentItems].sort(
       (x, y) => new Date(x.createdAt).getTime() - new Date(y.createdAt).getTime()
     );
-  }, [messages, uploadedAttachments, currentUserId]);
+  }, [ticketEvents, messages, uploadedAttachments, currentUserId]);
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -396,12 +482,57 @@ export default function CommentsSection({
 
           {/* Timeline (remarks + attachments) */}
           <ScrollView ref={scrollRef} style={tw`flex-1 p-4`}>
-            {timeline.length === 0 ? (
-              <Text style={tw`text-gray-400 text-center py-8`}>No remarks or attachments yet</Text>
+            {(loadingEvents || loadingAttachments) && timeline.length === 0 ? (
+              <Text style={tw`text-gray-400 text-center py-8`}>Loading...</Text>
+            ) : timeline.length === 0 ? (
+              <Text style={tw`text-gray-400 text-center py-8`}>No history yet</Text>
             ) : (
               timeline.map((item) => {
+                if (item.kind === 'event') {
+                  // ✅ Full-width event box "touching" edges: compensate ScrollView p-4 with -16 margins.
+                  return (
+                    <View
+                      key={item.key}
+                      style={{
+                        marginHorizontal: -16,
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        backgroundColor: 'rgba(53,88,66,0.06)',
+                        borderLeftWidth: 4,
+                        borderLeftColor: '#2E523A',
+                        marginBottom: 12,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#1F4D36', flex: 1 }}>
+                          {item.toDisplay
+                            ? `${item.title} by ${item.actorDisplay} to ${item.toDisplay}`
+                            : `${item.title} by ${item.actorDisplay}`}
+                        </Text>
+
+                        <Text style={{ fontSize: 11, color: 'rgba(31,77,54,0.7)' }}>
+                          {formatFullStamp(item.createdAt)}
+                        </Text>
+                      </View>
+
+                      {!!item.reason && (
+                        <Text
+                          style={{
+                            marginTop: 6,
+                            fontSize: 12,
+                            color: 'rgba(31,77,54,0.85)',
+                          }}
+                        >
+                          Reason: {item.reason}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                }
+
                 const isMine = item.isMine;
 
+                // ✅ existing bubble UI (remarks + attachments) stays as-is
                 return (
                   <View
                     key={item.key}
@@ -442,7 +573,6 @@ export default function CommentsSection({
                         </TouchableOpacity>
                       )}
 
-                      {/* ✅ Always show details under the bubble (no clicking) */}
                       <Text style={{ marginTop: 6, fontSize: 11, color: isMine ? '#6B7280' : '#F1F5F9' }}>
                         {formatFullStamp(item.createdAt)}
                       </Text>

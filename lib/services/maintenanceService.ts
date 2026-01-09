@@ -265,3 +265,33 @@ export async function listOperatorCancelledHistoryTickets(operatorAccountId: num
   });
   return response.data || [];
 }
+
+// New code for events
+
+export interface MaintenanceEvent {
+  Event_Id: number;
+  Request_Id: number;
+  Event_type: string;
+  Actor_Account_Id?: number | null;
+  ActorName?: string | null;
+
+  // role fields (depending on backend)
+  ActorRoleId?: number | null;
+  ActorRoleName?: string | null;
+
+  Notes?: string | null;
+  Created_At: string;
+
+  // for REASSIGNED (if backend enriches it)
+  ToActorAccountId?: number | null;
+  ToActorName?: string | null;
+  ToActorRoleName?: string | null;
+}
+
+// ✅ NEW: Get ticket events
+export async function getTicketEvents(requestId: number, before?: string): Promise<MaintenanceEvent[]> {
+  const response = await apiClient.get(`/api/maintenance/${requestId}/events`, {
+    params: before ? { before } : undefined,
+  });
+  return response.data || [];
+}
