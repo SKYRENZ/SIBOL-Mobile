@@ -1,15 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import tw from '../utils/tailwind';
 import AttachmentModal from './AttachmentModal';
 import CommentsSection from './CommentsSection';
 import ForCompletion from './ForCompletion';
-import { Image as LucideImage, Send as LucideSend, Check as LucideCheck } from 'lucide-react-native';
-import { 
-  uploadToCloudinary, 
-  addAttachmentToTicket, 
-  getTicketRemarks, 
+import TicketTimelineCard from './TicketTimelineCard';
+import { Check as LucideCheck } from 'lucide-react-native';
+import {
+  uploadToCloudinary,
+  addAttachmentToTicket,
+  getTicketRemarks,
   addRemark,
   MaintenanceRemark,
 } from '../services/maintenanceService';
@@ -54,57 +55,21 @@ export default function RequestCard({
   onToggleExpand,
   onToggleCheck,
   onMarkDone,
-  onCancelRequest, // ✅ NEW
+  onCancelRequest,
 }: RequestCardProps) {
   const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
   const [commentsModalVisible, setCommentsModalVisible] = useState(false);
   const [forCompletionModalVisible, setForCompletionModalVisible] = useState(false);
-  const [completionModalMode, setCompletionModalMode] = useState<'completion' | 'cancel'>('completion'); // ✅ NEW
+  const [completionModalMode, setCompletionModalMode] = useState<'completion' | 'cancel'>('completion');
 
-  const [remarks, setRemarks] = useState<MaintenanceRemark[]>([]);
-  const [loadingRemarks, setLoadingRemarks] = useState(false);
-  const [inlineNewMsg, setInlineNewMsg] = useState('');
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string>('Operator');
 
-  // ✅ NEW: tap-to-expand remark details
-  const [expandedRemarkIds, setExpandedRemarkIds] = useState<Set<number>>(new Set());
+  // ✅ parent keeps remarks so it can pass into CommentsSection modal
+  const [remarks, setRemarks] = useState<MaintenanceRemark[]>([]);
+
   const [attachmentsRefreshSignal, setAttachmentsRefreshSignal] = useState(0);
-
-  // ✅ NEW: open modal and auto-open picker (for small UI attach button)
   const [autoPickOnOpen, setAutoPickOnOpen] = useState(false);
-
-  const inlineScrollRef = useRef<any>(null);
-
-  const formatTimeOnly = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
-
-  const formatFullStamp = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleString('en-US', {
-      month: 'short',
-      day: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
-
-  const toggleRemarkExpanded = (remarkId: number) => {
-    setExpandedRemarkIds(prev => {
-      const next = new Set(prev);
-      if (next.has(remarkId)) next.delete(remarkId);
-      else next.add(remarkId);
-      return next;
-    });
-  };
 
   // ✅ Load current user
   useEffect(() => {
@@ -114,13 +79,13 @@ export default function RequestCard({
         if (userStr) {
           const user = JSON.parse(userStr);
           setCurrentUserId(user.Account_id || user.account_id);
-          
+
           const roleId = user.Roles || user.role;
           const roleMap: { [key: number]: string } = {
             1: 'Admin',
             2: 'Barangay_staff',
             3: 'Operator',
-            4: 'Household'
+            4: 'Household',
           };
           setCurrentUserRole(roleMap[roleId] || 'Operator');
         }
@@ -131,54 +96,14 @@ export default function RequestCard({
     loadUser();
   }, []);
 
-  // ✅ Load remarks when card is expanded
-  useEffect(() => {
-    if (request.isExpanded && !loadingRemarks && remarks.length === 0) {
-      loadRemarks();
-    }
-  }, [request.isExpanded]);
-
-  // ✅ Load remarks from backend
+  // ✅ Load remarks for modal use (TicketTimelineCard will also call onRemarksChange)
   const loadRemarks = async () => {
-    setLoadingRemarks(true);
     try {
       const before = request.status === 'Canceled' ? (request.cancelCutoffAt ?? undefined) : undefined;
       const data = await getTicketRemarks(Number(request.id), before);
-      setRemarks(data);
+      setRemarks(data || []);
     } catch (error) {
       console.error('Error loading remarks:', error);
-    } finally {
-      setLoadingRemarks(false);
-    }
-  };
-
-  // ✅ Scroll to bottom when remarks change
-  useEffect(() => {
-    if (inlineScrollRef.current && typeof inlineScrollRef.current.scrollToEnd === 'function') {
-      setTimeout(() => {
-        inlineScrollRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  }, [remarks.length]);
-
-  // ✅ Handle sending inline remark
-  const handleInlineSend = async () => {
-    if (!canComment) return; // ✅ block inline send for Done (view-only)
-    if (!inlineNewMsg.trim() || !currentUserId) return;
-    
-    try {
-      const newRemark = await addRemark(
-        Number(request.id),
-        inlineNewMsg.trim(),
-        currentUserId,
-        currentUserRole
-      );
-      
-      setRemarks(prev => [...prev, newRemark]);
-      setInlineNewMsg('');
-    } catch (error: any) {
-      console.error('Error adding remark:', error);
-      Alert.alert('Error', error?.message || 'Failed to add remark');
     }
   };
 
@@ -314,7 +239,7 @@ export default function RequestCard({
   const isForReview = request.status === 'For review';
   const isDone = request.status === 'Done';
   const isCancelRequested = request.status === 'Cancel Requested';
-  const isCanceled = request.status === 'Canceled'; // ✅ NEW
+  const isCanceled = request.status === 'Canceled';
 
   // ✅ can chat only in Pending and For review (NOT Cancel Requested / Canceled / Done)
   const canComment = isPending || isForReview;
@@ -330,42 +255,11 @@ export default function RequestCard({
     setCommentsModalVisible(true);
   };
 
-  const shadowStyle = {
-    shadowColor: '#88AB8E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  };
-
   // REMOVE / stop using this for bubble side:
   // const isBarangaySideRemark = (remark: MaintenanceRemark) => { ... }
 
-  const isMineRemark = (remark: MaintenanceRemark) => {
-    return !!currentUserId && remark.Created_by === currentUserId;
-  };
-
-  const roleTag = (roleId?: number | null, roleName?: string | null, legacy?: string | null) => {
-    if (roleId === 1 || roleId === 2) return 'Barangay';
-    if (roleId === 3) return 'Operator';
-
-    const s = String(roleName ?? legacy ?? '').toLowerCase();
-    if (s.includes('admin') || s.includes('barangay')) return 'Barangay';
-    if (s.includes('operator')) return 'Operator';
-    return 'User';
-  };
-
-  const senderLabel = (remark: MaintenanceRemark) => {
-    const name =
-      (remark.CreatedByName && remark.CreatedByName.trim()) ||
-      (remark.Created_by === currentUserId ? 'You' : 'Unknown');
-
-    const tag = roleTag(remark.CreatedByRoleId, remark.CreatedByRoleName, remark.User_role ?? null);
-    return `${name} (${tag})`;
-  };
-
   return (
-    <View style={tw`mb-4 bg-green-light rounded-xl overflow-hidden`}> 
+    <View style={tw`mb-4 bg-green-light rounded-xl overflow-hidden`}>
       <View style={tw`p-5 mb-6 relative overflow-visible`}>
         <View style={tw`flex-row items-center justify-between mb-3`}>
           <View style={tw`flex-row items-center gap-3`}>
@@ -470,115 +364,23 @@ export default function RequestCard({
                 </View>
               )}
 
-              {/* ✅ SHOW Remarks section for Pending, For review, Done, Cancel Requested, Canceled */}
               {(isPending || isForReview || isDone || isCancelRequested || isCanceled) && (
-                <View style={tw`mb-4`}>
-                  <View style={tw`flex-row items-center justify-between mb-2`}>
-                    <Text style={tw`text-gray-700 font-semibold text-sm`}>Remarks</Text>
-                  </View>
-
-                  <View style={tw`bg-white border border-gray-300 rounded p-3 relative`}>
-                    <View style={tw`absolute right-3 top-3 z-10`}>
-                      <TouchableOpacity onPress={() => setCommentsModalVisible(true)}>
-                        <Text style={tw`text-gray-600 text-lg`}>⛶</Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    <View style={tw`min-h-24 max-h-40`}>
-                      {loadingRemarks ? (
-                        <View style={tw`items-center justify-center py-4`}>
-                          <Text style={tw`text-gray-500 text-xs`}>Loading remarks...</Text>
-                        </View>
-                      ) : (
-                        <ScrollView ref={inlineScrollRef}>
-                          {remarks.length === 0 ? (
-                            <Text style={tw`text-gray-400 text-xs italic`}>No remarks yet</Text>
-                          ) : (
-                            remarks.map((remark) => {
-                              const isMine = isMineRemark(remark); // ✅ me vs others
-                              const isExpandedRemark = expandedRemarkIds.has(remark.Remark_Id);
-
-                              return (
-                                <View
-                                  key={remark.Remark_Id}
-                                  style={{
-                                    marginBottom: 12,
-                                    alignSelf: isMine ? 'flex-end' : 'flex-start', // ✅
-                                    maxWidth: '78%',
-                                  }}
-                                >
-                                  <View style={{ marginBottom: 4, flexDirection: 'row' }}>
-                                    <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
-                                      {senderLabel(remark)}
-                                    </Text>
-
-                                    <Text style={tw`text-xs text-gray-400 ml-2`}>
-                                      {formatTimeOnly(remark.Created_at)}
-                                    </Text>
-                                  </View>
-
-                                  <TouchableOpacity
-                                    activeOpacity={0.85}
-                                    onPress={() => toggleRemarkExpanded(remark.Remark_Id)}
-                                    style={[
-                                      {
-                                        padding: 10,
-                                        borderRadius: 10,
-                                        backgroundColor: isMine ? '#FFFFFF' : '#88AB8E', // ✅
-                                      },
-                                      shadowStyle,
-                                    ]}
-                                  >
-                                    <Text style={{ color: isMine ? '#1F4D36' : '#FFFFFF', fontSize: 14 }}>
-                                      {remark.Remark_text}
-                                    </Text>
-
-                                    {isExpandedRemark && (
-                                      <Text style={{ marginTop: 6, fontSize: 11, color: isMine ? '#6B7280' : '#F1F5F9' }}>
-                                        {formatFullStamp(remark.Created_at)}
-                                      </Text>
-                                    )}
-                                  </TouchableOpacity>
-                                </View>
-                              );
-                            })
-                          )}
-                        </ScrollView>
-                      )}
-                    </View>
-
-                    {/* ✅ Inline input ONLY for Pending + For review */}
-                    {canComment && (
-                      <View style={tw`mt-3`}>
-                        <View style={tw`flex-row items-center bg-white border border-gray-200 rounded-full px-3`} >
-                          {/* ✅ Small UI: open modal + picker */}
-                          <TouchableOpacity
-                            onPress={() => {
-                              setAutoPickOnOpen(true);
-                              setCommentsModalVisible(true);
-                            }}
-                            style={{ marginRight: 8 }}
-                          >
-                            <LucideImage color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
-                          </TouchableOpacity>
-
-                          <TextInput
-                            style={[tw`flex-1 text-sm`, { paddingVertical: 0, height: 24, textAlignVertical: 'center' }]}
-                            placeholder="Type a remark..."
-                            placeholderTextColor="#8A8A8A"
-                            value={inlineNewMsg}
-                            onChangeText={setInlineNewMsg}
-                            multiline={false}
-                          />
-
-                          <TouchableOpacity onPress={handleInlineSend} style={{ marginLeft: 8 }}>
-                            <LucideSend color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    )}
-                  </View>
-                </View>
+                <TicketTimelineCard
+                  expanded={request.isExpanded}
+                  requestId={Number(request.id)}
+                  status={request.status}
+                  cutoffAt={request.status === 'Canceled' ? (request.cancelCutoffAt ?? null) : null}
+                  currentUserId={currentUserId}
+                  currentUserRole={currentUserRole}
+                  remarks={remarks}
+                  onRemarksChange={setRemarks}
+                  canComment={canComment}
+                  onOpenModal={() => setCommentsModalVisible(true)}
+                  onAttachPress={() => {
+                    setAutoPickOnOpen(true);
+                    setCommentsModalVisible(true);
+                  }}
+                />
               )}
 
               {/* ❌ REMOVE action buttons from here (moved to Bottom controls so arrow stays put) */}
