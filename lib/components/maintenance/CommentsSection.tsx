@@ -15,7 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 // ✅ use legacy FS for downloadAsync on SDK 54+
 import * as LegacyFS from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import tw from '../utils/tailwind';
+import tw from '../../utils/tailwind';
 import { Image as LucideImage, Send as LucideSend, X as LucideX, Download as LucideDownload } from 'lucide-react-native';
 import {
   MaintenanceRemark,
@@ -23,7 +23,7 @@ import {
   MaintenanceAttachment,
   getTicketEvents,            // ✅ NEW
   MaintenanceEvent,           // ✅ NEW
-} from '../services/maintenanceService';
+} from '../../services/maintenanceService';
 
 interface Attachment {
   uri: string;

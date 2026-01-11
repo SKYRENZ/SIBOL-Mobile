@@ -3,9 +3,9 @@ import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet
 import { Plus } from 'lucide-react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
-import RequestCard, { RequestItem } from '../components/RequestCard';
+import RequestCard, { RequestItem } from '../components/maintenance/RequestCard';
 import Tabs from '../components/commons/Tabs';
-import RequestForm from '../components/RequestForm';
+import RequestForm from '../components/maintenance/RequestForm';
 import { useMaintenance } from '../hooks/useMaintenance';
 import type { MaintenanceTicket } from '../types/maintenance.types';
 

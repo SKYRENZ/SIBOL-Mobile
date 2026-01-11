@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, ScrollView, TextInput, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import tw from '../utils/tailwind';
+import tw from '../../utils/tailwind';
 import { X as LucideX, Paperclip as LucidePaperclip, Minus as LucideMinus, Plus as LucidePlus } from 'lucide-react-native';
-import Button from './commons/Button';
-import AttachmentThumbnails from './commons/AttachmentThumbnails'; // ✅ add
+import Button from '../commons/Button';
+import AttachmentThumbnails from '../commons/AttachmentThumbnails'; // ✅ add
 
 interface Attachment {
   uri: string;

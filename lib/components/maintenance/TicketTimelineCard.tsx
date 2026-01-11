@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
-import tw from '../utils/tailwind';
+import tw from '../../utils/tailwind';
 import { Image as LucideImage, Send as LucideSend } from 'lucide-react-native';
 
 import {
@@ -9,7 +9,7 @@ import {
   getTicketRemarks,
   getTicketEvents,
   addRemark,
-} from '../services/maintenanceService';
+} from '../../services/maintenanceService';
 
 type TicketStatus = 'Pending' | 'Done' | 'For review' | 'Canceled' | 'Cancel Requested';
 

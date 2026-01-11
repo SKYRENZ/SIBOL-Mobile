@@ -15,10 +15,10 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Paperclip, X, ChevronDown } from 'lucide-react-native';
-import Button from './commons/Button';
-import { createTicket, uploadToCloudinary, addAttachmentToTicket, getPriorities } from '../services/maintenanceService';
+import Button from '../commons/Button';
+import { createTicket, uploadToCloudinary, addAttachmentToTicket, getPriorities } from '../../services/maintenanceService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import AttachmentThumbnails from './commons/AttachmentThumbnails'; // ✅ add
+import AttachmentThumbnails from '../commons/AttachmentThumbnails'; // ✅ add
 
 interface Attachment {
   uri: string;

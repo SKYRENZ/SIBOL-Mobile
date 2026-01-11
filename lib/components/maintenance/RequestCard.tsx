@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import tw from '../utils/tailwind';
-import AttachmentModal from './AttachmentModal';
+import tw from '../../utils/tailwind';
+import AttachmentModal from '../AttachmentModal';
 import CommentsSection from './CommentsSection';
 import ForCompletion from './ForCompletion';
 import TicketTimelineCard from './TicketTimelineCard';
@@ -13,7 +13,7 @@ import {
   getTicketRemarks,
   addRemark,
   MaintenanceRemark,
-} from '../services/maintenanceService';
+} from '../../services/maintenanceService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface RequestItem {
