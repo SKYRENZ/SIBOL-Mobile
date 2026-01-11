@@ -7,7 +7,7 @@ import RequestCard, { RequestItem } from '../components/RequestCard';
 import Tabs from '../components/commons/Tabs';
 import RequestForm from '../components/RequestForm';
 import { useMaintenance } from '../hooks/useMaintenance';
-import { MaintenanceTicket } from '../services/maintenanceService';
+import type { MaintenanceTicket } from '../types/maintenance.types';
 
 type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
 
