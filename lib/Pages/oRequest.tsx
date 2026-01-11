@@ -83,9 +83,12 @@ export default function ORequest() {
         // ✅ IMPORTANT: history tab must stay "Canceled" even if current status becomes On-going again
         return canceledTickets.map((t): RequestItem => ({
           ...convertToRequestItem(t),
-          status: 'Canceled' as const, // ✅ keep literal type (not string)
-          // ✅ snapshot cutoff: only show remarks/attachments up to when THIS operator requested cancel
-          cancelCutoffAt: t.CancelRequestedAt ?? t.CancelApprovedAt ?? null,
+          status: 'Canceled' as const,
+
+          // ✅ cutoff should be AFTER approval (not request time)
+          // listOperatorCancelledHistory guarantees ApprovedAt is NOT NULL,
+          // but keep a safe fallback to null to avoid bad query params.
+          cancelCutoffAt: t.CancelApprovedAt ?? null,
         }));
 
       default:
