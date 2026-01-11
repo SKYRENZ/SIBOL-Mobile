@@ -18,6 +18,7 @@ import { Paperclip, X, ChevronDown } from 'lucide-react-native';
 import Button from './commons/Button';
 import { createTicket, uploadToCloudinary, addAttachmentToTicket, getPriorities } from '../services/maintenanceService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import AttachmentThumbnails from './commons/AttachmentThumbnails'; // ✅ add
 
 interface Attachment {
   uri: string;
@@ -373,25 +374,14 @@ export default function RequestForm({
 
                   <View style={styles.fieldContainer}>
                     <Text style={styles.label}>Attachments</Text>
-                    
-                    {/* ✅ Show selected attachments */}
-                    {attachments.length > 0 && (
-                      <View style={styles.attachmentsList}>
-                        {attachments.map((att, index) => (
-                          <View key={index} style={styles.attachmentItem}>
-                            <Text style={styles.attachmentName} numberOfLines={1}>
-                              {att.name}
-                            </Text>
-                            <TouchableOpacity 
-                              onPress={() => removeAttachment(index)}
-                              style={styles.removeButton}
-                            >
-                              <X color="#C65C5C" size={16} />
-                            </TouchableOpacity>
-                          </View>
-                        ))}
-                      </View>
-                    )}
+
+                    {/* ✅ NEW: thumbnails instead of filename list */}
+                    <AttachmentThumbnails
+                      items={attachments}
+                      onRemove={removeAttachment}
+                      showCount
+                      style={{ marginBottom: attachments.length > 0 ? 8 : 0 }}
+                    />
 
                     <TouchableOpacity
                       onPress={handleImagePick}
@@ -404,7 +394,7 @@ export default function RequestForm({
                         strokeWidth={2}
                       />
                       <Text style={styles.attachmentText}>
-                        {attachments.length > 0 
+                        {attachments.length > 0
                           ? `${attachments.length} file(s) selected • Tap to add more`
                           : 'attach here the photos for proof'}
                       </Text>
