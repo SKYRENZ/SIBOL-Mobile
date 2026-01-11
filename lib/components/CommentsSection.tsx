@@ -423,6 +423,29 @@ export default function CommentsSection({
     );
   }, [ticketEvents, messages, uploadedAttachments, currentUserId]);
 
+  const getEventTheme = (eventType: string) => {
+    switch (eventType) {
+      case 'REQUESTED':
+        return { border: '#2563EB', bg: 'rgba(37, 99, 235, 0.08)', text: '#1D4ED8' };
+      case 'ACCEPTED':
+        return { border: '#0D9488', bg: 'rgba(13, 148, 136, 0.08)', text: '#0F766E' };
+      case 'REASSIGNED':
+        return { border: '#059669', bg: 'rgba(5, 150, 105, 0.08)', text: '#047857' };
+      case 'FOR_VERIFICATION':
+        return { border: '#7C3AED', bg: 'rgba(124, 58, 237, 0.08)', text: '#6D28D9' };
+      case 'CANCEL_REQUESTED':
+        return { border: '#EA580C', bg: 'rgba(234, 88, 12, 0.08)', text: '#C2410C' };
+      case 'CANCELLED':
+        return { border: '#DC2626', bg: 'rgba(220, 38, 38, 0.08)', text: '#B91C1C' };
+      case 'COMPLETED':
+        return { border: '#16A34A', bg: 'rgba(22, 163, 74, 0.08)', text: '#15803D' };
+      case 'DELETED':
+        return { border: '#6B7280', bg: 'rgba(107, 114, 128, 0.08)', text: '#374151' };
+      default:
+        return { border: '#2E523A', bg: 'rgba(53, 88, 66, 0.06)', text: '#1F4D36' };
+    }
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={tw`flex-1 bg-black bg-opacity-50 items-center justify-center`}>
@@ -489,6 +512,8 @@ export default function CommentsSection({
             ) : (
               timeline.map((item) => {
                 if (item.kind === 'event') {
+                  const theme = getEventTheme((ticketEvents.find(e => `e-${e.Event_Id}` === item.key)?.Event_type) || '');
+
                   // ✅ Full-width event box "touching" edges: compensate ScrollView p-4 with -16 margins.
                   return (
                     <View
@@ -497,32 +522,28 @@ export default function CommentsSection({
                         marginHorizontal: -16,
                         paddingHorizontal: 16,
                         paddingVertical: 10,
-                        backgroundColor: 'rgba(53,88,66,0.06)',
+                        backgroundColor: theme.bg,
                         borderLeftWidth: 4,
-                        borderLeftColor: '#2E523A',
+                        borderLeftColor: theme.border,
                         marginBottom: 12,
                       }}
                     >
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
-                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#1F4D36', flex: 1 }}>
+                        {/* ✅ whole event text colored */}
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: theme.text, flex: 1 }}>
                           {item.toDisplay
                             ? `${item.title} by ${item.actorDisplay} to ${item.toDisplay}`
                             : `${item.title} by ${item.actorDisplay}`}
                         </Text>
 
+                        {/* ✅ time stays muted */}
                         <Text style={{ fontSize: 11, color: 'rgba(31,77,54,0.7)' }}>
                           {formatFullStamp(item.createdAt)}
                         </Text>
                       </View>
 
                       {!!item.reason && (
-                        <Text
-                          style={{
-                            marginTop: 6,
-                            fontSize: 12,
-                            color: 'rgba(31,77,54,0.85)',
-                          }}
-                        >
+                        <Text style={{ marginTop: 6, fontSize: 12, color: theme.text }}>
                           Reason: {item.reason}
                         </Text>
                       )}
