@@ -1,61 +1,28 @@
 import apiClient from './apiClient';
 import { Platform } from 'react-native';
 
-export interface MaintenanceTicket {
-  Request_Id: number;
-  Title: string;
-  Details?: string;
-  Priority?: string;
-  Priority_Id?: number;
-  Status?: string;
-  Main_stat_id?: number;
-  Created_by: number;
-  Assigned_to?: number;
-  Due_date?: string;
-  Request_date?: string;
-  Completed_at?: string;
-  Attachment?: string;
-  Remarks?: string;
-  AssignedOperatorName?: string;
+import type {
+  MaintenancePriority,
+  MaintenanceTicket,
+  MaintenanceRemark,
+  MaintenanceAttachment,
+  MaintenanceEvent,
+  CreateTicketPayload,
+  OperatorActionPayload,
+  AddRemarksPayload,
+} from '../types/maintenance.types';
 
-  // ✅ NEW (optional fields from history endpoint)
-  CancelLogId?: number | null;
-  CancelLogReason?: string | null;
-  CancelRequestedAt?: string | null; // ✅ NEW: use as cutoff
-  CancelApprovedAt?: string | null;
-}
-
-// ✅ NEW: Interface for remarks
-export interface MaintenanceRemark {
-  Remark_Id: number;
-  Request_Id: number;
-  Remark_text: string;
-  Created_by: number;
-  User_role?: string;
-  Created_at: string;
-  CreatedByName?: string;
-
-  // ✅ add these (backend already returns them)
-  CreatedByRoleId?: number | null;
-  CreatedByRoleName?: string | null;
-}
-
-export interface CreateTicketPayload {
-  title: string;
-  details?: string;
-  priority?: 'Critical' | 'Urgent' | 'Mild';
-  created_by: number;
-  due_date?: string;
-  attachment?: string;
-}
-
-export interface OperatorActionPayload {
-  operator_account_id: number;
-}
-
-export interface AddRemarksPayload {
-  remarks: string;
-}
+// ✅ add this re-export:
+export type {
+  MaintenancePriority,
+  MaintenanceTicket,
+  MaintenanceRemark,
+  MaintenanceAttachment,
+  MaintenanceEvent,
+  CreateTicketPayload,
+  OperatorActionPayload,
+  AddRemarksPayload,
+} from '../types/maintenance.types';
 
 export async function uploadToCloudinary(uri: string, fileName: string, mimeType?: string): Promise<string> {
   try {
@@ -111,13 +78,13 @@ async function getAuthHeader(): Promise<string> {
   }
 }
 
-export async function getPriorities(): Promise<Array<{ Priority_id: number; Priority: string }>> {
-  const response = await apiClient.get('/api/maintenance/priorities');
+export async function getPriorities(): Promise<MaintenancePriority[]> {
+  const response = await apiClient.get<MaintenancePriority[]>('/api/maintenance/priorities');
   return response.data;
 }
 
 export async function createTicket(data: CreateTicketPayload): Promise<MaintenanceTicket> {
-  const response = await apiClient.post('/api/maintenance', data);
+  const response = await apiClient.post<MaintenanceTicket>('/api/maintenance', data);
   return response.data;
 }
 
@@ -128,8 +95,8 @@ export async function addAttachmentToTicket(
   filename: string,
   filetype?: string,
   filesize?: number
-): Promise<any> {
-  const response = await apiClient.post(`/api/maintenance/${requestId}/attachments`, {
+): Promise<unknown> {
+  const response = await apiClient.post<unknown>(`/api/maintenance/${requestId}/attachments`, {
     uploaded_by: uploadedBy,
     filepath,
     filename,
@@ -146,7 +113,7 @@ export async function addRemark(
   createdBy: number,
   userRole?: string
 ): Promise<MaintenanceRemark> {
-  const response = await apiClient.post(`/api/maintenance/${requestId}/remarks`, {
+  const response = await apiClient.post<MaintenanceRemark>(`/api/maintenance/${requestId}/remarks`, {
     remark_text: remarkText,
     created_by: createdBy,
     user_role: userRole,
@@ -155,35 +122,22 @@ export async function addRemark(
 }
 
 // ✅ NEW: Get all remarks for a ticket
-export async function getTicketRemarks(requestId: number, before?: string): Promise<MaintenanceRemark[]> {
-  const response = await apiClient.get(`/api/maintenance/${requestId}/remarks`, {
+export async function getTicketRemarks(
+  requestId: number,
+  before?: string
+): Promise<MaintenanceRemark[]> {
+  const response = await apiClient.get<MaintenanceRemark[]>(`/api/maintenance/${requestId}/remarks`, {
     params: before ? { before } : undefined,
   });
   return response.data || [];
 }
 
 // ✅ NEW: Get ticket attachments
-export interface MaintenanceAttachment {
-  Attachment_Id: number;
-  Request_Id: number;
-  Uploaded_by: number;
-  File_path: string;
-  File_name: string;
-  File_type?: string | null;
-  File_size?: number | null;
-  Uploaded_at: string;
-
-  UploaderName?: string | null;
-  UploaderRole?: string | null;
-
-  // ✅ NEW
-  UploaderRoleId?: number | null;
-  UploaderRoleName?: string | null;
-}
-
-// ✅ NEW: Get ticket attachments
-export async function getTicketAttachments(requestId: number, before?: string): Promise<MaintenanceAttachment[]> {
-  const response = await apiClient.get(`/api/maintenance/${requestId}/attachments`, {
+export async function getTicketAttachments(
+  requestId: number,
+  before?: string
+): Promise<MaintenanceAttachment[]> {
+  const response = await apiClient.get<MaintenanceAttachment[]>(`/api/maintenance/${requestId}/attachments`, {
     params: before ? { before } : undefined,
   });
   return response.data || [];
@@ -193,7 +147,7 @@ export async function markOngoing(
   requestId: number,
   data: OperatorActionPayload
 ): Promise<MaintenanceTicket> {
-  const response = await apiClient.put(`/api/maintenance/${requestId}/ongoing`, data);
+  const response = await apiClient.put<MaintenanceTicket>(`/api/maintenance/${requestId}/ongoing`, data);
   return response.data;
 }
 
@@ -201,7 +155,7 @@ export async function markForVerification(
   requestId: number,
   data: OperatorActionPayload
 ): Promise<MaintenanceTicket> {
-  const response = await apiClient.put(`/api/maintenance/${requestId}/for-verification`, data);
+  const response = await apiClient.put<MaintenanceTicket>(`/api/maintenance/${requestId}/for-verification`, data);
   return response.data;
 }
 
@@ -210,7 +164,7 @@ export async function addRemarks(
   requestId: number,
   data: AddRemarksPayload
 ): Promise<MaintenanceTicket> {
-  const response = await apiClient.put(`/api/maintenance/${requestId}/remarks`, data);
+  const response = await apiClient.put<MaintenanceTicket>(`/api/maintenance/${requestId}/remarks`, data);
   return response.data;
 }
 
@@ -219,49 +173,57 @@ export async function cancelTicket(
   operatorAccountId: number,
   reason?: string
 ): Promise<MaintenanceTicket> {
-  const response = await apiClient.put(`/api/maintenance/${requestId}/cancel`, {
+  const response = await apiClient.put<MaintenanceTicket>(`/api/maintenance/${requestId}/cancel`, {
     actor_account_id: operatorAccountId,
-    reason, // ✅ send reason (required by backend for Operator)
+    reason,
   });
   return response.data;
 }
 
 export async function getTicket(requestId: number): Promise<MaintenanceTicket> {
-  const response = await apiClient.get(`/api/maintenance/${requestId}`);
+  const response = await apiClient.get<MaintenanceTicket>(`/api/maintenance/${requestId}`);
   return response.data;
 }
 
 export async function listMyTickets(operatorAccountId: number): Promise<MaintenanceTicket[]> {
-  const response = await apiClient.get('/api/maintenance', {
-    params: { created_by: operatorAccountId }
+  const response = await apiClient.get<MaintenanceTicket[]>('/api/maintenance', {
+    params: { created_by: operatorAccountId },
   });
   return response.data;
 }
 
 export async function listAssignedTickets(operatorAccountId: number): Promise<MaintenanceTicket[]> {
-  const response = await apiClient.get('/api/maintenance', {
-    params: { assigned_to: operatorAccountId }
+  const response = await apiClient.get<MaintenanceTicket[]>('/api/maintenance', {
+    params: { assigned_to: operatorAccountId },
   });
   return response.data;
 }
 
 export async function listTicketsByStatus(
-  operatorAccountId: number, 
+  operatorAccountId: number,
   status: string
 ): Promise<MaintenanceTicket[]> {
-  const response = await apiClient.get('/api/maintenance', {
-    params: { 
-      created_by: operatorAccountId,
-      status 
-    }
+  const response = await apiClient.get<MaintenanceTicket[]>('/api/maintenance', {
+    params: { created_by: operatorAccountId, status },
   });
   return response.data;
 }
 
-// ✅ NEW: Operator Cancelled tab (history-based, NOT status-based)
-export async function listOperatorCancelledHistoryTickets(operatorAccountId: number): Promise<MaintenanceTicket[]> {
-  const response = await apiClient.get('/api/maintenance/operator-cancelled-history', {
+export async function listOperatorCancelledHistoryTickets(
+  operatorAccountId: number
+): Promise<MaintenanceTicket[]> {
+  const response = await apiClient.get<MaintenanceTicket[]>('/api/maintenance/operator-cancelled-history', {
     params: { operator_account_id: operatorAccountId },
+  });
+  return response.data || [];
+}
+
+export async function getTicketEvents(
+  requestId: number,
+  before?: string
+): Promise<MaintenanceEvent[]> {
+  const response = await apiClient.get<MaintenanceEvent[]>(`/api/maintenance/${requestId}/events`, {
+    params: before ? { before } : undefined,
   });
   return response.data || [];
 }

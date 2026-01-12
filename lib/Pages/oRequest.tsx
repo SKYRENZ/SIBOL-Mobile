@@ -3,11 +3,11 @@ import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet
 import { Plus } from 'lucide-react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
-import RequestCard, { RequestItem } from '../components/RequestCard';
+import RequestCard, { RequestItem } from '../components/maintenance/RequestCard';
 import Tabs from '../components/commons/Tabs';
-import RequestForm from '../components/RequestForm';
+import RequestForm from '../components/maintenance/RequestForm';
 import { useMaintenance } from '../hooks/useMaintenance';
-import { MaintenanceTicket } from '../services/maintenanceService';
+import type { MaintenanceTicket } from '../types/maintenance.types';
 
 type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
 
@@ -83,9 +83,12 @@ export default function ORequest() {
         // ✅ IMPORTANT: history tab must stay "Canceled" even if current status becomes On-going again
         return canceledTickets.map((t): RequestItem => ({
           ...convertToRequestItem(t),
-          status: 'Canceled' as const, // ✅ keep literal type (not string)
-          // ✅ snapshot cutoff: only show remarks/attachments up to when THIS operator requested cancel
-          cancelCutoffAt: t.CancelRequestedAt ?? t.CancelApprovedAt ?? null,
+          status: 'Canceled' as const,
+
+          // ✅ cutoff should be AFTER approval (not request time)
+          // listOperatorCancelledHistory guarantees ApprovedAt is NOT NULL,
+          // but keep a safe fallback to null to avoid bad query params.
+          cancelCutoffAt: t.CancelApprovedAt ?? null,
         }));
 
       default:
