@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Image, ScrollView, Animated, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/hBotNav';
 import Button from '../components/commons/Button';
@@ -9,6 +10,7 @@ import FAQs, { FAQItem } from '../components/commons/FAQs';
 const CLOUD_ANIMATION_DURATION = 15000;
 
 export default function ChatSupport() {
+  const navigation = useNavigation();
   const cloud1 = useRef(new Animated.Value(-100)).current;
   const cloud2 = useRef(new Animated.Value(-150)).current;
   const cloud3 = useRef(new Animated.Value(-200)).current;
@@ -50,6 +52,10 @@ export default function ChatSupport() {
 
   const handleContactPress = () => {
     Linking.openURL('mailto:uccsibol@gmail.com');
+  };
+
+  const handleChatPress = () => {
+    navigation.navigate('ChatIntro' as never);
   };
 
   const faqItems: FAQItem[] = [
@@ -163,6 +169,7 @@ export default function ChatSupport() {
             <Button
               title="How may I help?"
               variant="primary"
+              onPress={handleChatPress}
               style={[
                 tw`bg-primary rounded-[40px] py-2 px-8 self-center`,
                 {
@@ -256,6 +263,9 @@ export default function ChatSupport() {
 
         {/* FAQs Section with White Background */}
         <View style={tw`bg-white pt-8 pb-24`}>
+          <Text style={tw`text-[20px] font-bold text-green-light mb-2 font-inter px-6`}>
+            Frequently Asked Questions:
+          </Text>
           <FAQs items={faqItems} />
         </View>
       </ScrollView>
