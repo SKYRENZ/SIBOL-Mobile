@@ -3,18 +3,34 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
-// Read from env if available, otherwise use emulator defaults
-const extras = (Constants as any).expoConfig?.extra ?? process.env;
-const envApiBase = extras?.EXPO_PUBLIC_API_BASE;
+// Merge sources (Expo config extras + process.env)
+const extras = (Constants as any).expoConfig?.extra ?? {};
+const env = { ...(process.env as any), ...extras };
+
+const envApiBaseWeb = env?.EXPO_PUBLIC_API_BASE_WEB;
+const envApiBaseMobile = env?.EXPO_PUBLIC_API_BASE_MOBILE;
+
+// Backward-compatible single var
+const envApiBaseLegacy = env?.EXPO_PUBLIC_API_BASE;
 
 const DEFAULT_HOST = Platform.OS === 'android' ? 'http://10.0.2.2' : 'http://localhost';
 const DEFAULT_PORT = 5000;
 
-const normalizeUrl = (url: string) => url.replace(/\/$/, '');
+const normalizeUrl = (url: string) => {
+  const trimmed = url.trim().replace(/\/$/, '');
+  // Axios baseURL must include scheme
+  if (!/^https?:\/\//i.test(trimmed)) return `http://${trimmed}`;
+  return trimmed;
+};
+
+const platformEnvBase =
+  Platform.OS === 'web' ? envApiBaseWeb : envApiBaseMobile;
 
 export const API_BASE = normalizeUrl(
-  (global as any).API_BASE_OVERRIDE ?? 
-  (envApiBase || `${DEFAULT_HOST}:${DEFAULT_PORT}`)
+  (global as any).API_BASE_OVERRIDE ??
+    platformEnvBase ??
+    envApiBaseLegacy ??
+    `${DEFAULT_HOST}:${DEFAULT_PORT}`
 );
 
 console.log('[mobile api] Platform:', Platform.OS);

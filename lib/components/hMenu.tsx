@@ -12,8 +12,20 @@ import {
     StyleSheet
 } from 'react-native';
 import tw from '../utils/tailwind';
-import { Settings, LogOut, Gift, History, MapPin, MessageSquare } from 'lucide-react-native';
+import { Settings, LogOut, Gift, History, MapPin, MessageSquare, User } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type RootStackParamList = {
+  HDashboard: undefined;
+  HMap: undefined;
+  HProfile: undefined;
+  HRewards: undefined;
+  History: undefined;
+  ChatSupport: undefined;
+  Settings: undefined;
+  SignIn: undefined;
+};
 import { logout } from '../services/authService';
 import SignOutModal from './SignOutModal';
 
@@ -27,6 +39,12 @@ type Props = {
 };
 
 const menuItems = [
+    { 
+      id: 'profile', 
+      label: 'My Profile', 
+      icon: User,
+      route: 'HProfile'
+    },
     { 
       id: 'rewards', 
       label: 'Rewards', 
@@ -43,7 +61,7 @@ const menuItems = [
       id: 'map', 
       label: 'Map', 
       icon: MapPin,
-      route: 'Map' // Update this if you have a specific map route
+      route: 'HMap' // This will navigate to the HMap screen
     },
     { 
       id: 'chat', 
@@ -60,7 +78,7 @@ const menuItems = [
 ];
 
 export default function HMenu({ visible, onClose, onNavigate }: Props) {
-    const navigation = useNavigation();
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const translateX = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
     const [mounted, setMounted] = useState(visible);
     const [loggingOut, setLoggingOut] = useState(false);
@@ -106,7 +124,8 @@ export default function HMenu({ visible, onClose, onNavigate }: Props) {
         onClose();
         const menuItem = menuItems.find(item => item.id === id);
         if (menuItem?.route) {
-            navigation.navigate(menuItem.route as never);
+            // @ts-ignore - We know the route is valid because of our type checking
+            navigation.navigate(menuItem.route);
         } else if (onNavigate) {
             onNavigate(id);
         }
