@@ -38,7 +38,10 @@ export default {
       eas: {
         projectId: "b726f662-b79e-47cb-bae8-5f37e7c65663"
       },
-      EXPO_PUBLIC_API_BASE: process.env.EXPO_PUBLIC_API_BASE,
+
+      // ✅ New split base URLs
+      EXPO_PUBLIC_API_BASE_WEB: process.env.EXPO_PUBLIC_API_BASE_WEB,
+      EXPO_PUBLIC_API_BASE_MOBILE: process.env.EXPO_PUBLIC_API_BASE_MOBILE,
       GOOGLE_ANDROID_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
       GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
     },
