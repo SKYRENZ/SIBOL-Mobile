@@ -52,13 +52,21 @@ apiClient.interceptors.request.use(
       const token = await AsyncStorage.getItem('token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log(`[Axios] Token attached: ${token.substring(0, 20)}...`);
-      } else {
-        console.warn('[Axios] No token found in AsyncStorage');
       }
     } catch (err) {
       console.error('[Axios] Failed to get token:', err);
     }
+
+    // ✅ If sending FormData, remove JSON content-type so axios can set multipart boundary
+    const isFormData =
+      typeof FormData !== 'undefined' && config.data instanceof FormData;
+
+    if (isFormData) {
+      // axios will set the correct multipart/form-data; boundary=...
+      delete (config.headers as any)['Content-Type'];
+      delete (config.headers as any)['content-type'];
+    }
+
     return config;
   },
   (error) => {

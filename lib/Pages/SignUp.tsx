@@ -168,15 +168,12 @@ export default function SignUp({ navigation, route }: Props) {
     }
 
     try {
-      const result = await handleSignUp();
+      // ✅ pass required attachment URI
+      await handleSignUp(idImage);
 
-      // SSO users skip email verification and go directly to AdminPending
       if (isSSO) {
-        console.log('[SignUp] SSO registration complete, going to AdminPending');
         navigation.navigate('AdminPending' as any, { email });
       } else {
-        // Regular users need email verification first
-        console.log('[SignUp] Regular registration complete, going to VerifyEmail');
         navigation.navigate('VerifyEmail' as any, { email });
       }
     } catch (err: any) {
