@@ -72,9 +72,9 @@ const validateUsername = (username: string) => {
 
 export default function SignIn({ navigation }: Props) {
   // Role id constants — **FIX: match your actual DB values**
-  const ROLE_ADMIN = 1;
-  const ROLE_OPERATOR = 3;  // operators have Roles=3 in your DB (see operatorController)
-  const ROLE_HOUSEHOLD = 3;
+  
+  const ROLE_OPERATOR = 3;
+  const ROLE_HOUSEHOLD = 4; // ✅ FIX
 
   const [username, setUsername] = useState('');           // changed from email
   const [password, setPassword] = useState('');

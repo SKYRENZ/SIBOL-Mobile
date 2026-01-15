@@ -36,18 +36,26 @@ export const API_BASE = normalizeUrl(
 console.log('[mobile api] Platform:', Platform.OS);
 console.log('[mobile api] API_BASE =', API_BASE);
 
+const CLIENT_TYPE = Platform.OS === 'web' ? 'web' : 'mobile'; // ✅ ADD
+
 // ✅ Create Axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
+    'x-client-type': CLIENT_TYPE, // ✅ ADD
   },
 });
 
 // ✅ Request Interceptor - Attach auth token
 apiClient.interceptors.request.use(
   async (config) => {
+    // ✅ ensure header is always present
+    config.headers = config.headers ?? {};
+    (config.headers as any)['x-client-type'] =
+      (config.headers as any)['x-client-type'] ?? CLIENT_TYPE;
+
     try {
       const token = await AsyncStorage.getItem('token');
       if (token) {

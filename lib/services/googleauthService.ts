@@ -1,6 +1,6 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
-import { API_BASE } from './apiClient';
+import { post, setToken } from './apiClient'; // ✅ use axios helper
 
 // Read from expo config
 const extras = (Constants as any).expoConfig?.extra ?? {};
@@ -24,41 +24,33 @@ export async function startGoogleSignIn() {
     await GoogleSignin.hasPlayServices();
 
     console.log('[GoogleAuth] Starting sign-in...');
-    const userInfo = await GoogleSignin.signIn();
+    await GoogleSignin.signIn();
 
     console.log('[GoogleAuth] Sign-in successful, getting tokens...');
     const tokens = await GoogleSignin.getTokens();
 
     const idToken = tokens.idToken;
+    if (!idToken) throw new Error('Missing Google idToken');
+
     console.log('[GoogleAuth] Got idToken (first 50 chars):', idToken.substring(0, 50) + '...');
 
-    console.log('[GoogleAuth] Sending to backend...');
-    const response = await fetch(`${API_BASE}/api/auth/sso-google`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken }),
-    });
+    console.log('[GoogleAuth] Sending to backend via axios...');
+    const data = await post<any>('/api/auth/sso-google', { idToken });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[GoogleAuth] Backend error:', response.status, errorText);
-      throw new Error(`Backend error: ${response.status}`);
-    }
+    // ✅ persist token so future requests include Authorization
+    const token = data?.token || data?.accessToken;
+    if (token) await setToken(token);
 
-    const data = await response.json();
     console.log('[GoogleAuth] Backend response:', data);
     return data;
   } catch (error: any) {
     console.error('[GoogleAuth] Error:', error);
-    
-    if (error.code === 'SIGN_IN_CANCELLED') {
-      throw new Error('Sign-in cancelled');
-    } else if (error.code === 'IN_PROGRESS') {
-      throw new Error('Sign-in already in progress');
-    } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
-      throw new Error('Play Services not available');
-    }
-    
+
+    if (error.code === 'SIGN_IN_CANCELLED') throw new Error('Sign-in cancelled');
+    if (error.code === 'IN_PROGRESS') throw new Error('Sign-in already in progress');
+    if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') throw new Error('Play Services not available');
+
+    // If axios interceptor threw a plain Error(message), keep it
     throw error;
   }
 }
