@@ -43,8 +43,6 @@ export default function HDashboard(props: any) {
   const [displayName, setDisplayName] = useState<string>('User');
 
   const handleOpenScanner = async () => {
-    console.log('Opening scanner...');
-    
     // Request camera permission on Android
     if (Platform.OS === 'android') {
       const result = await request(PERMISSIONS.ANDROID.CAMERA);
@@ -53,7 +51,7 @@ export default function HDashboard(props: any) {
         return;
       }
     }
-    
+
     setShowScanner(true);
   };
 
@@ -70,7 +68,6 @@ export default function HDashboard(props: any) {
   };
 
   const handleCloseScanner = () => {
-    console.log('Closing scanner modal');
     setShowScanner(false);
     setIsProcessingScan(false);
   };
@@ -115,11 +112,7 @@ export default function HDashboard(props: any) {
       const loadPoints = async () => {
         try {
           const data = await getMyPoints();
-          console.log('[hDashboard] getMyPoints returned', data);
-          try {
-            const raw = await AsyncStorage.getItem('user');
-            console.log('[hDashboard] stored user after getMyPoints:', raw ? raw.slice(0,200) : null);
-          } catch (e) {}
+          // removed debug logs
           if (mounted) setUserPoints(Number(data.points ?? 0));
         } catch (err) {
           console.error('[hDashboard] Failed to load points', err);

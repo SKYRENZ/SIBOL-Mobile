@@ -46,8 +46,6 @@ export async function getUserProfile(): Promise<UserProfile> {
 export async function getMyPoints(): Promise<UserPoints> {
   const data = await get('/api/profile/points');
 
-  console.log('[profileService] /api/profile/points ->', data);
-
   // persist updated points into stored user so other components reading AsyncStorage see latest
   try {
     const rawUser = await AsyncStorage.getItem('user');
@@ -56,7 +54,7 @@ export async function getMyPoints(): Promise<UserPoints> {
       if (data?.points !== undefined) {
         u.Points = data.points;
         await AsyncStorage.setItem('user', JSON.stringify(u));
-        console.log('[profileService] persisted user Points ->', u.Points);
+        // removed debug persist log
       }
     }
   } catch (e) {
