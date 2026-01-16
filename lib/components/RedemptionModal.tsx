@@ -13,8 +13,10 @@ export default function RedemptionModal({ visible, code, pointsUsed, onClose }: 
   return (
     <Modal
       visible={visible}
-      transparent
+      transparent={true} // ensure overlay doesn't create opaque native background
       animationType="fade"
+      presentationStyle="overFullScreen" // helps on iOS to overlay without hiding content
+      statusBarTranslucent={true} // Android: avoid replacing status bar space
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
