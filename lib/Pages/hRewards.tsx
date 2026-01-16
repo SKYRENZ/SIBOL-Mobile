@@ -70,6 +70,8 @@ export default function HRewards() {
 
     try {
       setRedeeming(true);
+
+      // perform redeem (avoid refresh duplication: rely on refresh() once)
       const res = await redeem(reward.id, 1);
 
       const code =
@@ -79,17 +81,18 @@ export default function HRewards() {
 
       setSelectedReward(reward);
       setClaimCode(String(code));
-      setShowClaimModal(true);
 
-      // ✅ refresh points from backend after redeem
+      // single, ordered refresh: update rewards first, then fetch latest points
       try {
+        await refresh(); // refresh rewards list (if redeem triggers internal refresh this is still safe)
         const pts = await getMyPoints();
         setAvailablePoints(Number(pts.points ?? 0));
       } catch (e) {
-        console.error('[HRewards] failed to refresh points after redeem', e);
+        console.error('[HRewards] failed to refresh after redeem', e);
       }
 
-      await refresh();
+      // show modal after UI/state is stable to avoid flicker
+      setShowClaimModal(true);
     } catch (err: any) {
       console.error('Redeem failed', err);
       Alert.alert('Redeem failed', err?.message || 'Unable to redeem reward');
