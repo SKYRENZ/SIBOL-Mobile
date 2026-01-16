@@ -11,6 +11,7 @@ import {
     Image,
     StyleSheet
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import tw from '../utils/tailwind';
 import { Settings, LogOut, Gift, History, MapPin, MessageSquare, User } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -84,6 +85,28 @@ export default function HMenu({ visible, onClose, onNavigate }: Props) {
     const [loggingOut, setLoggingOut] = useState(false);
     const [showSignOutModal, setShowSignOutModal] = useState(false);
 
+    const [displayName, setDisplayName] = useState<string>('User');
+
+    // refresh displayName whenever menu opens
+    useEffect(() => {
+      if (!visible) return;
+      (async () => {
+        try {
+          const raw = await AsyncStorage.getItem('user');
+          if (!raw) return;
+          const u = JSON.parse(raw);
+          const first = u?.FirstName ?? u?.firstName ?? '';
+          const last = u?.LastName ?? u?.lastName ?? '';
+          const username = u?.Username ?? u?.username ?? '';
+          const email = u?.Email ?? u?.email ?? '';
+          const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
+          setDisplayName(name);
+        } catch (e) {
+          console.warn('[HMenu] refresh failed', e);
+        }
+      })();
+    }, [visible]);
+
     useEffect(() => {
         if (visible) {
             Keyboard.dismiss();
@@ -146,7 +169,9 @@ export default function HMenu({ visible, onClose, onNavigate }: Props) {
                         >
                             {/* Header */}
                             <View style={styles.header}>
-                                <Text style={styles.username}>User#39239!</Text>
+                                <View>
+                                    <Text style={styles.username}>{displayName}</Text>
+                                </View>
                                 <View style={styles.avatarContainer}>
                                     <Image 
                                         source={{ uri: 'https://via.placeholder.com/40' }} 

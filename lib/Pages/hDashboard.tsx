@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Text,
   View,
@@ -23,8 +23,9 @@ import { CameraWrapper } from '../components/CameraWrapper';
 import { decodeQrFromImage } from '../utils/qrDecoder';
 import { scanQr } from '../services/apiClient';
 import { getMyPoints } from '../services/profileService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function hDashboard() {
+export default function HDashboard(props: any) {
   const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<{ awarded: number; totalPoints: number } | null>(null);
   const [isProcessingScan, setIsProcessingScan] = useState(false);
@@ -38,6 +39,7 @@ export default function hDashboard() {
 
   const [userPoints, setUserPoints] = useState<number>(0);
   const [pointsLoading, setPointsLoading] = useState<boolean>(true);
+  const [displayName, setDisplayName] = useState<string>('User');
 
   const handleOpenScanner = async () => {
     console.log('Opening scanner...');
@@ -118,6 +120,25 @@ export default function hDashboard() {
       }
     };
     loadPoints();
+  }, []);
+
+  // Fetch display name on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('user');
+        if (!raw) return;
+        const u = JSON.parse(raw);
+        const first = u?.FirstName ?? u?.firstName ?? '';
+        const last = u?.LastName ?? u?.lastName ?? '';
+        const username = u?.Username ?? u?.username ?? '';
+        const email = u?.Email ?? u?.email ?? '';
+        const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
+        setDisplayName(name);
+      } catch (e) {
+        // ignore
+      }
+    })();
   }, []);
 
   const styles = useResponsiveStyle(({ isSm, isMd, isLg }) => ({
@@ -310,7 +331,7 @@ export default function hDashboard() {
           <View style={styles.headerContainer}>
             <View style={tw`flex-row justify-between items-center`}>
               <View>
-                <Text style={[tw`font-bold text-[#2E523A]`, styles.heading]}>Hi, User#39239!</Text>
+                <Text style={[tw`font-bold text-[#2E523A]`, styles.heading]}>Hi, {displayName}!</Text>
                 <Text style={[tw`font-bold text-[#2E523A]`, styles.subheading]}>Welcome to SIBOL Community.</Text>
               </View>
               <TouchableOpacity style={tw`p-2`} accessibilityLabel="Notifications">

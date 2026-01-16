@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-	View,
-	Text,
-	TouchableOpacity,
-	TouchableWithoutFeedback,
-	Animated,
-	Dimensions,
-	Keyboard,
+    View,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    Animated,
+    Dimensions,
+    Keyboard,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // { added }
 import tw from '../utils/tailwind';
 import { HardDrive, MessageSquare, Settings, LogOut, User } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -24,11 +25,39 @@ type Props = {
 };
 
 export default function OMenu({ visible, onClose, onNavigate }: Props) {
-	const navigation = useNavigation();
-	const translateX = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
-	const [mounted, setMounted] = useState(visible);
-	const [loggingOut, setLoggingOut] = useState(false);
-	const [showSignOutModal, setShowSignOutModal] = useState(false); // ✅ Add modal state
+    const navigation = useNavigation();
+    const translateX = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
+    const [mounted, setMounted] = useState(visible);
+    const [loggingOut, setLoggingOut] = useState(false);
+    const [showSignOutModal, setShowSignOutModal] = useState(false); // ✅ Add modal state
+
+	const [displayName, setDisplayName] = useState<string>('User');
+	const [roleLabel, setRoleLabel] = useState<string>('Operator');
+
+	useEffect(() => {
+		if (!visible) return;
+		(async () => {
+			try {
+				const raw = await AsyncStorage.getItem('user');
+				if (!raw) return;
+				const u = JSON.parse(raw);
+				const first = u?.FirstName ?? u?.firstName ?? '';
+				const last = u?.LastName ?? u?.lastName ?? '';
+				const username = u?.Username ?? u?.username ?? '';
+				const email = u?.Email ?? u?.email ?? '';
+				const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
+				setDisplayName(name);
+				const r = Number(u?.Roles ?? u?.role ?? NaN);
+				if (r === 1) setRoleLabel('Admin');
+				else if (r === 3) setRoleLabel('Operator');
+				else if (r === 4) setRoleLabel('Household');
+				else if (String(u?.role)?.toLowerCase?.() === 'operator') setRoleLabel('Operator');
+				else setRoleLabel('User');
+			} catch (e) {
+				console.warn('[OMenu] refresh failed', e);
+			}
+		})();
+	}, [visible]);
 
 	useEffect(() => {
 		if (visible) {
@@ -101,15 +130,15 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
 							>
 								<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
 									<View>
-										<Text style={{ fontSize: 14, fontWeight: '600', color: '#18472f' }}>User#39239!</Text>
-										<Text style={{ fontSize: 11, color: '#18472f', marginTop: 4 }}>Operator</Text>
+										<Text style={{ fontSize: 14, fontWeight: '600', color: '#18472f' }}>{displayName}</Text>
+										<Text style={{ fontSize: 11, color: '#18472f', marginTop: 4 }}>{roleLabel}</Text>
 									</View>
 
-									<View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
-										<User color="#18472f" size={22} />
-									</View>
-								</View>
-							</TouchableOpacity>
+                                     <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
+                                         <User color="#18472f" size={22} />
+                                     </View>
+                                 </View>
+                             </TouchableOpacity>
 
 							<View style={tw`h-[1px] bg-[#264A3C] my-2`} />
 
@@ -129,7 +158,7 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
 									style={tw`flex-row items-center py-3 px-3 rounded`}
 									onPress={() => {
 										onNavigate?.('Chat Support');
-										onClose();
+									 onClose();
 									}}
 								>
 									<MessageSquare color="#E6F0E9" size={18} />

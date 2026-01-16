@@ -24,8 +24,6 @@ export async function login(username: string, password: string): Promise<AuthRes
   await AsyncStorage.setItem('token', token);
   await AsyncStorage.setItem('user', JSON.stringify(user));
   
-  console.log('✅ Login successful - Token saved:', token.substring(0, 20) + '...');
-  
   return { token, user };
 }
 

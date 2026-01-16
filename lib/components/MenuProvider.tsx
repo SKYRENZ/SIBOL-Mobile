@@ -30,19 +30,22 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!raw) {
           console.debug('MenuProvider: no stored user found');
           setRole(null);
-          // don't mark resolved yet — start polling to pick up a user saved shortly after mount
-          setResolved(false);
+          setResolved(false); // allow polling to run
           return;
         }
 
         const user = JSON.parse(raw);
-        const rnum = user?.Roles ?? user?.role ?? null;
-        console.debug('MenuProvider: loaded user from storage', { user, rnum });
+        console.debug('MenuProvider: loaded user from storage', { user });
 
-        // Heuristic: if numeric Roles === 3 treat as operator, otherwise household
-        // Adjust mapping here if your roles use different ids.
-        if (rnum === 3 || String(rnum).toLowerCase() === 'operator') setRole('operator');
-        else setRole('household');
+        const r = user?.Roles ?? user?.role ?? null;
+        const rnum = Number(r);
+        if (!Number.isNaN(rnum)) {
+          setRole(rnum === 3 ? 'operator' : 'household');
+        } else if (String(r)?.toLowerCase?.() === 'operator') {
+          setRole('operator');
+        } else {
+          setRole('household');
+        }
         setResolved(true);
       } catch (err) {
         console.warn('MenuProvider: failed to read user role', err);
@@ -63,10 +66,16 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const raw = await AsyncStorage.getItem('user');
         if (raw) {
           const user = JSON.parse(raw);
-          const rnum = user?.Roles ?? user?.role ?? null;
-          console.debug('MenuProvider: detected delayed user', { user, rnum });
-          if (rnum === 3 || String(rnum).toLowerCase() === 'operator') setRole('operator');
-          else setRole('household');
+          const r = user?.Roles ?? user?.role ?? null;
+          const rnum = Number(r);
+          console.debug('MenuProvider: detected delayed user', { user, r });
+          if (!Number.isNaN(rnum)) {
+            setRole(rnum === 3 ? 'operator' : 'household');
+          } else if (String(r)?.toLowerCase?.() === 'operator') {
+            setRole('operator');
+          } else {
+            setRole('household');
+          }
           setResolved(true);
           clearInterval(id);
         } else if (attempts >= maxAttempts) {
@@ -86,9 +95,27 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(id);
   }, [resolved]);
 
-  const openMenu = () => {
-    console.debug('MenuProvider: openMenu called', { role, resolved });
-    setIsOpen(true);
+  // Refresh role from storage when opening the menu so the menu matches the current user
+  const openMenu = async () => {
+    try {
+      const raw = await AsyncStorage.getItem('user');
+      if (raw) {
+        const user = JSON.parse(raw);
+        const r = user?.Roles ?? user?.role ?? null;
+        const rnum = Number(r);
+        if (!Number.isNaN(rnum)) setRole(rnum === 3 ? 'operator' : 'household');
+        else if (String(r)?.toLowerCase?.() === 'operator') setRole('operator');
+        else setRole('household');
+        setResolved(true);
+      } else {
+        setRole(null);
+      }
+    } catch (err) {
+      console.warn('MenuProvider: openMenu failed to read user', err);
+    } finally {
+      console.debug('MenuProvider: openMenu called', { role, resolved });
+      setIsOpen(true);
+    }
   };
 
   const closeMenu = () => {
