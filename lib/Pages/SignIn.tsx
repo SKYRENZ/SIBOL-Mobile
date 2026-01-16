@@ -10,6 +10,7 @@ import { login as apiLogin } from '../services/authService'; // <-- added
 import { startGoogleSignIn } from '../services/googleauthService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Button from '../components/commons/Button';
+import apiClient from '../services/apiClient';
 
 type RootStackParamList = {
   Landing: undefined;
@@ -258,6 +259,7 @@ export default function SignIn({ navigation }: Props) {
 
                     try {
                       setLoading(true);
+                      (apiClient.defaults.headers as any)['x-client-type'] = 'mobile';
                       const data = await apiLogin(username.trim(), password);
                       const token = data?.token ?? data?.accessToken;
                       const user = data?.user ?? (data as any);
