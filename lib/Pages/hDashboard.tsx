@@ -214,7 +214,7 @@ export default function hDashboard() {
       marginBottom: useResponsiveSpacing('xs'),
       marginHorizontal: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
       paddingHorizontal: 0,
-      alignItems: 'flex-start',
+      alignItems: 'center', // center cards vertically
     },
     sectionTitle: {
       fontSize: isSm ? useResponsiveFontSize('2xl') : isMd ? useResponsiveFontSize('3xl') : useResponsiveFontSize('4xl'),
@@ -234,8 +234,8 @@ export default function hDashboard() {
       flex: 1,
       backgroundColor: 'white',
       borderRadius: 15,
-      minHeight: isSm ? 120 : 140, 
-      padding: isSm ? 16 : 22,    
+      minHeight: isSm ? 110 : 130, 
+      padding: isSm ? 12 : 16,      // smaller padding
       alignItems: 'center',
       justifyContent: 'center', 
       borderWidth: 0,
@@ -246,12 +246,13 @@ export default function hDashboard() {
       shadowRadius: 4,
       elevation: 2,
       flexDirection: 'column',
+      position: 'relative',        // allow safe absolute positioning if needed
     },
     statContent: {
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
-      gap: isSm ? 14 : 18, 
+      gap: isSm ? 8 : 12,          // tighter gap so icons don't push text out
       marginBottom: 0,
     },
     statCardGreen: {
@@ -260,29 +261,32 @@ export default function hDashboard() {
       borderWidth: 0,
     },
     medalIcon: {
-      width: isSm ? 50 : 60,
-      height: isSm ? 50 : 60,
+      width: isSm ? 30 : 40,       // smaller icon container
+      height: isSm ? 30 : 40,
       justifyContent: 'center',
       alignItems: 'center',
+      overflow: 'hidden',          // prevent image overflow
+      borderRadius: isSm ? 8 : 10,
     },
     statIcon: {
-      width: isSm ? 28 : 32,
-      height: isSm ? 28 : 32,
+      width: isSm ? 18 : 22,       // smaller icon size
+      height: isSm ? 18 : 22,
+      resizeMode: 'contain',
     },
     statNumber: {
-      fontSize: isSm ? 40 : 48,
+      fontSize: isSm ? 28 : 38,    // reduced font sizes
       fontWeight: 'bold',
       color: '#2E523A',
       marginBottom: 2, 
-      lineHeight: isSm ? 40 : 48,
+      lineHeight: isSm ? 28 : 38,
     },
     statLabel: {
-      fontSize: isSm ? useResponsiveFontSize('xs') : useResponsiveFontSize('xs'),
+      fontSize: isSm ? 11 : 12,    // smaller label
       color: '#2E523A',
       textAlign: 'center',
-      lineHeight: isSm ? 14 : 18,
+      lineHeight: isSm ? 14 : 16,
       fontWeight: '500',
-      marginTop: isSm ? 16 : 20, 
+      marginTop: isSm ? 10 : 12, 
     },
     searchBar: {
       height: isSm ? 38 : 45,
