@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Text,
   View,
@@ -20,8 +20,8 @@ import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from 
 import Container from '../components/primitives/Container';
 import { Bell } from 'lucide-react-native';
 import { CameraWrapper } from '../components/CameraWrapper';
-import { scanQr } from '../services/apiClient';
 import { decodeQrFromImage } from '../utils/qrDecoder';
+import { scanQr } from '../services/apiClient';
 import { getMyPoints } from '../services/profileService';
 
 export default function hDashboard() {
@@ -72,55 +72,38 @@ export default function hDashboard() {
     setIsProcessingScan(false);
   };
 
-  const handleCapture = async (imageData: string) => {
+  const handleCapture = useCallback(async (captured: string) => {
     setIsProcessingScan(true);
     try {
-      const decodedQr = await decodeQrFromImage(imageData);
-      
-      // ✅ Parse weight from QR code
-      const weight = parseFloat(decodedQr);
-      
-      if (isNaN(weight) || weight <= 0) {
-        throw new Error('Invalid QR code: must contain a positive number');
-      }
-      
-      const response = await scanQr(decodedQr, weight);
-      
-      setScanResult({ awarded: response.awarded, totalPoints: response.totalPoints });
-      
-      // ✅ Close scanner and show success message
-      handleCloseScanner();
-      
-      setTimeout(() => {
-        setQRMessageType('success');
-        setQRMessageData({ 
-          points: response.awarded, 
-          total: response.totalPoints 
-        });
-        setShowQRMessage(true);
-      }, 300);
-      
-    } catch (error: any) {
-      console.error('QR scan failed', error);
-      handleCloseScanner();
-      
-      setTimeout(() => {
-        const isDuplicate = error?.message?.includes('already scanned') || 
-                           error?.payload?.message?.includes('already scanned');
-        
-        // ✅ Show error message in modal
-        setQRMessageType('error');
-        setQRMessageData({ 
-          message: isDuplicate 
-            ? 'This QR code has already been used. Each QR can only be scanned once.'
-            : error?.message || 'Unable to process QR code. Please try again.'
-        });
-        setShowQRMessage(true);
-      }, 300);
+      // If we ever receive an image dataURL (web legacy), decode it.
+      // On native (expo camera) CameraWrapper already passes the decoded QR string.
+      const qrString =
+        Platform.OS === 'web' && typeof captured === 'string' && captured.startsWith('data:')
+          ? await decodeQrFromImage(captured)
+          : captured;
+
+      // Parse QR payload (your QR contains weight "6")
+      const weight = parseFloat(String(qrString));
+      if (!Number.isFinite(weight) || weight <= 0) throw new Error('Invalid QR payload');
+
+      // Send to backend
+      const result = await scanQr(qrString, weight);
+
+      // Show success modal and update points
+      setQRMessageType('success');
+      setQRMessageData({ points: result?.awarded, total: result?.totalPoints });
+      setShowQRMessage(true);
+      if (typeof result?.totalPoints === 'number') setUserPoints(result.totalPoints);
+    } catch (err: any) {
+      console.error('QR scan failed', err);
+      setQRMessageType('error');
+      setQRMessageData({ message: err?.message || 'Scan failed' });
+      setShowQRMessage(true);
     } finally {
       setIsProcessingScan(false);
+      setShowScanner(false);
     }
-  };
+  }, [setIsProcessingScan, setShowScanner, setQRMessageType, setQRMessageData, setShowQRMessage, setUserPoints]);
 
   // ✅ Fetch points on mount
   useEffect(() => {
