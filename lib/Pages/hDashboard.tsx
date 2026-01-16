@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   Text,
   View,
@@ -108,19 +109,28 @@ export default function HDashboard(props: any) {
   }, [setIsProcessingScan, setShowScanner, setQRMessageType, setQRMessageData, setShowQRMessage, setUserPoints]);
 
   // ✅ Fetch points on mount
-  useEffect(() => {
-    const loadPoints = async () => {
-      try {
-        const data = await getMyPoints();
-        setUserPoints(data.points);
-      } catch (err) {
-        console.error('[hDashboard] Failed to load points', err);
-      } finally {
-        setPointsLoading(false);
-      }
-    };
-    loadPoints();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      const loadPoints = async () => {
+        try {
+          const data = await getMyPoints();
+          console.log('[hDashboard] getMyPoints returned', data);
+          try {
+            const raw = await AsyncStorage.getItem('user');
+            console.log('[hDashboard] stored user after getMyPoints:', raw ? raw.slice(0,200) : null);
+          } catch (e) {}
+          if (mounted) setUserPoints(Number(data.points ?? 0));
+        } catch (err) {
+          console.error('[hDashboard] Failed to load points', err);
+        } finally {
+          if (mounted) setPointsLoading(false);
+        }
+      };
+      loadPoints();
+      return () => { mounted = false; };
+    }, [])
+  );
 
   // Fetch display name on mount
   useEffect(() => {

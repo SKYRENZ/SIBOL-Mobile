@@ -1,4 +1,6 @@
 import React from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 import {
   View,
   Image,
@@ -43,16 +45,20 @@ export default function HRewards() {
   const { rewards, loading, error, refresh, redeem } = useRewards();
 
   // ✅ load points on mount
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const pts = await getMyPoints();
-        setAvailablePoints(Number(pts.points ?? 0));
-      } catch (e) {
-        console.error('[HRewards] getMyPoints', e);
-      }
-    })();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      (async () => {
+        try {
+          const pts = await getMyPoints();
+          if (mounted) setAvailablePoints(Number(pts.points ?? 0));
+        } catch (e) {
+          console.error('[HRewards] getMyPoints', e);
+        }
+      })();
+      return () => { mounted = false; };
+    }, [])
+  );
 
   const isRewardAvailable = (points: number) => availablePoints >= points;
 

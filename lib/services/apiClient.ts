@@ -60,6 +60,25 @@ apiClient.interceptors.request.use(
       const token = await AsyncStorage.getItem('token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+        // DEBUG: decode JWT payload (safe: log only identifying fields)
+        try {
+          const parts = token.split('.');
+          if (parts.length === 3) {
+            const payloadJson = decodeURIComponent(
+              Array.prototype.map
+                .call(atob(parts[1]), (c: string) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+            );
+            const payload = JSON.parse(payloadJson);
+            console.log('[apiClient DEBUG] token payload:', {
+              Account_id: payload?.Account_id ?? payload?.account_id ?? payload?.id,
+              Username: payload?.Username ?? payload?.username ?? payload?.sub,
+              Roles: payload?.Roles ?? payload?.role
+            });
+          }
+        } catch (e) {
+          /* ignore decode errors */
+        }
       }
     } catch (err) {
       console.error('[Axios] Failed to get token:', err);
@@ -74,6 +93,12 @@ apiClient.interceptors.request.use(
       delete (config.headers as any)['Content-Type'];
       delete (config.headers as any)['content-type'];
     }
+
+    // DEBUG: log which token/header will be sent for this request
+    try {
+      const authHeader = (config.headers as any)['Authorization'] || (config.headers as any)['authorization'] || (config.headers as any)['x-auth-token'] || (config.headers as any)['x-access-token'];
+      console.log('[apiClient] REQ', config.method?.toUpperCase(), config.url, 'AuthHeader=', !!authHeader ? String(authHeader).slice(0,40) + '...' : null);
+    } catch (e) {}
 
     return config;
   },

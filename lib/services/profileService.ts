@@ -1,4 +1,5 @@
 import { get } from './apiClient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type UserProfile = {
   id: number;
@@ -44,6 +45,24 @@ export async function getUserProfile(): Promise<UserProfile> {
  */
 export async function getMyPoints(): Promise<UserPoints> {
   const data = await get('/api/profile/points');
+
+  console.log('[profileService] /api/profile/points ->', data);
+
+  // persist updated points into stored user so other components reading AsyncStorage see latest
+  try {
+    const rawUser = await AsyncStorage.getItem('user');
+    if (rawUser) {
+      const u = JSON.parse(rawUser);
+      if (data?.points !== undefined) {
+        u.Points = data.points;
+        await AsyncStorage.setItem('user', JSON.stringify(u));
+        console.log('[profileService] persisted user Points ->', u.Points);
+      }
+    }
+  } catch (e) {
+    console.warn('[profileService] failed to persist points into storage', e);
+  }
+
   return {
     points: Number(data?.points ?? 0),
     account_id: Number(data?.account_id ?? 0),
