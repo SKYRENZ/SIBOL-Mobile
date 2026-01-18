@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send } from 'lucide-react-native';
 import tw from '../utils/tailwind';
@@ -17,6 +17,8 @@ export default function ChatIntro() {
   const [showFAQs, setShowFAQs] = useState(true);
   const [isAITyping, setIsAITyping] = useState(false);
   const [isUserTyping, setIsUserTyping] = useState(false);
+  const cloudLeftAnim = useRef(new Animated.Value(400)).current;
+  const cloudRightAnim = useRef(new Animated.Value(-100)).current;
 
   const faqItems: FAQItem[] = [
     {
@@ -24,16 +26,16 @@ export default function ChatIntro() {
       answer: 'The stage 1 process typically takes 2-3 business days to complete. You will receive a notification once your submission has been reviewed and approved.',
     },
     {
-      question: 'How long does the stage 1 process usually take?',
-      answer: 'The stage 1 process typically takes 2-3 business days to complete. You will receive a notification once your submission has been reviewed and approved.',
+      question: 'What happens after I submit my waste collection?',
+      answer: 'After submission, your waste collection is reviewed and categorized. You will earn points based on the type and quality of materials collected.',
     },
     {
-      question: 'How long does the stage 1 process usually take?',
-      answer: 'The stage 1 process typically takes 2-3 business days to complete. You will receive a notification once your submission has been reviewed and approved.',
+      question: 'How can I track my rewards and points?',
+      answer: 'You can view your current rewards and points balance in your profile dashboard. Points are updated in real-time as your submissions are processed.',
     },
     {
-      question: 'How long does the stage 1 process usually take?',
-      answer: 'The stage 1 process typically takes 2-3 business days to complete. You will receive a notification once your submission has been reviewed and approved.',
+      question: 'How do I contact support if I have issues?',
+      answer: 'You can reach our support team by emailing uccsibol@gmail.com or using the contact option in the chat header. We typically respond within 24 hours.',
     },
   ];
 
@@ -85,6 +87,46 @@ export default function ChatIntro() {
   useEffect(() => {
     setIsUserTyping(messageText.trim().length > 0);
   }, [messageText]);
+
+  // Animate bottom clouds from right to left
+  useEffect(() => {
+    const animateCloudLeft = () => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(cloudLeftAnim, {
+            toValue: -150,
+            duration: 9000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(cloudLeftAnim, {
+            toValue: 400,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    const animateCloudRight = () => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(cloudRightAnim, {
+            toValue: 350,
+            duration: 8000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(cloudRightAnim, {
+            toValue: -100,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    animateCloudLeft();
+    animateCloudRight();
+  }, [cloudLeftAnim, cloudRightAnim]);
 
   const handleFAQClick = (question: string) => {
     handleSendMessage(question);
@@ -174,25 +216,62 @@ export default function ChatIntro() {
         )}
       </ScrollView>
 
-      {/* Bottom Input */}
-      <View style={tw`bg-[#88AB8E] px-5 pt-3 pb-6`}>
-        <View style={tw`flex-row items-center gap-2`}>
-          <View style={tw`flex-1 bg-[#AFC8AD] rounded-[35px] px-4 py-2.5`}>
-            <TextInput
-              value={messageText}
-              onChangeText={setMessageText}
-              placeholder="Type here...."
-              placeholderTextColor="rgba(255, 255, 255, 0.79)"
-              style={tw`text-white text-[11px] font-bold font-inter`}
-            />
+      {/* Bottom Input with Wavy Background */}
+      <View style={tw`relative`}>
+        {/* Wavy Background Container */}
+        <View style={[{ height: 121, overflow: 'hidden' }]}>
+          {/* Wavy Top Section */}
+          <View style={[tw`absolute`, { left: -103, top: 0, width: 583, height: 67 }]}>
+            <Svg width={583} height={67} viewBox="0 0 583 67" fill="none">
+              <Path
+                d="M461.404 31.5699C331.235 52.216 307.924 -3.8791 198.801 0.21454C89.6766 4.30818 0 67 0 67L582.879 64.1659C582.879 64.1659 591.573 10.9238 461.404 31.5699Z"
+                fill="#88AB8E"
+              />
+            </Svg>
           </View>
 
-          <TouchableOpacity
-            onPress={() => handleSendMessage(messageText)}
-            style={tw`w-10 h-10 rounded-full bg-white items-center justify-center`}
-          >
-            <Send size={21} color="#88AB8E" />
-          </TouchableOpacity>
+          {/* Solid bottom section */}
+          <View style={[tw`bg-[#88AB8E] absolute`, { left: 0, top: 56, right: 0, bottom: 0 }]} />
+
+          {/* Cloud Decoration - Left - Animated Right to Left */}
+          <Animated.View style={[tw`absolute z-20`, { left: 0, top: 89, transform: [{ translateX: cloudLeftAnim }] }]}>
+            <Svg width={79} height={33} viewBox="0 0 79 33" fill="none">
+              <Path
+                d="M19.6181 27.5021C12.7776 13.7869 1.04257e-08 31.9533 1.04257e-08 31.9533L78.7569 32.3838L78.8046 23.6476C78.8046 23.6476 79.9904 17.5731 72.311 16.7715C64.6315 15.9698 59.9798 23.5447 59.9798 23.5447C59.9798 23.5447 68.5356 4.5954 55.8784 0.727939C43.2213 -3.13952 23.5035 19.5429 19.6181 27.5021Z"
+                fill="rgba(175, 200, 173, 0.61)"
+              />
+            </Svg>
+          </Animated.View>
+
+          {/* Cloud Decoration - Right - Animated Right to Left */}
+          <Animated.View style={[tw`absolute z-20`, { right: 0, top: 55, transform: [{ translateX: cloudRightAnim }] }]}>
+            <Svg width={83} height={35} viewBox="0 0 83 35" fill="none">
+              <Path
+                d="M20.6121 28.9064C13.4375 14.4931 0 33.5664 0 33.5664L82.7326 34.0827L82.7898 24.9055C82.7898 24.9055 84.0404 18.5253 75.9739 17.6769C67.9075 16.8285 63.0147 24.7821 63.0147 24.7821C63.0147 24.7821 72.0179 4.88308 58.7249 0.810058C45.4319 -3.26296 24.7002 20.5485 20.6121 28.9064Z"
+                fill="rgba(175, 200, 173, 0.61)"
+              />
+            </Svg>
+          </Animated.View>
+
+          {/* Input Content */}
+          <View style={[tw`absolute z-30 flex-row items-center`, { left: 18, right: 18, top: 58, gap: 10 }]}>
+            <View style={[tw`flex-1 bg-[#AFC8AD] rounded-[35px] px-4`, { height: 39 }]}>
+              <TextInput
+                value={messageText}
+                onChangeText={setMessageText}
+                placeholder="Type here..."
+                placeholderTextColor="rgba(255, 255, 255, 0.79)"
+                style={[tw`text-white text-[11px] font-bold font-inter flex-1 text-left`, { textAlignVertical: 'center' }]}
+              />
+            </View>
+
+            <TouchableOpacity
+              onPress={() => handleSendMessage(messageText)}
+              style={[tw`rounded-full bg-white items-center justify-center`, { width: 39, height: 38 }]}
+            >
+              <Send size={21} color="#88AB8E" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </SafeAreaView>

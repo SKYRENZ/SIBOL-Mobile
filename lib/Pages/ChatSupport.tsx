@@ -160,7 +160,7 @@ export default function ChatSupport() {
             <Image
               source={require('../../assets/lili-headshot.png')}
               style={tw`w-[223px] h-[223px]`}
-              resizeMode="contain"
+              resizeMode="center"
             />
           </View>
 
