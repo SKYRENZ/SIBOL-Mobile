@@ -14,9 +14,10 @@ export interface FAQItem {
 
 interface FAQsProps {
   items: FAQItem[];
+  onFAQClick?: (question: string) => void;
 }
 
-export default function FAQs({ items }: FAQsProps) {
+export default function FAQs({ items, onFAQClick }: FAQsProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   const toggleExpand = (index: number) => {
@@ -26,16 +27,15 @@ export default function FAQs({ items }: FAQsProps) {
 
   return (
     <View style={tw`w-full px-6`}>
-      <Text style={tw`text-[20px] font-bold text-green-light mb-2 font-inter`}>
-        Frequently Asked Questions:
-      </Text>
-      
       <View style={tw`gap-3`}>
         {items.map((item, index) => (
           <TouchableOpacity
             key={index}
             activeOpacity={0.7}
-            onPress={() => toggleExpand(index)}
+            onPress={() => {
+              toggleExpand(index);
+              onFAQClick?.(item.question);
+            }}
             style={tw`bg-white rounded-[5px] border border-green-light shadow-sm overflow-hidden`}
           >
             <View style={tw`flex-row items-center justify-between px-4 py-3 min-h-[39px]`}>

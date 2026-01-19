@@ -22,6 +22,7 @@ import OWasteRecord from './lib/Pages/oWasteRecord';
 import OSchedule from './lib/Pages/oSchedule';
 import HRewards from './lib/Pages/hRewards';
 import ChatSupport from './lib/Pages/ChatSupport';
+import ChatIntro from './lib/Pages/ChatIntro';
 import WiFiConnectivity from './lib/Pages/WiFiConnectivity';
 import OProfile from './lib/Pages/oProfile';
 import HProfile from './lib/Pages/hProfile';
@@ -57,6 +58,7 @@ export default function App() {
           <Stack.Screen name="OWasteRecord" component={OWasteRecord} />
           <Stack.Screen name="OSchedule" component={OSchedule} />
           <Stack.Screen name="ChatSupport" component={ChatSupport} />
+          <Stack.Screen name="ChatIntro" component={ChatIntro} />
           <Stack.Screen name="OProfile" component={OProfile} />
           <Stack.Screen name="HProfile" component={HProfile} />
           <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
