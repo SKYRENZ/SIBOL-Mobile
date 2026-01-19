@@ -7,6 +7,7 @@ export type MobileReward = {
   description?: string;
   points?: number;
   quantity?: number;
+  image?: string;
   raw?: any;
 };
 
@@ -27,10 +28,11 @@ export default function useRewards() {
           description: r.Description ?? r.description ?? '',
           points: Number(r.Points_cost ?? r.points_cost ?? r.points ?? 0),
           quantity: Number(r.Quantity ?? r.quantity ?? 0),
+          image: r.Image_url ?? r.image_url ?? null, // ✅ include image url
           raw: r,
         }))
-        .filter((reward) => reward.quantity > 0); // ✅ Filter out zero-stock rewards
-      
+        .filter((reward) => reward.quantity > 0);
+
       setRewards(mapped);
     } catch (err: any) {
       console.error('[useRewards] load error', err);
@@ -45,20 +47,22 @@ export default function useRewards() {
     load();
   }, [load]);
 
-  const redeem = useCallback(async (rewardId: number, qty = 1) => {
-    setLoading(true);
-    try {
-      const res = await rewardService.redeemReward(rewardId, qty);
-      // refresh list after redeem
-      await load();
-      return res;
-    } catch (err: any) {
-      console.error('[useRewards] redeem error', err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [load]);
+  const redeem = useCallback(
+    async (rewardId: number, qty = 1) => {
+      setLoading(true);
+      try {
+        const res = await rewardService.redeemReward(rewardId, qty);
+        await load();
+        return res;
+      } catch (err: any) {
+        console.error('[useRewards] redeem error', err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [load]
+  );
 
   return {
     rewards,

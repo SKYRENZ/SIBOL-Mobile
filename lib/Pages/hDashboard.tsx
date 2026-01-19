@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   Text,
   View,
@@ -20,11 +21,12 @@ import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from 
 import Container from '../components/primitives/Container';
 import { Bell } from 'lucide-react-native';
 import { CameraWrapper } from '../components/CameraWrapper';
-import { scanQr } from '../services/apiClient';
 import { decodeQrFromImage } from '../utils/qrDecoder';
+import { scanQr } from '../services/apiClient';
 import { getMyPoints } from '../services/profileService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function hDashboard() {
+export default function HDashboard(props: any) {
   const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<{ awarded: number; totalPoints: number } | null>(null);
   const [isProcessingScan, setIsProcessingScan] = useState(false);
@@ -38,10 +40,9 @@ export default function hDashboard() {
 
   const [userPoints, setUserPoints] = useState<number>(0);
   const [pointsLoading, setPointsLoading] = useState<boolean>(true);
+  const [displayName, setDisplayName] = useState<string>('User');
 
   const handleOpenScanner = async () => {
-    console.log('Opening scanner...');
-    
     // Request camera permission on Android
     if (Platform.OS === 'android') {
       const result = await request(PERMISSIONS.ANDROID.CAMERA);
@@ -50,7 +51,7 @@ export default function hDashboard() {
         return;
       }
     }
-    
+
     setShowScanner(true);
   };
 
@@ -67,74 +68,80 @@ export default function hDashboard() {
   };
 
   const handleCloseScanner = () => {
-    console.log('Closing scanner modal');
     setShowScanner(false);
     setIsProcessingScan(false);
   };
 
-  const handleCapture = async (imageData: string) => {
+  const handleCapture = useCallback(async (captured: string) => {
     setIsProcessingScan(true);
     try {
-      const decodedQr = await decodeQrFromImage(imageData);
-      
-      // ✅ Parse weight from QR code
-      const weight = parseFloat(decodedQr);
-      
-      if (isNaN(weight) || weight <= 0) {
-        throw new Error('Invalid QR code: must contain a positive number');
-      }
-      
-      const response = await scanQr(decodedQr, weight);
-      
-      setScanResult({ awarded: response.awarded, totalPoints: response.totalPoints });
-      
-      // ✅ Close scanner and show success message
-      handleCloseScanner();
-      
-      setTimeout(() => {
-        setQRMessageType('success');
-        setQRMessageData({ 
-          points: response.awarded, 
-          total: response.totalPoints 
-        });
-        setShowQRMessage(true);
-      }, 300);
-      
-    } catch (error: any) {
-      console.error('QR scan failed', error);
-      handleCloseScanner();
-      
-      setTimeout(() => {
-        const isDuplicate = error?.message?.includes('already scanned') || 
-                           error?.payload?.message?.includes('already scanned');
-        
-        // ✅ Show error message in modal
-        setQRMessageType('error');
-        setQRMessageData({ 
-          message: isDuplicate 
-            ? 'This QR code has already been used. Each QR can only be scanned once.'
-            : error?.message || 'Unable to process QR code. Please try again.'
-        });
-        setShowQRMessage(true);
-      }, 300);
+      // If we ever receive an image dataURL (web legacy), decode it.
+      // On native (expo camera) CameraWrapper already passes the decoded QR string.
+      const qrString =
+        Platform.OS === 'web' && typeof captured === 'string' && captured.startsWith('data:')
+          ? await decodeQrFromImage(captured)
+          : captured;
+
+      // Parse QR payload (your QR contains weight "6")
+      const weight = parseFloat(String(qrString));
+      if (!Number.isFinite(weight) || weight <= 0) throw new Error('Invalid QR payload');
+
+      // Send to backend
+      const result = await scanQr(qrString, weight);
+
+      // Show success modal and update points
+      setQRMessageType('success');
+      setQRMessageData({ points: result?.awarded, total: result?.totalPoints });
+      setShowQRMessage(true);
+      if (typeof result?.totalPoints === 'number') setUserPoints(result.totalPoints);
+    } catch (err: any) {
+      console.error('QR scan failed', err);
+      setQRMessageType('error');
+      setQRMessageData({ message: err?.message || 'Scan failed' });
+      setShowQRMessage(true);
     } finally {
       setIsProcessingScan(false);
+      setShowScanner(false);
     }
-  };
+  }, [setIsProcessingScan, setShowScanner, setQRMessageType, setQRMessageData, setShowQRMessage, setUserPoints]);
 
   // ✅ Fetch points on mount
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      const loadPoints = async () => {
+        try {
+          const data = await getMyPoints();
+          // removed debug logs
+          if (mounted) setUserPoints(Number(data.points ?? 0));
+        } catch (err) {
+          console.error('[hDashboard] Failed to load points', err);
+        } finally {
+          if (mounted) setPointsLoading(false);
+        }
+      };
+      loadPoints();
+      return () => { mounted = false; };
+    }, [])
+  );
+
+  // Fetch display name on mount
   useEffect(() => {
-    const loadPoints = async () => {
+    (async () => {
       try {
-        const data = await getMyPoints();
-        setUserPoints(data.points);
-      } catch (err) {
-        console.error('[hDashboard] Failed to load points', err);
-      } finally {
-        setPointsLoading(false);
+        const raw = await AsyncStorage.getItem('user');
+        if (!raw) return;
+        const u = JSON.parse(raw);
+        const first = u?.FirstName ?? u?.firstName ?? '';
+        const last = u?.LastName ?? u?.lastName ?? '';
+        const username = u?.Username ?? u?.username ?? '';
+        const email = u?.Email ?? u?.email ?? '';
+        const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
+        setDisplayName(name);
+      } catch (e) {
+        // ignore
       }
-    };
-    loadPoints();
+    })();
   }, []);
 
   const styles = useResponsiveStyle(({ isSm, isMd, isLg }) => ({
@@ -231,7 +238,7 @@ export default function hDashboard() {
       marginBottom: useResponsiveSpacing('xs'),
       marginHorizontal: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
       paddingHorizontal: 0,
-      alignItems: 'flex-start',
+      alignItems: 'center', // center cards vertically
     },
     sectionTitle: {
       fontSize: isSm ? useResponsiveFontSize('2xl') : isMd ? useResponsiveFontSize('3xl') : useResponsiveFontSize('4xl'),
@@ -251,8 +258,8 @@ export default function hDashboard() {
       flex: 1,
       backgroundColor: 'white',
       borderRadius: 15,
-      minHeight: isSm ? 120 : 140, 
-      padding: isSm ? 16 : 22,    
+      minHeight: isSm ? 110 : 130, 
+      padding: isSm ? 12 : 16,      // smaller padding
       alignItems: 'center',
       justifyContent: 'center', 
       borderWidth: 0,
@@ -263,12 +270,13 @@ export default function hDashboard() {
       shadowRadius: 4,
       elevation: 2,
       flexDirection: 'column',
+      position: 'relative',        // allow safe absolute positioning if needed
     },
     statContent: {
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
-      gap: isSm ? 14 : 18, 
+      gap: isSm ? 8 : 12,          // tighter gap so icons don't push text out
       marginBottom: 0,
     },
     statCardGreen: {
@@ -277,29 +285,32 @@ export default function hDashboard() {
       borderWidth: 0,
     },
     medalIcon: {
-      width: isSm ? 50 : 60,
-      height: isSm ? 50 : 60,
+      width: isSm ? 30 : 40,       // smaller icon container
+      height: isSm ? 30 : 40,
       justifyContent: 'center',
       alignItems: 'center',
+      overflow: 'hidden',          // prevent image overflow
+      borderRadius: isSm ? 8 : 10,
     },
     statIcon: {
-      width: isSm ? 28 : 32,
-      height: isSm ? 28 : 32,
+      width: isSm ? 18 : 22,       // smaller icon size
+      height: isSm ? 18 : 22,
+      resizeMode: 'contain',
     },
     statNumber: {
-      fontSize: isSm ? 40 : 48,
+      fontSize: isSm ? 28 : 38,    // reduced font sizes
       fontWeight: 'bold',
       color: '#2E523A',
       marginBottom: 2, 
-      lineHeight: isSm ? 40 : 48,
+      lineHeight: isSm ? 28 : 38,
     },
     statLabel: {
-      fontSize: isSm ? useResponsiveFontSize('xs') : useResponsiveFontSize('xs'),
+      fontSize: isSm ? 11 : 12,    // smaller label
       color: '#2E523A',
       textAlign: 'center',
-      lineHeight: isSm ? 14 : 18,
+      lineHeight: isSm ? 14 : 16,
       fontWeight: '500',
-      marginTop: isSm ? 16 : 20, 
+      marginTop: isSm ? 10 : 12, 
     },
     searchBar: {
       height: isSm ? 38 : 45,
@@ -323,7 +334,7 @@ export default function hDashboard() {
           <View style={styles.headerContainer}>
             <View style={tw`flex-row justify-between items-center`}>
               <View>
-                <Text style={[tw`font-bold text-[#2E523A]`, styles.heading]}>Hi, User#39239!</Text>
+                <Text style={[tw`font-bold text-[#2E523A]`, styles.heading]}>Hi, {displayName}!</Text>
                 <Text style={[tw`font-bold text-[#2E523A]`, styles.subheading]}>Welcome to SIBOL Community.</Text>
               </View>
               <TouchableOpacity style={tw`p-2`} accessibilityLabel="Notifications">

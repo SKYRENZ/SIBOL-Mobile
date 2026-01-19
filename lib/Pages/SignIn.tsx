@@ -10,6 +10,7 @@ import { login as apiLogin } from '../services/authService'; // <-- added
 import { startGoogleSignIn } from '../services/googleauthService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Button from '../components/commons/Button';
+import apiClient from '../services/apiClient';
 
 type RootStackParamList = {
   Landing: undefined;
@@ -72,9 +73,9 @@ const validateUsername = (username: string) => {
 
 export default function SignIn({ navigation }: Props) {
   // Role id constants — **FIX: match your actual DB values**
-  const ROLE_ADMIN = 1;
-  const ROLE_OPERATOR = 3;  // operators have Roles=3 in your DB (see operatorController)
-  const ROLE_HOUSEHOLD = 3;
+  
+  const ROLE_OPERATOR = 3;
+  const ROLE_HOUSEHOLD = 4; // ✅ FIX
 
   const [username, setUsername] = useState('');           // changed from email
   const [password, setPassword] = useState('');
@@ -258,6 +259,7 @@ export default function SignIn({ navigation }: Props) {
 
                     try {
                       setLoading(true);
+                      (apiClient.defaults.headers as any)['x-client-type'] = 'mobile';
                       const data = await apiLogin(username.trim(), password);
                       const token = data?.token ?? data?.accessToken;
                       const user = data?.user ?? (data as any);

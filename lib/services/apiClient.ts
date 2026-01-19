@@ -36,29 +36,48 @@ export const API_BASE = normalizeUrl(
 console.log('[mobile api] Platform:', Platform.OS);
 console.log('[mobile api] API_BASE =', API_BASE);
 
+const CLIENT_TYPE = Platform.OS === 'web' ? 'web' : 'mobile'; // ✅ ADD
+
 // ✅ Create Axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
+    'x-client-type': CLIENT_TYPE, // ✅ ADD
   },
 });
 
 // ✅ Request Interceptor - Attach auth token
 apiClient.interceptors.request.use(
   async (config) => {
+    // ✅ ensure header is always present
+    config.headers = config.headers ?? {};
+    (config.headers as any)['x-client-type'] =
+      (config.headers as any)['x-client-type'] ?? CLIENT_TYPE;
+
     try {
       const token = await AsyncStorage.getItem('token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log(`[Axios] Token attached: ${token.substring(0, 20)}...`);
-      } else {
-        console.warn('[Axios] No token found in AsyncStorage');
+        // removed debug token decode/logging
       }
     } catch (err) {
       console.error('[Axios] Failed to get token:', err);
     }
+
+    // ✅ If sending FormData, remove JSON content-type so axios can set multipart boundary
+    const isFormData =
+      typeof FormData !== 'undefined' && config.data instanceof FormData;
+
+    if (isFormData) {
+      // axios will set the correct multipart/form-data; boundary=...
+      delete (config.headers as any)['Content-Type'];
+      delete (config.headers as any)['content-type'];
+    }
+
+    // removed debug request auth header log
+
     return config;
   },
   (error) => {
@@ -70,7 +89,7 @@ apiClient.interceptors.request.use(
 // ✅ Response Interceptor - Handle errors
 apiClient.interceptors.response.use(
   (response) => {
-    console.log(`[Axios Success] ${response.config.method?.toUpperCase()} ${response.config.url}`);
+    // removed success debug log
     return response;
   },
   (error: AxiosError) => {
