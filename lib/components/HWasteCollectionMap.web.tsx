@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, Image } from 'react-native';
+import tw from '../utils/tailwind';
 import type { WasteContainer } from '../services/wasteContainerService';
 
 type Props = {
@@ -23,7 +24,7 @@ const ensureLeafletCss = () => {
   document.head.appendChild(link);
 };
 
-export default function OWasteCollectionMap({
+export default function HWasteCollectionMap({
   containers,
   interactive = true,
   userLocation,
@@ -134,25 +135,8 @@ export default function OWasteCollectionMap({
   }, [containers, interactive, iconUrl, userLocation, recenterKey]);
 
   return (
-    <View style={styles.wrap}>
-      <View ref={mapHostRef} style={styles.mapHost} />
+    <View style={tw`flex-1 bg-white`}>
+      <View ref={mapHostRef} style={[tw`flex-1 w-full h-full`, { minHeight: 0 }]} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    flex: 1,
-    borderRadius: 0,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-    width: '100%',
-    height: '100%',
-  },
-  mapHost: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    minHeight: 0,
-  },
-});

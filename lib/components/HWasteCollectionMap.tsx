@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import MapView, { Marker, Callout, UrlTile, Region } from 'react-native-maps';
+import tw from '../utils/tailwind';
 import type { WasteContainer } from '../services/wasteContainerService';
 
 type Props = {
@@ -12,7 +13,7 @@ type Props = {
   recenterKey?: number;
 };
 
-export default function OWasteCollectionMap({
+export default function HWasteCollectionMap({
   containers,
   interactive = true,
   showsUserLocation = false,
@@ -56,7 +57,7 @@ export default function OWasteCollectionMap({
   }, [userLocation, recenterKey]);
 
   return (
-    <View style={styles.wrap}>
+    <View style={tw`flex-1 bg-white`}>
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
@@ -75,10 +76,7 @@ export default function OWasteCollectionMap({
             : undefined
         }
       >
-        <UrlTile
-          urlTemplate="https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maximumZ={19}
-        />
+        <UrlTile urlTemplate="https://a.tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
 
         {containers.map((c) => (
           <Marker
@@ -86,11 +84,11 @@ export default function OWasteCollectionMap({
             coordinate={{ latitude: c.latitude, longitude: c.longitude }}
             tracksViewChanges={false}
           >
-            <Image source={require('../../assets/trashcan.png')} style={styles.markerIcon} />
+            <Image source={require('../../assets/trashcan.png')} style={tw`w-7 h-7`} />
             <Callout>
-              <View style={styles.callout}>
-                <Text style={styles.calloutTitle}>{c.areaName}</Text>
-                <Text style={styles.calloutSub}>{c.name}</Text>
+              <View style={tw`min-w-40 py-1`}>
+                <Text style={tw`text-[13px] font-bold text-primary`}>{c.areaName}</Text>
+                <Text style={tw`text-xs text-primary`}>{c.name}</Text>
               </View>
             </Callout>
           </Marker>
@@ -98,10 +96,10 @@ export default function OWasteCollectionMap({
 
         {userLocation && (
           <Marker coordinate={userLocation} tracksViewChanges={false}>
-            <View style={styles.youWrap}>
-              <View style={styles.youDot} />
-              <View style={styles.youLabel}>
-                <Text style={styles.youText}>You</Text>
+            <View style={tw`items-center`}>
+              <View style={tw`w-3 h-3 bg-primary rounded-full border-2 border-white`} />
+              <View style={tw`mt-1 bg-white/90 px-2 py-0.5 rounded-full border border-gray-200`}>
+                <Text style={tw`text-[10px] text-gray-700 font-semibold`}>You</Text>
               </View>
             </View>
           </Marker>
@@ -110,54 +108,3 @@ export default function OWasteCollectionMap({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    flex: 1,
-    borderRadius: 0,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-  },
-  markerIcon: {
-    width: 28,
-    height: 28,
-  },
-  callout: {
-    minWidth: 160,
-    paddingVertical: 2,
-  },
-  calloutTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#2E523A',
-  },
-  calloutSub: {
-    fontSize: 12,
-    color: '#2E523A',
-  },
-  youWrap: {
-    alignItems: 'center',
-  },
-  youDot: {
-    width: 10,
-    height: 10,
-    backgroundColor: '#2E523A',
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  youLabel: {
-    marginTop: 4,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  youText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#374151',
-  },
-});
