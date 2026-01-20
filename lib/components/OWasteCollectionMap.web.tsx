@@ -5,6 +5,10 @@ import type { WasteContainer } from '../services/wasteContainerService';
 type Props = {
   containers: WasteContainer[];
   interactive?: boolean;
+  showsUserLocation?: boolean;
+  onUserLocationChange?: (coords: { latitude: number; longitude: number; accuracy?: number }) => void;
+  userLocation?: { latitude: number; longitude: number } | null;
+  recenterKey?: number;
 };
 
 const ensureLeafletCss = () => {
@@ -19,7 +23,12 @@ const ensureLeafletCss = () => {
   document.head.appendChild(link);
 };
 
-export default function OWasteCollectionMap({ containers, interactive = true }: Props) {
+export default function OWasteCollectionMap({
+  containers,
+  interactive = true,
+  userLocation,
+  recenterKey = 0,
+}: Props) {
   const mapHostRef = useRef<any>(null);
 
   const iconUrl = useMemo(() => {
@@ -40,7 +49,6 @@ export default function OWasteCollectionMap({ containers, interactive = true }: 
       const hostEl = mapHostRef.current as any;
       if (!hostEl) return;
 
-      // Clear previous map DOM (in case of hot reload / rerenders)
       hostEl.innerHTML = '';
 
       const Lmod: any = await import('leaflet');
@@ -89,7 +97,24 @@ export default function OWasteCollectionMap({ containers, interactive = true }: 
           </div>`);
       });
 
-      if (bounds.isValid()) {
+      if (userLocation) {
+        const youIcon = L.divIcon({
+          className: 'you-marker',
+          html: `
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <div style="width:10px;height:10px;background:#2E523A;border:2px solid #fff;border-radius:999px;"></div>
+              <div style="margin-top:4px;background:rgba(255,255,255,.9);padding:2px 6px;border-radius:999px;border:1px solid #e5e7eb;font-size:10px;font-weight:600;color:#374151;">
+                You
+              </div>
+            </div>
+          `,
+        });
+        L.marker([userLocation.latitude, userLocation.longitude], { icon: youIcon }).addTo(map);
+      }
+
+      if (userLocation) {
+        map.setView([userLocation.latitude, userLocation.longitude], 16);
+      } else if (bounds.isValid()) {
         map.fitBounds(bounds, { padding: [24, 24], maxZoom: 17 });
       } else {
         map.setView([14.5995, 120.9842], 12);
@@ -106,11 +131,10 @@ export default function OWasteCollectionMap({ containers, interactive = true }: 
         // ignore
       }
     };
-  }, [containers, interactive, iconUrl]);
+  }, [containers, interactive, iconUrl, userLocation, recenterKey]);
 
   return (
     <View style={styles.wrap}>
-      {/* On web, RN <View> renders to a div; Leaflet mounts into it */}
       <View ref={mapHostRef} style={styles.mapHost} />
     </View>
   );

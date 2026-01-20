@@ -9,6 +9,7 @@ import { MapPin, Menu, MessageCircle, Home, Bell, ArrowLeft } from 'lucide-react
 import HWasteCollectionMap from '../components/HWasteCollectionMap';
 import { listWasteContainers, WasteContainer } from '../services/wasteContainerService';
 import { listSchedules, Schedule } from '../services/scheduleService';
+import BottomNavbar from '../components/hBotNav';
 
 type RootStackParamList = {
   HDashboard: undefined;
@@ -30,6 +31,8 @@ const HMap = () => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [userLocation, setUserLocation] = useState<LatLng | null>(null);
   const [locationGranted, setLocationGranted] = useState<boolean>(false);
+  const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
+  const [recenterKey, setRecenterKey] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -90,9 +93,10 @@ const HMap = () => {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             if (!mounted) return;
-            const { latitude, longitude } = pos.coords;
+            const { latitude, longitude, accuracy } = pos.coords;
             setLocationGranted(true);
             setUserLocation({ latitude, longitude });
+            setUserAccuracy(typeof accuracy === 'number' ? accuracy : null);
           },
           () => {
             if (!mounted) return;
@@ -105,8 +109,9 @@ const HMap = () => {
         watchId = navigator.geolocation.watchPosition(
           (pos) => {
             if (!mounted) return;
-            const { latitude, longitude } = pos.coords;
+            const { latitude, longitude, accuracy } = pos.coords;
             setUserLocation({ latitude, longitude });
+            setUserAccuracy(typeof accuracy === 'number' ? accuracy : null);
           },
           () => {
             if (!mounted) return;
@@ -186,6 +191,17 @@ const HMap = () => {
       ? '#F59E0B'
       : '#6B7280';
 
+  const accuracyLabel = userAccuracy !== null ? Math.round(userAccuracy) : null;
+  const accuracyLow = userAccuracy !== null && userAccuracy > 200;
+
+  const handleRecenter = () => {
+    if (!userLocation) {
+      Alert.alert('Location', 'Waiting for your location. Try again in a moment.');
+      return;
+    }
+    setRecenterKey((v) => v + 1);
+  };
+
   return (
     <SafeAreaView style={tw`flex-1 bg-white`}>
       {/* Header */}
@@ -203,6 +219,16 @@ const HMap = () => {
           <MapPin size={18} color="#6B7280" style={tw`mr-2`} />
           <Text style={tw`text-gray-700 flex-1`}>Cadena De Amor St.</Text>
         </View>
+
+        {accuracyLabel !== null && (
+          <View style={tw`mt-2 self-start bg-gray-100 rounded-full px-3 py-1`}>
+            <Text style={tw`text-[11px] ${accuracyLow ? 'text-amber-600' : 'text-gray-600'}`}>
+              {accuracyLow
+                ? `Accuracy low (~${accuracyLabel} m)`
+                : `Accuracy ~${accuracyLabel} m`}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Map Area */}
@@ -224,9 +250,24 @@ const HMap = () => {
             <HWasteCollectionMap
               containers={containers}
               showsUserLocation={locationGranted}
-              onUserLocationChange={setUserLocation}
+              onUserLocationChange={(coords) => {
+                setUserLocation({ latitude: coords.latitude, longitude: coords.longitude });
+                if (typeof coords.accuracy === 'number') {
+                  setUserAccuracy(coords.accuracy);
+                }
+              }}
               userLocation={userLocation}
+              recenterKey={recenterKey}
             />
+
+            <TouchableOpacity
+              style={tw`absolute right-4 top-4 bg-white rounded-full px-4 py-2 flex-row items-center border border-gray-200 shadow`}
+              onPress={handleRecenter}
+              activeOpacity={0.85}
+            >
+              <MapPin size={16} color="#2E523A" style={tw`mr-2`} />
+              <Text style={tw`text-xs text-primary font-semibold`}>Recenter</Text>
+            </TouchableOpacity>
 
             {nearestContainer && (
               <View style={tw`absolute left-4 right-4 bottom-8 bg-white rounded-2xl border border-gray-100 p-4`}>
@@ -269,30 +310,7 @@ const HMap = () => {
       </View>
 
       {/* Bottom Navigation */}
-      <View style={tw`flex-row justify-around items-center py-3 bg-primary`}>
-        <TouchableOpacity style={tw`items-center`}>
-          <Menu size={24} color="#FFFFFF" />
-          <Text style={tw`text-xs text-white mt-1`}>Menu</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={tw`items-center`} onPress={() => navigation.navigate('ChatSupport')}>
-          <MessageCircle size={24} color="#FFFFFF" />
-          <Text style={tw`text-xs text-white mt-1`}>Chat Support</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={tw`items-center`} onPress={() => navigation.navigate('HDashboard')}>
-          <View style={tw`bg-[#1F4F2A] rounded-full p-3 -mt-8`}>
-            <Home size={24} color="white" />
-          </View>
-          <Text style={tw`text-xs text-white font-bold mt-1`}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={tw`items-center`}>
-          <Bell size={24} color="#FFFFFF" />
-          <Text style={tw`text-xs text-white mt-1`}>Notifications</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={tw`items-center`} onPress={() => navigation.goBack()}>
-          <ArrowLeft size={24} color="#FFFFFF" />
-          <Text style={tw`text-xs text-white mt-1`}>Back</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNavbar currentPage="Home" />
     </SafeAreaView>
   );
 };

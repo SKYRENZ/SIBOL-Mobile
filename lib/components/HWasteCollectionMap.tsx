@@ -8,8 +8,9 @@ type Props = {
   containers: WasteContainer[];
   interactive?: boolean;
   showsUserLocation?: boolean;
-  onUserLocationChange?: (coords: { latitude: number; longitude: number }) => void;
+  onUserLocationChange?: (coords: { latitude: number; longitude: number; accuracy?: number }) => void;
   userLocation?: { latitude: number; longitude: number } | null;
+  recenterKey?: number;
 };
 
 export default function HWasteCollectionMap({
@@ -18,6 +19,7 @@ export default function HWasteCollectionMap({
   showsUserLocation = false,
   onUserLocationChange,
   userLocation,
+  recenterKey = 0,
 }: Props) {
   const mapRef = useRef<MapView | null>(null);
 
@@ -52,7 +54,7 @@ export default function HWasteCollectionMap({
       },
       500
     );
-  }, [userLocation]);
+  }, [userLocation, recenterKey]);
 
   return (
     <View style={tw`flex-1 bg-white`}>
@@ -69,7 +71,7 @@ export default function HWasteCollectionMap({
           onUserLocationChange
             ? (e: any) => {
                 const coord = e?.nativeEvent?.coordinate;
-                if (coord) onUserLocationChange({ latitude: coord.latitude, longitude: coord.longitude });
+                if (coord) onUserLocationChange({ latitude: coord.latitude, longitude: coord.longitude, accuracy: coord.accuracy });
               }
             : undefined
         }
@@ -94,8 +96,11 @@ export default function HWasteCollectionMap({
 
         {userLocation && (
           <Marker coordinate={userLocation} tracksViewChanges={false}>
-            <View style={tw`bg-primary px-2 py-1 rounded-full border border-white`}>
-              <Text style={tw`text-[11px] text-white font-bold`}>YOU</Text>
+            <View style={tw`items-center`}>
+              <View style={tw`w-3 h-3 bg-primary rounded-full border-2 border-white`} />
+              <View style={tw`mt-1 bg-white/90 px-2 py-0.5 rounded-full border border-gray-200`}>
+                <Text style={tw`text-[10px] text-gray-700 font-semibold`}>You</Text>
+              </View>
             </View>
           </Marker>
         )}

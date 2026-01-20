@@ -7,8 +7,9 @@ type Props = {
   containers: WasteContainer[];
   interactive?: boolean;
   showsUserLocation?: boolean;
-  onUserLocationChange?: (coords: { latitude: number; longitude: number }) => void;
+  onUserLocationChange?: (coords: { latitude: number; longitude: number; accuracy?: number }) => void;
   userLocation?: { latitude: number; longitude: number } | null;
+  recenterKey?: number;
 };
 
 const ensureLeafletCss = () => {
@@ -27,6 +28,7 @@ export default function HWasteCollectionMap({
   containers,
   interactive = true,
   userLocation,
+  recenterKey = 0,
 }: Props) {
   const mapHostRef = useRef<any>(null);
 
@@ -99,14 +101,14 @@ export default function HWasteCollectionMap({
       if (userLocation) {
         const youIcon = L.divIcon({
           className: 'you-marker',
-          html: `<div style="
-            background:#2E523A;
-            color:#fff;
-            padding:2px 6px;
-            border-radius:999px;
-            border:2px solid #fff;
-            font-size:11px;
-            font-weight:700;">YOU</div>`,
+          html: `
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <div style="width:10px;height:10px;background:#2E523A;border:2px solid #fff;border-radius:999px;"></div>
+              <div style="margin-top:4px;background:rgba(255,255,255,.9);padding:2px 6px;border-radius:999px;border:1px solid #e5e7eb;font-size:10px;font-weight:600;color:#374151;">
+                You
+              </div>
+            </div>
+          `,
         });
         L.marker([userLocation.latitude, userLocation.longitude], { icon: youIcon }).addTo(map);
       }
@@ -130,7 +132,7 @@ export default function HWasteCollectionMap({
         // ignore
       }
     };
-  }, [containers, interactive, iconUrl, userLocation]);
+  }, [containers, interactive, iconUrl, userLocation, recenterKey]);
 
   return (
     <View style={tw`flex-1 bg-white`}>

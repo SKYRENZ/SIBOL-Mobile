@@ -43,7 +43,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.10",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "@types/leaflet": "^1.7.10"
   },
   "private": true
 }
