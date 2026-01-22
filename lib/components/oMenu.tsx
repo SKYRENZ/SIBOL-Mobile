@@ -157,8 +157,8 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
 								<TouchableOpacity
 									style={tw`flex-row items-center py-3 px-3 rounded`}
 									onPress={() => {
-										onNavigate?.('Chat Support');
-									 onClose();
+										navigation.navigate('ChatSupport' as never);
+										onClose();
 									}}
 								>
 									<MessageSquare color="#E6F0E9" size={18} />
