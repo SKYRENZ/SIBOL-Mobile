@@ -1,16 +1,18 @@
-import { get } from './apiClient';
+import { get, put } from './apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type UserProfile = {
-  id: number;
+  accountId: number;
   username: string;
   email: string;
   firstName?: string;
   lastName?: string;
-  address?: string;
-  phoneNumber?: string;
-  createdAt: string;
-  updatedAt: string;
+  contact?: string;
+  barangayName?: string;
+  areaName?: string;
+  fullAddress?: string;
+  city?: string;
+  raw?: any;
 };
 
 export type UserPoints = {
@@ -20,23 +22,45 @@ export type UserPoints = {
   totalContributions?: number;
 };
 
+export type UpdateProfilePayload = {
+  firstName?: string;
+  lastName?: string;
+  contact?: string;
+  email?: string;
+  area?: number; // optional if you support area id updates
+  username?: string;
+  password?: string;
+};
+
+const pickFirst = (...vals: any[]) => vals.find(v => v !== undefined && v !== null && String(v).trim() !== '');
+
 /**
- * Fetch user profile data
+ * Fetch authenticated user's profile
  * Requires valid auth token in AsyncStorage
  */
-export async function getUserProfile(): Promise<UserProfile> {
-  const data = await get('/api/profile');
+export async function getMyProfile(): Promise<UserProfile> {
+  const data = await get('/api/profile/me');
+
   return {
-    id: Number(data?.id ?? 0),
-    username: String(data?.username ?? ''),
-    email: String(data?.email ?? ''),
-    firstName: data?.first_name || undefined,
-    lastName: data?.last_name || undefined,
-    address: data?.address || undefined,
-    phoneNumber: data?.phone_number || undefined,
-    createdAt: String(data?.created_at ?? ''),
-    updatedAt: String(data?.updated_at ?? '')
+    accountId: Number(pickFirst(data?.Account_id, data?.account_id, data?.id, 0)),
+    username: String(pickFirst(data?.Username, data?.username, '')),
+    email: String(pickFirst(data?.Email, data?.email, '')),
+    firstName: pickFirst(data?.FirstName, data?.firstName, data?.first_name),
+    lastName: pickFirst(data?.LastName, data?.lastName, data?.last_name),
+    contact: pickFirst(data?.Contact, data?.contact, data?.phone_number),
+    barangayName: pickFirst(data?.Barangay_Name, data?.barangay_name),
+    areaName: pickFirst(data?.Area_Name, data?.area_name),
+    fullAddress: pickFirst(data?.Full_Address, data?.full_address, data?.Address, data?.address),
+    city: pickFirst(data?.City, data?.city),
+    raw: data
   };
+}
+
+/**
+ * Backward compatible alias (if you want to keep usage name)
+ */
+export async function getUserProfile(): Promise<UserProfile> {
+  return getMyProfile();
 }
 
 /**
@@ -67,4 +91,8 @@ export async function getMyPoints(): Promise<UserPoints> {
     username: String(data?.username ?? ''),
     totalContributions: Number(data?.total_contributions ?? 0)
   };
+}
+
+export async function updateMyProfile(payload: UpdateProfilePayload) {
+  return put('/api/profile/me', payload);
 }

@@ -12,11 +12,13 @@ import {
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import tw from '../utils/tailwind';
 import { Pencil } from 'lucide-react-native';
 import BottomNavbar from '../components/oBotNav';
 import Button from '../components/commons/Button';
 import AreaCovered from '../components/AreaCovered';
+import { getMyProfile, updateMyProfile } from '../services/profileService';
 
 export default function OProfile() {
   const navigation = useNavigation();
@@ -25,42 +27,84 @@ export default function OProfile() {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
   // Form values
-  const [firstName, setFirstName] = useState('Juan');
-  const [lastName, setLastName] = useState('Dela Cruz');
-  const [areaCovered, setAreaCovered] = useState('Zone 1, District 2');
-  const [city, setCity] = useState('Manila');
-  const [address, setAddress] = useState('123 Mabini Street, Poblacion');
-  const [barangay, setBarangay] = useState('Barangay 123');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [areaCovered, setAreaCovered] = useState('');
+  const [contact, setContact] = useState(''); // ✅ Contact #
+  const [email, setEmail] = useState('');     // ✅ Email (editable)
+  const [barangay, setBarangay] = useState('');
+  const [username, setUsername] = useState('');
 
   // Original values for change detection
   const [originalValues, setOriginalValues] = useState({
-    firstName: 'Juan',
-    lastName: 'Dela Cruz',
-    areaCovered: 'Zone 1, District 2',
-    city: 'Manila',
-    address: '123 Mabini Street, Poblacion',
-    barangay: 'Barangay 123',
+    firstName: '',
+    lastName: '',
+    areaCovered: '',
+    contact: '',
+    email: '',
+    barangay: '',
   });
 
   const hasChanges =
     firstName !== originalValues.firstName ||
     lastName !== originalValues.lastName ||
     areaCovered !== originalValues.areaCovered ||
-    city !== originalValues.city ||
-    address !== originalValues.address ||
+    contact !== originalValues.contact ||
+    email !== originalValues.email ||
     barangay !== originalValues.barangay;
 
-  const handleSave = () => {
-    setOriginalValues({
-      firstName,
-      lastName,
-      areaCovered,
-      city,
-      address,
-      barangay,
-    });
-    Alert.alert('Success', 'Changes saved successfully!');
+  const applyProfile = (p: any) => {
+    const next = {
+      firstName: p?.firstName ?? firstName ?? '',
+      lastName: p?.lastName ?? lastName ?? '',
+      areaCovered: p?.areaName ?? areaCovered ?? '',
+      contact: p?.contact ?? contact ?? '',
+      email: p?.email ?? email ?? '',
+      barangay: p?.barangayName ?? barangay ?? '',
+    };
+
+    setFirstName(next.firstName);
+    setLastName(next.lastName);
+    setAreaCovered(next.areaCovered);
+    setContact(next.contact);
+    setEmail(next.email);
+    setBarangay(next.barangay);
+
+    if (p?.username !== undefined) setUsername(String(p.username || ''));
+
+    setOriginalValues(next);
   };
+
+  const loadProfile = React.useCallback(async () => {
+    try {
+      // 1) quick local fill from saved user
+      const rawUser = await AsyncStorage.getItem('user');
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        applyProfile({
+          firstName: u?.FirstName ?? u?.firstName,
+          lastName: u?.LastName ?? u?.lastName,
+          username: u?.Username ?? u?.username,
+          email: u?.Email ?? u?.email,
+        });
+      }
+
+      // 2) backend source of truth
+      const profile = await getMyProfile();
+      applyProfile(profile);
+    } catch (err) {
+      console.warn('[OProfile] loadProfile failed', err);
+    }
+  }, []);
+
+  // load profile when screen focuses (skip if user has unsaved edits)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!hasChanges) {
+        loadProfile();
+      }
+    }, [hasChanges, loadProfile])
+  );
 
   // Handle navigation with unsaved changes warning
   const handleNavigationAttempt = (routeName: string) => {
@@ -98,6 +142,34 @@ export default function OProfile() {
     }
   };
 
+  const handleSave = async () => {
+    try {
+      await updateMyProfile({
+        firstName,
+        lastName,
+        contact,
+        email,
+      });
+
+      setOriginalValues({
+        firstName,
+        lastName,
+        areaCovered,
+        contact,
+        email,
+        barangay,
+      });
+
+      Alert.alert('Success', 'Changes saved successfully!');
+    } catch (err: any) {
+      if (err?.status === 429) {
+        Alert.alert('Too Early', err?.message || 'Please try again later.');
+        return;
+      }
+      Alert.alert('Error', err?.message || 'Failed to save changes.');
+    }
+  };
+
   useFocusEffect(
     React.useCallback(() => {
       const unsubscribe = navigation.addListener('beforeRemove', (e) => {
@@ -128,7 +200,7 @@ export default function OProfile() {
           </Text>
         </View>
 
-          <View style={tw`bg-white rounded-t-[50px] px-7 pt-8 pb-32 min-h-[700px] mt-5`}>
+        <View style={tw`bg-white rounded-t-[50px] px-7 pt-8 pb-32 min-h-[700px] mt-5`}>
           {/* Profile Picture, Username and Email Row */}
           <View style={tw`flex-row mb-8`}>
             {/* Profile Picture and Edit Icon */}
@@ -153,10 +225,10 @@ export default function OProfile() {
             {/* Username and Email */}
             <View style={tw`justify-center flex-1`}>
               <Text style={tw`text-[#2E523A] text-xl font-bold mb-2`}>
-                User#39239
+                {username || '—'}
               </Text>
               <Text style={tw`text-[#2E523A] text-[13px] font-semibold`}>
-                email.email@gmail.com
+                {email || '—'}
               </Text>
             </View>
           </View>
@@ -167,16 +239,16 @@ export default function OProfile() {
               onPress={() => setActiveTab('personal')}
               style={[
                 tw`rounded-[15px] px-6 py-2 mr-3`,
-                activeTab === 'personal' 
-                  ? tw`bg-[#6C8770]` 
+                activeTab === 'personal'
+                  ? tw`bg-[#6C8770]`
                   : tw`border border-[#6C8770] bg-transparent`
               ]}
             >
-              <Text 
+              <Text
                 style={[
                   tw`text-[13px] font-semibold`,
-                  activeTab === 'personal' 
-                    ? tw`text-[#FFFDF4]` 
+                  activeTab === 'personal'
+                    ? tw`text-[#FFFDF4]`
                     : tw`text-[#6C8770]`
                 ]}
               >
@@ -188,16 +260,16 @@ export default function OProfile() {
               onPress={() => setActiveTab('area')}
               style={[
                 tw`rounded-[15px] px-6 py-2`,
-                activeTab === 'area' 
-                  ? tw`bg-[#6C8770]` 
+                activeTab === 'area'
+                  ? tw`bg-[#6C8770]`
                   : tw`border border-[#6C8770] bg-transparent`
               ]}
             >
-              <Text 
+              <Text
                 style={[
                   tw`text-[13px] font-semibold`,
-                  activeTab === 'area' 
-                    ? tw`text-[#FFFDF4]` 
+                  activeTab === 'area'
+                    ? tw`text-[#FFFDF4]`
                     : tw`text-[#6C8770]`
                 ]}
               >
@@ -251,33 +323,34 @@ export default function OProfile() {
                 />
               </View>
 
-              {/* City */}
+              {/* Contact # */}
               <View style={tw`relative`}>
                 <View style={tw`absolute -top-3 left-7 bg-white px-2 z-10`}>
                   <Text style={tw`text-[#2E523A] text-base font-semibold`}>
-                    City
+                    Contact #
                   </Text>
                 </View>
                 <TextInput
                   style={tw`border-2 border-[#6C8770] rounded-[10px] px-4 py-3 bg-[rgba(255,255,255,0.79)] text-[#2E523A]`}
-                  value={city}
-                  onChangeText={setCity}
+                  value={contact}
+                  onChangeText={setContact}
+                  keyboardType="phone-pad"
                 />
               </View>
 
-              {/* House #, Street and Area */}
+              {/* Email */}
               <View style={tw`relative`}>
                 <View style={tw`absolute -top-3 left-7 bg-white px-2 z-10`}>
                   <Text style={tw`text-[#2E523A] text-base font-semibold`}>
-                    House #, Street and Area
+                    Email
                   </Text>
                 </View>
                 <TextInput
                   style={tw`border-2 border-[#6C8770] rounded-[10px] px-4 py-3 bg-[rgba(255,255,255,0.79)] text-[#2E523A]`}
-                  value={address}
-                  onChangeText={setAddress}
-                  multiline
-                  textAlignVertical="top"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                 />
               </View>
 
