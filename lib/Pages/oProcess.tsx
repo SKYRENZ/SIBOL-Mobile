@@ -6,9 +6,10 @@ import { ChevronDown, Settings, Wifi, FileSearch } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
 import OProcessSensors from '../components/oProcessSensors';
 import OProcessDetails from '../components/oProcessDetails';
+import OInputWaste from '../components/oInputWaste';
 import { useNavigation } from '@react-navigation/native';
 
-type MainTabType = 'Maintenance' | 'Chemical' | 'Process';
+type MainTabType = 'Maintenance' | 'Additive' | 'Process';
 type ProcessTabType = 'Process Panel' | 'Process Sensors and Alerts' | 'Process Details';
 
 export default function OProcess() {
@@ -16,13 +17,14 @@ export default function OProcess() {
   const [selectedProcessTab, setSelectedProcessTab] = useState<ProcessTabType>('Process Panel');
   const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 1');
   const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
+  const [inputWasteModalVisible, setInputWasteModalVisible] = useState(false);
   const navigation = useNavigation<any>();
 
   const handleMainTabChange = (tab: string) => {
     if (tab === 'Maintenance') {
-      navigation.navigate('oMaintenance');
-    } else if (tab === 'Chemical') {
-      navigation.navigate('oChemical');
+      navigation.navigate('OMaintenance');
+    } else if (tab === 'Additive') {
+      navigation.navigate('OAdditive');
     } else {
       setSelectedMainTab(tab as MainTabType);
     }
@@ -45,6 +47,15 @@ export default function OProcess() {
     }
   };
 
+  const handleInputWasteSave = (payload: {
+    machineId: string;
+    weightTotal: string;
+    date: Date;
+  }) => {
+    console.log('Input Waste Data:', payload);
+    // TODO: Implement save logic here
+  };
+
   const renderProcessTabContent = () => {
     switch (selectedProcessTab) {
       case 'Process Panel':
@@ -52,9 +63,10 @@ export default function OProcess() {
           <View style={tw`mt-6 px-4`}>
             <TouchableOpacity
               style={tw`bg-[#24492A] rounded-2xl py-3 mb-6`}
+              onPress={() => setInputWasteModalVisible(true)}
             >
               <Text style={tw`text-white font-bold text-base text-center`}>
-                Input waste
+                Input Waste
               </Text>
             </TouchableOpacity>
 
@@ -133,7 +145,7 @@ export default function OProcess() {
 
         <View style={tw`mb-6`}>
           <Tabs
-            tabs={['Maintenance', 'Chemical', 'Process']}
+            tabs={['Maintenance', 'Additive', 'Process']}
             activeTab={selectedMainTab}
             onTabChange={handleMainTabChange}
           />
@@ -194,6 +206,12 @@ export default function OProcess() {
       <View style={tw`absolute bottom-0 left-0 right-0`}>
         <BottomNavbar currentPage="Home" />
       </View>
+
+      <OInputWaste
+        visible={inputWasteModalVisible}
+        onClose={() => setInputWasteModalVisible(false)}
+        onSave={handleInputWasteSave}
+      />
     </View>
   );
 }

@@ -1,15 +1,16 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   SafeAreaView,
-  Animated,
-  Easing,
+  ActivityIndicator,
+  StyleSheet,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import tw from '../utils/tailwind';
 import { useResponsiveStyle } from '../utils/responsiveStyles';
+import { useAdminPending } from '../hooks/useAdminPending';
 
 type RootStackParamList = {
   Landing: undefined;
@@ -28,112 +29,83 @@ interface Props {
 }
 
 export default function AdminPending({ navigation, route }: Props) {
-  const email = route?.params?.email ?? '';
-
-  const pulse = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 700,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 0,
-          duration: 700,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [pulse]);
+  const initialEmail = route?.params?.email ?? '';
+  const { email, setEmail, queueInfo, loading, error, refresh } = useAdminPending(initialEmail);
 
   const styles = useResponsiveStyle(({ isSm }) => ({
-    pagePadding: { paddingHorizontal: isSm ? 20 : 32, paddingVertical: isSm ? 24 : 36 },
-    card: {
-      width: '100%',
-      maxWidth: isSm ? 420 : 520,
-      borderRadius: 14,
-      padding: isSm ? 18 : 28,
-    },
-    title: { fontSize: isSm ? 20 : 24 },
-    iconSize: { fontSize: isSm ? 48 : 64 },
-    smallText: { fontSize: isSm ? 12 : 14 },
+    container: { paddingHorizontal: isSm ? 20 : 28, paddingVertical: isSm ? 20 : 36, flex: 1, justifyContent: 'center' },
+    card: { backgroundColor: '#fff', borderRadius: 12, padding: isSm ? 16 : 20, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6 },
+    title: { fontSize: isSm ? 20 : 22, fontWeight: '700', color: '#22543D', marginBottom: 8 },
+    subtitle: { color: '#4B5563', marginBottom: 12 },
+    bigNum: { fontSize: isSm ? 48 : 56, fontWeight: '800', color: '#2563EB' },
+    smallText: { color: '#6B7280' },
   }));
 
-  const scale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
-  const opacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 0.7] });
+  useEffect(() => {
+    if (initialEmail) setEmail(initialEmail);
+  }, [initialEmail, setEmail]);
 
   return (
     <SafeAreaView style={tw`flex-1 bg-gray-50`}>
-      <View style={[tw`flex-1 items-center justify-center`, styles.pagePadding]}>
-        {/* Card */}
-        <View
-          style={[
-            styles.card,
-          ]}
-        >
-          <View style={tw`items-center`}>
+      <View style={[styles.container]}>
+        <View style={[styles.card]}>
+          <Text style={[styles.title]}>Awaiting Admin Approval</Text>
+          <Text style={[styles.subtitle]}>Your account registration is in the approval queue. You'll receive an email once approved.</Text>
 
-            <Text style={[tw`text-center font-bold text-primary mt-4 mb-3`, styles.title]}>
-              Account Pending Approval
-            </Text>
-
-            <Text style={tw`text-center text-gray-600 mb-6`}>
-              Your account is under review. We'll notify you when it's approved.
-            </Text>
-          </View>
-
-          {/* Verification summary */}
-          <View style={tw`bg-green-100 border border-green-500 rounded-lg p-4 mb-4`}>
-            <Text style={tw`text-green-700 font-semibold mb-2`}>Email verification complete</Text>
-            <View style={tw`bg-white border border-blue-50 rounded-md p-3`}>
-              <View style={tw`flex-row justify-between items-center`}>
-                <Text style={tw`text-gray-600`}>Email</Text>
-                <Text style={tw`text-gray-800 font-semibold`}>{email || '—'}</Text>
-              </View>
+          {loading ? (
+            <View style={tw`items-center py-6`}>
+              <ActivityIndicator size="large" color="#2E523A" />
+              <Text style={tw`text-gray-600 mt-3`}>Checking queue position…</Text>
             </View>
-          </View>
+          ) : error ? (
+            <View style={tw`bg-red-50 border border-red-200 rounded-md p-4 mb-4`}>
+              <Text style={tw`text-red-700`}>{error}</Text>
+            </View>
+          ) : queueInfo ? (
+            <View style={tw`items-center py-4`}>
+              <Text style={styles.bigNum}>#{queueInfo.position}</Text>
+              <Text style={[styles.smallText, tw`mt-2`]}>out of {queueInfo.totalPending} pending accounts</Text>
 
-          {/* Admin review note */}
-          <View style={tw`bg-yellow-50 border border-yellow-100 rounded-lg p-4 mb-6`}>
-            <Text style={tw`text-yellow-800 font-semibold mb-2`}>Admin review required</Text>
-            <Text style={tw`text-yellow-700`}>We’re reviewing your account. This usually takes 1–2 business days.</Text>
-          </View>
+              <View style={tw`mt-4 w-full border-t border-gray-100 pt-4`}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={tw`text-sm text-gray-600`}>Estimated approval time: </Text>
+                  <Text style={tw`text-lg font-semibold text-green-700 px-5`}>{queueInfo.estimatedWaitTime}</Text>
+                </View>
+              </View>
 
-          {/* Actions */}
-          <View>
+              <TouchableOpacity
+                onPress={refresh}
+                style={[
+                  tw`mt-4`,
+                  {
+                    alignSelf: 'stretch',
+                    backgroundColor: '#F6F9F6',
+                    borderRadius: 8,
+                    paddingVertical: 12,
+                    borderWidth: 1,
+                    borderColor: '#E6EFE6',
+                    alignItems: 'center',
+                  },
+                ]}
+              >
+                <Text style={tw`text-primary font-medium`}>Refresh</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={tw`items-center py-6`}>
+              <Text style={tw`text-gray-600`}>No queue information available.</Text>
+            </View>
+          )}
+
+          <View style={tw`mt-0`}>
             <TouchableOpacity
               onPress={() => navigation.navigate('SignIn')}
-              style={tw`bg-primary py-3 rounded-lg items-center mb-3`}
+              style={tw`bg-primary py-3 rounded-lg items-center`}
             >
-              <Text style={tw`text-white font-medium`}>Back to Sign in</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => {
-                /* replace with real support action if needed */
-              }}
-              style={tw`items-center`}
-            >
-{/*               <Text style={tw`text-gray-600 ${styles.smallText ? '' : ''}`}>
-                Questions? <Text style={tw`text-primary font-semibold`}>Contact support</Text>
-              </Text> */}
+              <Text style={tw`text-white font-medium`}>Back to Sign In</Text>
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Footer note */}
-{/*         <View style={tw`mt-6 items-center`}>
-          <Text style={[tw`text-gray-500`, styles.smallText]}>
-            Need faster help? Reach out to support@sibol.example
-          </Text>
-        </View> */}
       </View>
     </SafeAreaView>
   );

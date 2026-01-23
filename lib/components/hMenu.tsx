@@ -1,146 +1,307 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-	View,
-	Text,
-	TouchableOpacity,
-	TouchableWithoutFeedback,
-	Animated,
-	Dimensions,
-	Platform,
+    View,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    Animated,
+    Dimensions,
+    Keyboard,
+    ActivityIndicator,
+    Image,
+    StyleSheet
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import tw from '../utils/tailwind';
-import { Clock, MapPin, Settings, LogOut, User } from 'lucide-react-native';
+import { Settings, LogOut, Gift, History, MapPin, MessageSquare, User } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type RootStackParamList = {
+  HDashboard: undefined;
+  HMap: undefined;
+  HProfile: undefined;
+  HRewards: undefined;
+  History: undefined;
+  ChatSupport: undefined;
+  Settings: undefined;
+  SignIn: undefined;
+};
+import { logout } from '../services/authService';
+import SignOutModal from './SignOutModal';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SIDEBAR_WIDTH = Math.min(320, Math.floor(SCREEN_WIDTH * 0.58));
-const SIDEBAR_HEIGHT = SCREEN_HEIGHT;
+const SIDEBAR_WIDTH = Math.min(300, Math.floor(SCREEN_WIDTH * 0.8));
 
 type Props = {
-	visible: boolean;
-	onClose: () => void;
-	onNavigate?: (route: string) => void;
+    visible: boolean;
+    onClose: () => void;
+    onNavigate?: (route: string) => void;
 };
 
+const menuItems = [
+    { 
+      id: 'profile', 
+      label: 'My Profile', 
+      icon: User,
+      route: 'HProfile'
+    },
+    { 
+      id: 'rewards', 
+      label: 'Rewards', 
+      icon: Gift,
+      route: 'HRewards'
+    },
+    { 
+      id: 'history', 
+      label: 'History', 
+      icon: History,
+      route: 'History' // Update this if you have a specific history route
+    },
+    { 
+      id: 'map', 
+      label: 'Map', 
+      icon: MapPin,
+      route: 'HMap' // This will navigate to the HMap screen
+    },
+    { 
+      id: 'chat', 
+      label: 'Chat Support', 
+      icon: MessageSquare,
+      route: 'ChatSupport' // Update this if you have a specific settings route
+    },
+    { 
+      id: 'settings', 
+      label: 'Settings', 
+      icon: Settings,
+      route: 'Settings' // Update this if you have a specific chat route
+    },
+];
+
 export default function HMenu({ visible, onClose, onNavigate }: Props) {
-	const translateX = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
-	const [mounted, setMounted] = useState(visible);
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+    const translateX = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
+    const [mounted, setMounted] = useState(visible);
+    const [loggingOut, setLoggingOut] = useState(false);
+    const [showSignOutModal, setShowSignOutModal] = useState(false);
 
-	useEffect(() => {
-		if (visible) {
-			setMounted(true);
-			Animated.timing(translateX, {
-				toValue: 0,
-				duration: 220,
-				useNativeDriver: true,
-			}).start();
-		} else {
-			Animated.timing(translateX, {
-				toValue: -SIDEBAR_WIDTH,
-				duration: 180,
-				useNativeDriver: true,
-			}).start(() => setMounted(false));
-		}
-	}, [visible, translateX]);
+    const [displayName, setDisplayName] = useState<string>('User');
 
-	if (!mounted) return null;
+    // refresh displayName whenever menu opens
+    useEffect(() => {
+      if (!visible) return;
+      (async () => {
+        try {
+          const raw = await AsyncStorage.getItem('user');
+          if (!raw) return;
+          const u = JSON.parse(raw);
+          const first = u?.FirstName ?? u?.firstName ?? '';
+          const last = u?.LastName ?? u?.lastName ?? '';
+          const username = u?.Username ?? u?.username ?? '';
+          const email = u?.Email ?? u?.email ?? '';
+          const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
+          setDisplayName(name);
+        } catch (e) {
+          console.warn('[HMenu] refresh failed', e);
+        }
+      })();
+    }, [visible]);
 
-	return (
-		<TouchableWithoutFeedback onPress={onClose}>
-			<View
-				style={[
-					// overlay
-					{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-					tw`bg-[rgba(0,0,0,0.3)]`,
-				]}
-			>
-				<TouchableWithoutFeedback onPress={() => {}}>
-					<Animated.View
-						style={[
-							{
-								width: SIDEBAR_WIDTH,
-								height: SCREEN_HEIGHT,
-								transform: [{ translateX }],
-								position: 'absolute',
-								left: 0,
-								top: 0,
-								elevation: 20,
-								shadowColor: '#000',
-								shadowOpacity: 0.2,
-								shadowRadius: 8,
-							},
-							tw`bg-[#193827]`, 
-							Platform.OS === 'android' ? { paddingTop: 0 } : { paddingTop: 0 },
-						]}
-					>
-						
-						<View style={{ width: '100%', backgroundColor: '#A6BCAF', paddingHorizontal: 12, paddingTop: 20, paddingBottom: 14 }}>
-							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-								<View>
-									<Text style={{ fontSize: 14, fontWeight: '600', color: '#18472f' }}>User#39239!</Text>
-									<Text style={{ fontSize: 11, color: '#18472f', marginTop: 4 }}>Household</Text>
-								</View>
+    useEffect(() => {
+        if (visible) {
+            Keyboard.dismiss();
+            setMounted(true);
+            Animated.timing(translateX, {
+                toValue: 0,
+                duration: 220,
+                useNativeDriver: true,
+            }).start();
+        } else {
+            Animated.timing(translateX, {
+                toValue: -SIDEBAR_WIDTH,
+                duration: 180,
+                useNativeDriver: true,
+            }).start(() => setMounted(false));
+        }
+    }, [visible, translateX]);
 
-								<View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
-									<User color="#18472f" size={22} />
-								</View>
-							</View>
-						</View>
+    const handleSignOut = async () => {
+        try {
+            setLoggingOut(true);
+            await logout();
+            setShowSignOutModal(false);
+            onClose();
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'SignIn' as never }],
+            });
+        } catch (err) {
+            console.error('Sign out failed:', err);
+            setShowSignOutModal(false);
+        } finally {
+            setLoggingOut(false);
+        }
+    };
 
-						{/* Divider */}
-						<View style={tw`h-[1px] bg-[#264A3C] my-2`} />
+    const handleNavigation = (id: string) => {
+        onClose();
+        const menuItem = menuItems.find(item => item.id === id);
+        if (menuItem?.route) {
+            // @ts-ignore - We know the route is valid because of our type checking
+            navigation.navigate(menuItem.route);
+        } else if (onNavigate) {
+            onNavigate(id);
+        }
+    };
 
-						{/* Menu items */}
-						<View style={tw`mt-2 px-2`}>
-							<TouchableOpacity
-								style={tw`flex-row items-center py-3 px-3 rounded`}
-								onPress={() => {
-									onNavigate?.('History');
-									onClose();
-								}}
-							>
-								<Clock color="#E6F0E9" size={18} />
-								<Text style={tw`text-[14px] text-[#E6F0E9] ml-3`}>History</Text>
-							</TouchableOpacity>
+    if (!mounted) return null;
 
-							<TouchableOpacity
-								style={tw`flex-row items-center py-3 px-3 rounded`}
-								onPress={() => {
-									onNavigate?.('Map');
-									onClose();
-								}}
-							>
-								<MapPin color="#E6F0E9" size={18} />
-								<Text style={tw`text-[14px] text-[#E6F0E9] ml-3`}>Map</Text>
-							</TouchableOpacity>
+    return (
+        <>
+            <TouchableWithoutFeedback onPress={onClose}>
+                <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+                    <TouchableWithoutFeedback>
+                        <Animated.View
+                            style={[
+                                styles.menuContainer,
+                                { transform: [{ translateX }], width: SIDEBAR_WIDTH, backgroundColor: '#18472F' },
+                            ]}
+                        >
+                            {/* Header */}
+                            <View style={styles.header}>
+                                <View>
+                                    <Text style={styles.username}>{displayName}</Text>
+                                </View>
+                                <View style={styles.avatarContainer}>
+                                    <Image 
+                                        source={{ uri: 'https://via.placeholder.com/40' }} 
+                                        style={styles.avatar} 
+                                    />
+                                </View>
+                            </View>
 
-							<TouchableOpacity
-								style={tw`flex-row items-center py-3 px-3 rounded`}
-								onPress={() => {
-									onNavigate?.('Settings');
-									onClose();
-								}}
-							>
-								<Settings color="#E6F0E9" size={18} />
-								<Text style={tw`text-[14px] text-[#E6F0E9] ml-3`}>Settings</Text>
-							</TouchableOpacity>
-						</View>
+                            {/* Menu Items */}
+                            <View style={styles.menuItems}>
+                                {menuItems.map((item) => (
+                                    <TouchableOpacity
+                                        key={item.id}
+                                        style={styles.menuItem}
+                                        onPress={() => handleNavigation(item.id)}
+                                    >
+                                        <item.icon size={20} color="#FFFFFF" style={styles.menuIcon} />
+                                        <Text style={styles.menuText}>{item.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
 
-						<View style={{ flex: 1 }} />
+                            {/* Sign Out Button */}
+                            <TouchableOpacity 
+                                style={styles.signOutButton}
+                                onPress={() => setShowSignOutModal(true)}
+                                disabled={loggingOut}
+                            >
+                                {loggingOut ? (
+                                    <ActivityIndicator color="#18472F" />
+                                ) : (
+                                    <>
+                                        <LogOut size={20} color="#18472F" style={styles.signOutIcon} />
+                                        <Text style={styles.signOutText}>Sign Out</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </TouchableWithoutFeedback>
+                </View>
+            </TouchableWithoutFeedback>
 
-						<View style={tw`px-4 pb-6`}>
-							<TouchableOpacity
-								onPress={() => {
-									onClose();
-								}}
-								style={tw`flex-row items-center justify-center bg-[#A6BCAF] rounded py-3`}
-							>
-								<LogOut color="#18472f" size={18} />
-								<Text style={tw`ml-3 text-[14px] font-semibold text-[#18472f]`}>Sign Out</Text>
-							</TouchableOpacity>
-						</View>
-					</Animated.View>
-				</TouchableWithoutFeedback>
-			</View>
-		</TouchableWithoutFeedback>
-	);
+            <SignOutModal
+                visible={showSignOutModal}
+                loading={loggingOut}
+                onConfirm={handleSignOut}
+                onCancel={() => setShowSignOutModal(false)}
+            />
+        </>
+    );
 }
+
+const styles = StyleSheet.create({
+    overlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
+    menuContainer: {
+        height: '100%',
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        elevation: 20,
+        shadowColor: '#000',
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+    },
+    header: {
+        width: '100%',
+        backgroundColor: '#A6BCAF',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    username: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#18472F',
+    },
+    avatarContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#E0E0E0',
+        overflow: 'hidden',
+    },
+    avatar: {
+        width: '100%',
+        height: '100%',
+    },
+    menuItems: {
+        paddingVertical: 10,
+    },
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+    },
+    menuIcon: {
+        marginRight: 16,
+    },
+    menuText: {
+        fontSize: 16,
+        color: '#FFFFFF',
+        fontWeight: '500',
+    },
+    signOutButton: {
+        position: 'absolute',
+        bottom: 30,
+        left: 20,
+        right: 20,
+        backgroundColor: '#A6BCAF',
+        borderRadius: 8,
+        paddingVertical: 14,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    signOutIcon: {
+        marginRight: 8,
+    },
+    signOutText: {
+        color: '#18472F',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+});

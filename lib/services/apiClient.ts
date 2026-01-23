@@ -1,87 +1,157 @@
+import axios, { AxiosInstance, AxiosError } from 'axios';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
-// Read from env if available, otherwise use emulator defaults
-const extras = (Constants as any).expoConfig?.extra ?? process.env;
-const envApiBase = extras?.EXPO_PUBLIC_API_BASE;
+// Merge sources (Expo config extras + process.env)
+const extras = (Constants as any).expoConfig?.extra ?? {};
+const env = { ...(process.env as any), ...extras };
 
-// Define DEFAULT_HOST before using it
+const envApiBaseWeb = env?.EXPO_PUBLIC_API_BASE_WEB;
+const envApiBaseMobile = env?.EXPO_PUBLIC_API_BASE_MOBILE;
+
+// Backward-compatible single var
+const envApiBaseLegacy = env?.EXPO_PUBLIC_API_BASE;
+
 const DEFAULT_HOST = Platform.OS === 'android' ? 'http://10.0.2.2' : 'http://localhost';
 const DEFAULT_PORT = 5000;
 
-// Remove trailing slash to prevent double slashes
-const normalizeUrl = (url: string) => url.replace(/\/$/, '');
+const normalizeUrl = (url: string) => {
+  const trimmed = url.trim().replace(/\/$/, '');
+  // Axios baseURL must include scheme
+  if (!/^https?:\/\//i.test(trimmed)) return `http://${trimmed}`;
+  return trimmed;
+};
 
-// If env provided a full URL (with port), don't append :5000
+const platformEnvBase =
+  Platform.OS === 'web' ? envApiBaseWeb : envApiBaseMobile;
+
 export const API_BASE = normalizeUrl(
-  (global as any).API_BASE_OVERRIDE ?? 
-  (envApiBase || `${DEFAULT_HOST}:${DEFAULT_PORT}`)
+  (global as any).API_BASE_OVERRIDE ??
+    platformEnvBase ??
+    envApiBaseLegacy ??
+    `${DEFAULT_HOST}:${DEFAULT_PORT}`
 );
 
 console.log('[mobile api] Platform:', Platform.OS);
 console.log('[mobile api] API_BASE =', API_BASE);
 
-async function request(path: string, opts: RequestInit = {}) {
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const url = path.startsWith('http') ? path : `${API_BASE}${normalizedPath}`;
-  
-  const headers: Record<string,string> = { ...(opts.headers as Record<string,string> || {}) };
+const CLIENT_TYPE = Platform.OS === 'web' ? 'web' : 'mobile'; // ✅ ADD
 
-  // Attach token if available
-  try {
-    const token = await AsyncStorage.getItem('token');
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-      console.log(`[API] Token attached: ${token.substring(0, 20)}...`); // ✅ Log this
-    } else {
-      console.warn(`[API] No token found in AsyncStorage`); // ✅ Log this
+// ✅ Create Axios instance
+const apiClient: AxiosInstance = axios.create({
+  baseURL: API_BASE,
+  timeout: 15000,
+  headers: {
+    'Content-Type': 'application/json',
+    'x-client-type': CLIENT_TYPE, // ✅ ADD
+  },
+});
+
+// ✅ Request Interceptor - Attach auth token
+apiClient.interceptors.request.use(
+  async (config) => {
+    // ✅ ensure header is always present
+    config.headers = config.headers ?? {};
+    (config.headers as any)['x-client-type'] =
+      (config.headers as any)['x-client-type'] ?? CLIENT_TYPE;
+
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+        // removed debug token decode/logging
+      }
+    } catch (err) {
+      console.error('[Axios] Failed to get token:', err);
     }
-  } catch (err) {
-    console.error('[API] Failed to get token:', err);
+
+    // ✅ If sending FormData, remove JSON content-type so axios can set multipart boundary
+    const isFormData =
+      typeof FormData !== 'undefined' && config.data instanceof FormData;
+
+    if (isFormData) {
+      // axios will set the correct multipart/form-data; boundary=...
+      delete (config.headers as any)['Content-Type'];
+      delete (config.headers as any)['content-type'];
+    }
+
+    // removed debug request auth header log
+
+    return config;
+  },
+  (error) => {
+    console.error('[Axios] Request error:', error);
+    return Promise.reject(error);
   }
+);
 
-  // default JSON header for non-multipart bodies
-  const method = (opts.method || 'GET').toUpperCase();
-  const hasBody = !!(opts as any).body;
-  if (hasBody && method !== 'GET' && method !== 'HEAD' && !(opts.headers && (opts.headers as any)['Content-Type'] === 'multipart/form-data')) {
-    headers['Content-Type'] = 'application/json';
+// ✅ Response Interceptor - Handle errors
+apiClient.interceptors.response.use(
+  (response) => {
+    // removed success debug log
+    return response;
+  },
+  (error: AxiosError) => {
+    if (error.response) {
+      // Server responded with error status
+      const message = (error.response.data as any)?.message || 
+                     (error.response.data as any)?.error || 
+                     error.message;
+      console.error(`[Axios Error] ${error.response.status}:`, message);
+      
+      const err: any = new Error(message);
+      err.status = error.response.status;
+      err.payload = error.response.data;
+      return Promise.reject(err);
+    } else if (error.request) {
+      // Request made but no response
+      console.error('[Axios] Network error - no response from server');
+      return Promise.reject(new Error('Cannot connect to server. Please check your network.'));
+    } else {
+      // Something else happened
+      console.error('[Axios] Error:', error.message);
+      return Promise.reject(error);
+    }
   }
+);
 
-  const res = await fetch(url, { ...opts, headers });
-  const text = await res.text().catch(() => '');
-  let data: any = null;
-  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+// ✅ Export convenience methods (same signature as before!)
+export const get = async <T = any>(path: string, config?: any): Promise<T> => {
+  const response = await apiClient.get<T>(path, config); // ✅ Now accepts config
+  return response.data;
+};
 
-  if (!res.ok) {
-    const msg = data?.message || data?.error || text || res.statusText || `HTTP ${res.status}`;
-    const err: any = new Error(msg);
-    err.status = res.status;
-    err.payload = data;
-    throw err;
-  }
-  
-  console.log(`[API Success] ${method} ${url}`);
-  return data;
-}
+export const post = async <T = any>(path: string, body?: any): Promise<T> => {
+  const response = await apiClient.post<T>(path, body);
+  return response.data;
+};
 
-export const get = (path: string) => request(path, { method: 'GET' });
-export const post = (path: string, body?: any) =>
-  request(path, { method: 'POST', body: body && typeof body === 'string' ? body : body ? JSON.stringify(body) : undefined });
+export const put = async <T = any>(path: string, body?: any): Promise<T> => {
+  const response = await apiClient.put<T>(path, body);
+  return response.data;
+};
 
+export const patch = async <T = any>(path: string, body?: any): Promise<T> => {
+  const response = await apiClient.patch<T>(path, body);
+  return response.data;
+};
+
+export const del = async <T = any>(path: string): Promise<T> => {
+  const response = await apiClient.delete<T>(path);
+  return response.data;
+};
+
+// ✅ Token management (unchanged)
 export async function setToken(token: string | null) {
   if (token) await AsyncStorage.setItem('token', token);
   else await AsyncStorage.removeItem('token');
 }
 
-// Convenience helpers (adjust endpoints if needed)
+// ✅ Convenience helpers (unchanged logic)
 export async function fetchBarangays() {
   try {
     const data = await get('/api/auth/barangays');
-    // Normalize common shapes:
-    // - { success: true, barangays: [...] }
-    // - [...] (array directly)
-    // - { data: [...] }
     if (data && Array.isArray((data as any).barangays)) {
       return { barangays: (data as any).barangays };
     }
@@ -98,9 +168,13 @@ export async function fetchBarangays() {
     return { barangays: [] };
   }
 }
+
 export async function ping() {
-  return get('/api/health') /* optional; if not exposed backend, call a public endpoint like /api/auth/barangays */;
+  return get('/api/health');
 }
+
 export async function scanQr(qr: string, weight: number) {
   return post('/api/qr/scan', { qr, weight });
 }
+
+export default apiClient;

@@ -2,23 +2,31 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import hDashboard from './lib/Pages/hDashboard';
+import HDashboard from './lib/Pages/hDashboard';
 import LandingPage from './lib/Pages/LandingPage';
 import SignIn from './lib/Pages/SignIn';
 import SignUp from './lib/Pages/SignUp';
-import oDashboard from './lib/Pages/oDashboard';
+import ODashboard from './lib/Pages/oDashboard';
 import ORequest from './lib/Pages/oRequest';
 import ApiConnectiontester from './lib/Pages/TestApiConnection';
 import EmailVerification from './lib/Pages/EmailVerification';
 import AdminPending from './lib/Pages/AdminPending';
 import ForgotPassword from './lib/Pages/ForgotPassword';
 import { ResponsiveProvider } from './lib/utils/ResponsiveContext';
-import oMaintenance from './lib/Pages/oMaintenance';
-import oChemical from './lib/Pages/oChemical';
-import oProcess from './lib/Pages/oProcess';
-import oMap from './lib/Pages/oMap';
-import oWasteRecord from './lib/Pages/oWasteRecord';
-import oSchedule from './lib/Pages/oSchedule';
+import { MenuProvider } from './lib/components/MenuProvider';
+import OMaintenance from './lib/Pages/oMaintenance';
+import OAdditive from './lib/Pages/oAdditive';
+import OProcess from './lib/Pages/oProcess';
+import OMap from './lib/Pages/oMap';
+import OWasteRecord from './lib/Pages/oWasteRecord';
+import OSchedule from './lib/Pages/oSchedule';
+import HRewards from './lib/Pages/hRewards';
+import ChatSupport from './lib/Pages/ChatSupport';
+import ChatIntro from './lib/Pages/ChatIntro';
+import WiFiConnectivity from './lib/Pages/WiFiConnectivity';
+import OProfile from './lib/Pages/oProfile';
+import HProfile from './lib/Pages/hProfile';
+import HMap from './lib/Pages/hMap';
 
 const Stack = createNativeStackNavigator();
 
@@ -26,8 +34,9 @@ export default function App() {
   return (
     <ResponsiveProvider>
       <NavigationContainer>
-        <Stack.Navigator 
-          initialRouteName="Landing"
+        <MenuProvider>
+          <Stack.Navigator 
+          initialRouteName="SignIn"
           screenOptions={{
             headerShown: false,
           }}
@@ -37,19 +46,27 @@ export default function App() {
           <Stack.Screen name="SignUp" component={SignUp} />
           <Stack.Screen name="VerifyEmail" component={EmailVerification} />
           <Stack.Screen name="AdminPending" component={AdminPending} />
-          <Stack.Screen name="HDashboard" component={hDashboard} />
-          <Stack.Screen name="ODashboard" component={oDashboard} />
+          <Stack.Screen name="HDashboard" component={HDashboard} />
+          <Stack.Screen name="HMap" component={HMap} />
+          <Stack.Screen name="HRewards" component={HRewards} />
+          <Stack.Screen name="ODashboard" component={ODashboard} />
           <Stack.Screen name="ORequest" component={ORequest} />
-          <Stack.Screen name="oMaintenance" component={oMaintenance} />
-          <Stack.Screen name="oChemical" component={oChemical} />
-          <Stack.Screen name="oProcess" component={oProcess} />
-          <Stack.Screen name="OMap" component={oMap} />
-          <Stack.Screen name="OWasteRecord" component={oWasteRecord} />
-          <Stack.Screen name="OSchedule" component={oSchedule} />
+          <Stack.Screen name="OMaintenance" component={OMaintenance} />
+          <Stack.Screen name="OAdditive" component={OAdditive} />
+          <Stack.Screen name="OProcess" component={OProcess} />
+          <Stack.Screen name="OMap" component={OMap} />
+          <Stack.Screen name="OWasteRecord" component={OWasteRecord} />
+          <Stack.Screen name="OSchedule" component={OSchedule} />
+          <Stack.Screen name="ChatSupport" component={ChatSupport} />
+          <Stack.Screen name="ChatIntro" component={ChatIntro} />
+          <Stack.Screen name="OProfile" component={OProfile} />
+          <Stack.Screen name="HProfile" component={HProfile} />
           <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
-        </Stack.Navigator>
-        <StatusBar style="auto" />
+          <Stack.Screen name="WiFiConnectivity" component={WiFiConnectivity} />
+          </Stack.Navigator>
+          <StatusBar style="auto" />
+        </MenuProvider>
       </NavigationContainer>
     </ResponsiveProvider>
   );

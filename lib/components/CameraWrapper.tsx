@@ -22,6 +22,11 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
 
+  // ✅ Reset scan flag on mount (works for both web & native)
+  useEffect(() => {
+    hasScannedRef.current = false;
+  }, []);
+
   useEffect(() => {
     if (Platform.OS === 'web') {
       requestWebCameraAccess();
@@ -112,7 +117,8 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
           // ✅ Mark as scanned to prevent duplicate scans
           hasScannedRef.current = true;
           console.log('✅ QR detected, stopping scan loop');
-          onCapture(canvas.toDataURL('image/png'));
+          // ✅ Pass decoded string instead of image dataURL
+          onCapture(code.data);
           return;
         }
       }
@@ -131,22 +137,6 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
       }
     };
   }, [hasWebPermission, isVideoReady, onCapture]);
-
-  // Native camera handler
-  const takePicture = async () => {
-    if (cameraRef.current) {
-      try {
-        const photo = await cameraRef.current.takePictureAsync({ 
-          base64: true 
-        });
-        if (photo?.base64) {
-          onCapture(`data:image/jpeg;base64,${photo.base64}`);
-        }
-      } catch (error) {
-        console.error('Failed to take picture:', error);
-      }
-    }
-  };
 
   // WEB PLATFORM
   if (Platform.OS === 'web') {
@@ -235,19 +225,33 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
         facing="back"
+        // use the correct prop name expected by the CameraView typings
+        onBarcodeScanned={(event: any) => {
+          try {
+            if (hasScannedRef.current) return;
+
+            // Only handle QR codes
+            const rawType = String(event?.type || event?.nativeEvent?.type || '').toLowerCase();
+            if (!rawType.includes('qr')) return;
+
+            const data = event?.data || event?.nativeEvent?.data;
+            if (!data) return;
+
+            hasScannedRef.current = true;
+            console.log('[Camera] QR scanned:', data);
+            onCapture(String(data));
+          } catch (e) {
+            console.error('[Camera] onBarcodeScanned error', e);
+          }
+        }}
       />
       
       {/* ✅ Simple instruction text for native */}
       <View style={styles.instructionOverlay}>
         <Text style={styles.instructionText}>Position QR code in view</Text>
       </View>
-      
-      <TouchableOpacity
-        style={styles.captureButton}
-        onPress={takePicture}
-      >
-        <View style={styles.captureButtonInner} />
-      </TouchableOpacity>
+
+      {/* Shutter removed: auto-capture when QR detected */}
     </View>
   );
 };
@@ -277,6 +281,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  // captureButton styles kept for backward compatibility but shutter removed
   captureButton: {
     position: 'absolute',
     bottom: 80,

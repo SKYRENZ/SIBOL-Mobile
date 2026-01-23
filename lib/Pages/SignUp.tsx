@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, Modal, FlatList, TouchableWithoutFeedback } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  Modal,
+  FlatList,
+  TouchableWithoutFeedback,
+  Image, // ✅ add
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -11,6 +24,7 @@ import Svg, { Path, G, Defs, ClipPath, Rect } from 'react-native-svg';
 import { post } from '../services/apiClient';
 import { useSignUp } from '../hooks/signup/useSignUp';
 import Button from '../components/commons/Button';
+import AttachmentThumbnails from '../components/commons/AttachmentThumbnails'; // ✅ add this
 
 type RootStackParamList = {
   Landing: undefined;
@@ -116,6 +130,11 @@ export default function SignUp({ navigation, route }: Props) {
   // small local helpers / UI state
   const [emailError, setEmailError] = useState('');
   const [idImage, setIdImage] = useState<string | null>(null);
+
+  // ✅ Preview modal state
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showRolePicker, setShowRolePicker] = useState(false);
   const [showBarangayPicker, setShowBarangayPicker] = useState(false);
@@ -168,15 +187,12 @@ export default function SignUp({ navigation, route }: Props) {
     }
 
     try {
-      const result = await handleSignUp();
+      // ✅ pass required attachment URI
+      await handleSignUp(idImage);
 
-      // SSO users skip email verification and go directly to AdminPending
       if (isSSO) {
-        console.log('[SignUp] SSO registration complete, going to AdminPending');
         navigation.navigate('AdminPending' as any, { email });
       } else {
-        // Regular users need email verification first
-        console.log('[SignUp] Regular registration complete, going to VerifyEmail');
         navigation.navigate('VerifyEmail' as any, { email });
       }
     } catch (err: any) {
@@ -365,15 +381,67 @@ export default function SignUp({ navigation, route }: Props) {
 
               <View>
                 <Text style={[tw`text-primary mb-2`, styles.label]}>Upload an Image</Text>
+
                 <TouchableOpacity
                   style={tw`border-2 border-text-gray rounded-[10px] px-4 py-3 bg-white bg-opacity-80 flex-row items-center justify-between`}
                   onPress={handleImagePick}
                 >
                   <Text style={[tw`text-[#686677]`, styles.input]}>
-                    {idImage ? 'Image Selected ✓' : 'Select Image'}
+                    {idImage ? 'Change Image' : 'Select Image'}
                   </Text>
                   <UploadIcon />
                 </TouchableOpacity>
+
+                {/* ✅ Thumbnail preview (tap to preview, remove to clear) */}
+                <AttachmentThumbnails
+                  style={tw`mt-3`}
+                  items={idImage ? [{ uri: idImage, name: 'valid_id.jpg', type: 'image/jpeg' }] : []}
+                  showCount={false}
+                  size={64}
+                  radius={10}
+                  onRemove={() => setIdImage(null)}
+                  onPressItem={(item) => {
+                    setPreviewUri(item.uri);
+                    setPreviewVisible(true);
+                  }}
+                />
+
+                {/* ✅ Preview modal */}
+                <Modal
+                  visible={previewVisible}
+                  transparent
+                  animationType="fade"
+                  onRequestClose={() => setPreviewVisible(false)}
+                >
+                  <TouchableWithoutFeedback onPress={() => setPreviewVisible(false)}>
+                    <View style={tw`flex-1 bg-black/70 items-center justify-center px-4`}>
+                      <TouchableWithoutFeedback>
+                        <View style={tw`w-full max-w-[420px] bg-white rounded-2xl overflow-hidden`}>
+                          <View style={tw`flex-row items-center justify-between px-4 py-3 border-b border-gray-200`}>
+                            <Text style={tw`text-primary font-bold`}>Preview</Text>
+                            <TouchableOpacity onPress={() => setPreviewVisible(false)}>
+                              <Text style={tw`text-primary font-bold`}>Close</Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          <View style={tw`bg-black`}>
+                            {previewUri ? (
+                              <Image
+                                source={{ uri: previewUri }}
+                                style={{ width: '100%', height: 420 }}
+                                resizeMode="contain"
+                              />
+                            ) : (
+                              <View style={tw`h-[420px] items-center justify-center`}>
+                                <Text style={tw`text-white`}>No preview</Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      </TouchableWithoutFeedback>
+                    </View>
+                  </TouchableWithoutFeedback>
+                </Modal>
               </View>
 
               <TouchableOpacity

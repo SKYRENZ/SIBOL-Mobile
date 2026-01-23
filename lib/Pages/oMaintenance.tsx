@@ -6,7 +6,7 @@ import { ChevronDown } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
 import { useNavigation } from '@react-navigation/native';
 
-type TabType = 'Maintenance' | 'Chemical' | 'Process';
+type TabType = 'Maintenance' | 'Additive' | 'Process';
 
 interface MaintenanceRequest {
   id: string;
@@ -46,13 +46,13 @@ export default function OMaintenance() {
 
           <View style={tw`mb-6`}>
             <Tabs
-              tabs={['Maintenance', 'Chemical', 'Process']}
+              tabs={['Maintenance', 'Additive', 'Process']}
               activeTab={selectedTab}
               onTabChange={(val) => {
-                if (val === 'Chemical') {
-                  navigation.navigate('oChemical');
+                if (val === 'Additive') {
+                  navigation.navigate('OAdditive');
                 } else if (val === 'Process') {
-                  navigation.navigate('oProcess');
+                  navigation.navigate('OProcess');
                 } else {
                   setSelectedTab(val as TabType);
                 }

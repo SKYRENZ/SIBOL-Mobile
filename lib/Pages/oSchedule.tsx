@@ -12,12 +12,10 @@ import { MapPin } from 'lucide-react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import Tabs from '../components/commons/Tabs';
-import OMenu from '../components/oMenu';
 import Calendar from '../components/commons/Calendar';
 
 export default function OSchedule({ navigation }: any) {
   const [selectedTab, setSelectedTab] = useState<string>('Schedule');
-  const [menuVisible, setMenuVisible] = useState(false);
 
   const handleTabChange = (value: string) => {
     setSelectedTab(value);
@@ -83,13 +81,6 @@ export default function OSchedule({ navigation }: any) {
       </ScrollView>
 
       <BottomNavbar 
-        onMenuPress={() => setMenuVisible(true)}
-      />
-
-      <OMenu 
-        visible={menuVisible} 
-        onClose={() => setMenuVisible(false)} 
-        onNavigate={() => setMenuVisible(false)} 
       />
     </SafeAreaView>
   );

@@ -1,57 +1,48 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Text, 
-  View, 
-  ScrollView, 
-  Image, 
-  TextInput, 
+import React, { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import {
+  Text,
+  View,
+  ScrollView,
+  Image,
   TouchableOpacity,
-  Dimensions,
   Modal,
   Alert,
-  Linking,
   Platform,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import BottomNavbar from '../components/hBotNav';
-import HRewards from '../components/hRewards';
-import QRMessage from '../components/QRMessage'; // ✅ Import QRMessage
+import QRMessage from '../components/QRMessage';
+import Leaderboard from '../components/Leaderboard';
 import tw from '../utils/tailwind';
 import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from '../utils/responsiveStyles';
 import Container from '../components/primitives/Container';
-import { Search, Bell } from 'lucide-react-native';
+import { Bell } from 'lucide-react-native';
 import { CameraWrapper } from '../components/CameraWrapper';
-import HMenu from '../components/hMenu';
-import { scanQr } from '../services/apiClient';
 import { decodeQrFromImage } from '../utils/qrDecoder';
+import { scanQr } from '../services/apiClient';
+import { getMyPoints } from '../services/profileService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function Dashboard() {
-  const [menuVisible, setMenuVisible] = useState(false);
+export default function HDashboard(props: any) {
   const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<{ awarded: number; totalPoints: number } | null>(null);
   const [isProcessingScan, setIsProcessingScan] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // ✅ Add state for QRMessage modal
   const [showQRMessage, setShowQRMessage] = useState(false);
   const [qrMessageType, setQRMessageType] = useState<'success' | 'error'>('success');
   const [qrMessageData, setQRMessageData] = useState<{ points?: number; total?: number; message?: string }>({});
 
-  // track which reward/category is selected (used by handleCategoryChange)
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-
-  const handleCategoryChange = (category: string) => {
-    setSelectedCategory(category);
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({ x: 0, y: 0, animated: true });
-    }
-  };
+  const [userPoints, setUserPoints] = useState<number>(0);
+  const [pointsLoading, setPointsLoading] = useState<boolean>(true);
+  const [displayName, setDisplayName] = useState<string>('User');
 
   const handleOpenScanner = async () => {
-    console.log('Opening scanner...');
-    
     // Request camera permission on Android
     if (Platform.OS === 'android') {
       const result = await request(PERMISSIONS.ANDROID.CAMERA);
@@ -60,71 +51,104 @@ export default function Dashboard() {
         return;
       }
     }
-    
+
     setShowScanner(true);
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const data = await getMyPoints();
+      setUserPoints(data.points);
+    } catch (err) {
+      console.error('[hDashboard] Failed to refresh points', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleCloseScanner = () => {
-    console.log('Closing scanner modal');
     setShowScanner(false);
     setIsProcessingScan(false);
   };
 
-  const handleCapture = async (imageData: string) => {
+  const handleCapture = useCallback(async (captured: string) => {
     setIsProcessingScan(true);
     try {
-      const decodedQr = await decodeQrFromImage(imageData);
-      
-      // ✅ Parse weight from QR code
-      const weight = parseFloat(decodedQr);
-      
-      if (isNaN(weight) || weight <= 0) {
-        throw new Error('Invalid QR code: must contain a positive number');
-      }
-      
-      const response = await scanQr(decodedQr, weight);
-      
-      setScanResult({ awarded: response.awarded, totalPoints: response.totalPoints });
-      
-      // ✅ Close scanner and show success message
-      handleCloseScanner();
-      
-      setTimeout(() => {
-        setQRMessageType('success');
-        setQRMessageData({ 
-          points: response.awarded, 
-          total: response.totalPoints 
-        });
-        setShowQRMessage(true);
-      }, 300);
-      
-    } catch (error: any) {
-      console.error('QR scan failed', error);
-      handleCloseScanner();
-      
-      setTimeout(() => {
-        const isDuplicate = error?.message?.includes('already scanned') || 
-                           error?.payload?.message?.includes('already scanned');
-        
-        // ✅ Show error message in modal
-        setQRMessageType('error');
-        setQRMessageData({ 
-          message: isDuplicate 
-            ? 'This QR code has already been used. Each QR can only be scanned once.'
-            : error?.message || 'Unable to process QR code. Please try again.'
-        });
-        setShowQRMessage(true);
-      }, 300);
+      // If we ever receive an image dataURL (web legacy), decode it.
+      // On native (expo camera) CameraWrapper already passes the decoded QR string.
+      const qrString =
+        Platform.OS === 'web' && typeof captured === 'string' && captured.startsWith('data:')
+          ? await decodeQrFromImage(captured)
+          : captured;
+
+      // Parse QR payload (your QR contains weight "6")
+      const weight = parseFloat(String(qrString));
+      if (!Number.isFinite(weight) || weight <= 0) throw new Error('Invalid QR payload');
+
+      // Send to backend
+      const result = await scanQr(qrString, weight);
+
+      // Show success modal and update points
+      setQRMessageType('success');
+      setQRMessageData({ points: result?.awarded, total: result?.totalPoints });
+      setShowQRMessage(true);
+      if (typeof result?.totalPoints === 'number') setUserPoints(result.totalPoints);
+    } catch (err: any) {
+      console.error('QR scan failed', err);
+      setQRMessageType('error');
+      setQRMessageData({ message: err?.message || 'Scan failed' });
+      setShowQRMessage(true);
     } finally {
       setIsProcessingScan(false);
+      setShowScanner(false);
     }
-  };
+  }, [setIsProcessingScan, setShowScanner, setQRMessageType, setQRMessageData, setShowQRMessage, setUserPoints]);
+
+  // ✅ Fetch points on mount
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      const loadPoints = async () => {
+        try {
+          const data = await getMyPoints();
+          // removed debug logs
+          if (mounted) setUserPoints(Number(data.points ?? 0));
+        } catch (err) {
+          console.error('[hDashboard] Failed to load points', err);
+        } finally {
+          if (mounted) setPointsLoading(false);
+        }
+      };
+      loadPoints();
+      return () => { mounted = false; };
+    }, [])
+  );
+
+  // Fetch display name on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('user');
+        if (!raw) return;
+        const u = JSON.parse(raw);
+        const first = u?.FirstName ?? u?.firstName ?? '';
+        const last = u?.LastName ?? u?.lastName ?? '';
+        const username = u?.Username ?? u?.username ?? '';
+        const email = u?.Email ?? u?.email ?? '';
+        const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
+        setDisplayName(name);
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, []);
 
   const styles = useResponsiveStyle(({ isSm, isMd, isLg }) => ({
     safeArea: {
       flex: 1,
       backgroundColor: 'white',
-      paddingTop: isSm ? 35 : 50,
+      paddingTop: isSm ? 55 : 70,
     },
     staticContainer: {
       flexShrink: 0,
@@ -135,6 +159,7 @@ export default function Dashboard() {
     },
     headerContainer: {
       marginBottom: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
+      marginHorizontal: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
     },
     heading: {
       fontSize: isSm ? useResponsiveFontSize('sm') : useResponsiveFontSize('xl'),
@@ -146,8 +171,8 @@ export default function Dashboard() {
     bannerContainer: {
       backgroundColor: 'transparent',
       marginBottom: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
+      marginHorizontal: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
       alignSelf: 'stretch',
-      width: '100%',
       overflow: 'hidden',
       borderRadius: 15,
       height: isSm ? 140 : isMd ? 180 : 150,
@@ -196,13 +221,14 @@ export default function Dashboard() {
       borderColor: 'rgba(0,0,0,0.25)',
       padding: isSm ? 10 : 15,
       marginBottom: useResponsiveSpacing('md'),
+      marginHorizontal: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
+      shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.1,
-      shadowRadius: 3,
+      shadowRadius: 4,
       elevation: 3,
     },
     statsContainer: {
@@ -210,8 +236,9 @@ export default function Dashboard() {
       justifyContent: 'space-around',
       gap: useResponsiveSpacing('md'),
       marginBottom: useResponsiveSpacing('xs'),
-      paddingHorizontal: isSm ? useResponsiveSpacing('sm') : 0,
-      height: isSm ? 120 : 140,
+      marginHorizontal: isSm ? useResponsiveSpacing('md') : useResponsiveSpacing('lg'),
+      paddingHorizontal: 0,
+      alignItems: 'center', // center cards vertically
     },
     sectionTitle: {
       fontSize: isSm ? useResponsiveFontSize('2xl') : isMd ? useResponsiveFontSize('3xl') : useResponsiveFontSize('4xl'),
@@ -225,51 +252,65 @@ export default function Dashboard() {
       fontSize: isSm ? useResponsiveFontSize('sm') : useResponsiveFontSize('md'),
       color: '#6C8770',
       fontWeight: '600',
+      flex: 1,
     },
     statCard: {
       flex: 1,
       backgroundColor: 'white',
       borderRadius: 15,
-      padding: isSm ? 10 : 14,
-      alignItems: 'stretch',
-      justifyContent: 'center',
+      minHeight: isSm ? 110 : 130, 
+      padding: isSm ? 12 : 16,      // smaller padding
+      alignItems: 'center',
+      justifyContent: 'center', 
       borderWidth: 0,
       borderColor: 'transparent',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
+      shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.1,
-      shadowRadius: 3,
+      shadowRadius: 4,
       elevation: 2,
-      flexDirection: 'row',
+      flexDirection: 'column',
+      position: 'relative',        // allow safe absolute positioning if needed
     },
     statContent: {
-      flex: 1,
-      justifyContent: 'flex-start',
-      paddingVertical: isSm ? 18 : 22,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: isSm ? 8 : 12,          // tighter gap so icons don't push text out
+      marginBottom: 0,
     },
     statCardGreen: {
-      backgroundColor: '#E8F0E6',
+      backgroundColor: 'white',
       borderColor: 'transparent',
       borderWidth: 0,
     },
     medalIcon: {
-      width: isSm ? 50 : 60,
-      height: isSm ? 50 : 60,
-      justifyContent: 'flex-end',
-      alignItems: 'flex-end',
+      width: isSm ? 30 : 40,       // smaller icon container
+      height: isSm ? 30 : 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+      overflow: 'hidden',          // prevent image overflow
+      borderRadius: isSm ? 8 : 10,
+    },
+    statIcon: {
+      width: isSm ? 18 : 22,       // smaller icon size
+      height: isSm ? 18 : 22,
+      resizeMode: 'contain',
     },
     statNumber: {
-      fontSize: isSm ? 40 : 48,
+      fontSize: isSm ? 28 : 38,    // reduced font sizes
       fontWeight: 'bold',
       color: '#2E523A',
-      marginBottom: 4,
-      lineHeight: isSm ? 40 : 48,
+      marginBottom: 2, 
+      lineHeight: isSm ? 28 : 38,
     },
     statLabel: {
-      fontSize: isSm ? useResponsiveFontSize('xs') : useResponsiveFontSize('xs'),
-      color: '#6C8770',
-      textAlign: 'left',
-      lineHeight: isSm ? 14 : 18,
+      fontSize: isSm ? 11 : 12,    // smaller label
+      color: '#2E523A',
+      textAlign: 'center',
+      lineHeight: isSm ? 14 : 16,
+      fontWeight: '500',
+      marginTop: isSm ? 10 : 12, 
     },
     searchBar: {
       height: isSm ? 38 : 45,
@@ -284,44 +325,7 @@ export default function Dashboard() {
     },
   }));
 
-  const rewards = [
-    {
-      id: 1,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 2,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 3,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 4,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 5,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-    {
-      id: 6,
-      title: 'Organic Groceries Package',
-      description: '50 points required',
-      image: require('../../assets/grocery-package.png'),
-    },
-  ];
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -330,7 +334,7 @@ export default function Dashboard() {
           <View style={styles.headerContainer}>
             <View style={tw`flex-row justify-between items-center`}>
               <View>
-                <Text style={[tw`font-bold text-[#2E523A]`, styles.heading]}>Hi, User#39239!</Text>
+                <Text style={[tw`font-bold text-[#2E523A]`, styles.heading]}>Hi, {displayName}!</Text>
                 <Text style={[tw`font-bold text-[#2E523A]`, styles.subheading]}>Welcome to SIBOL Community.</Text>
               </View>
               <TouchableOpacity style={tw`p-2`} accessibilityLabel="Notifications">
@@ -356,7 +360,7 @@ export default function Dashboard() {
           </View>
 
           <View style={styles.scheduleContainer}>
-            <Text style={[tw`font-semibold text-[#6C8770] flex-1`, styles.scheduleText]}>
+            <Text style={[tw`font-semibold text-[#6C8770]`, styles.scheduleText]}>
               View the waste containers near you
             </Text>
             <TouchableOpacity style={styles.mapButton}>
@@ -367,55 +371,51 @@ export default function Dashboard() {
           <View style={styles.statsContainer}>
             <View style={styles.statCard}>
               <View style={styles.statContent}>
-                <Text style={styles.statNumber}>{scanResult?.totalPoints?.toFixed(2) || '115.00'}</Text>
-                <Text style={styles.statLabel}>Sibol Points</Text>
+                <View style={styles.medalIcon}>
+                  <View style={[tw`rounded-lg bg-green-light justify-center items-center`, { width: '100%', height: '100%' }]}>
+                    <Image
+                      source={require('../../assets/sibol-points.png')}
+                      style={[styles.statIcon, { resizeMode: 'contain' }]}
+                    />
+                  </View>
+                </View>
+                {/* ✅ Show live points or loading */}
+                {pointsLoading ? (
+                  <ActivityIndicator size="small" color="#2E523A" />
+                ) : (
+                  <Text style={styles.statNumber}>{userPoints.toFixed(2)}</Text>
+                )}
               </View>
-              <View style={styles.medalIcon}>
-                <Image
-                  source={require('../../assets/medal.png')}
-                  style={tw`w-full h-full`}
-                  resizeMode="contain"
-                />
-              </View>
+              <Text style={styles.statLabel}>Your total contribution</Text>
             </View>
             <View style={[styles.statCard, styles.statCardGreen]}>
               <View style={styles.statContent}>
+                <View style={styles.medalIcon}>
+                  <View style={[tw`rounded-lg bg-green-light justify-center items-center`, { width: '100%', height: '100%' }]}>
+                    <Image
+                      source={require('../../assets/contributions.png')}
+                      style={[styles.statIcon, { resizeMode: 'contain' }]}
+                    />
+                  </View>
+                </View>
                 <Text style={styles.statNumber}>20</Text>
-                <Text style={styles.statLabel}>Contributions</Text>
               </View>
-              <View style={styles.medalIcon}>
-                <Image
-                  source={require('../../assets/medal.png')}
-                  style={tw`w-full h-full`}
-                  resizeMode="contain"
-                />
-              </View>
+              <Text style={styles.statLabel}>Your reward points</Text>
             </View>
           </View>
 
-          <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-1 mt-4`} />
-
-          <Text style={styles.sectionTitle}>Claim your rewards</Text>
-
-          <View
-            style={[
-              tw`bg-[rgba(217,217,217,0.65)] rounded-[10px] flex-row items-center px-[15px]`,
-              styles.searchBar,
-            ]}
-          >
-            <TextInput
-              style={[
-                tw`flex-1 font-semibold text-black`,
-                { fontSize: useResponsiveFontSize('xs') },
-              ]}
-              placeholder="Search rewards"
-              placeholderTextColor="rgba(0, 0, 0, 0.3)"
-            />
-            <Search size={16} color="black" strokeWidth={2} />
-          </View>
-
-          <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-8`} />
+          <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-6 mt-4`} />
         </Container>
+
+        {/* ✅ Refresh overlay */}
+        {isRefreshing && (
+          <View style={tw`absolute inset-0 bg-white bg-opacity-90 items-center justify-center z-50`}>
+            <ActivityIndicator size="large" color="#2E523A" />
+            <Text style={tw`text-[#2E523A] font-semibold text-base mt-2`}>
+              Refreshing...
+            </Text>
+          </View>
+        )}
 
         {/* ✅ Camera Modal with Processing Overlay */}
         <Modal 
@@ -454,24 +454,26 @@ export default function Dashboard() {
           onClose={() => setShowQRMessage(false)}
         />
 
-        <ScrollView 
+        <ScrollView
           ref={scrollViewRef}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={tw`pb-[80px] px-4`} 
+          contentContainerStyle={tw`pb-[80px]`}
         >
-          <HRewards rewards={rewards} />
+          <Leaderboard
+            brgyName="Brgy. 176-E"
+            entries={[
+              { rank: 1, name: 'Jacelyn Caratao', points: 120 },
+              { rank: 2, name: 'Laurenz Listangco', points: 100 },
+              { rank: 3, name: 'Karl Miranda', points: 95 },
+            ]}
+            userRank={1}
+          />
         </ScrollView>
       </View>
 
       <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
-        <BottomNavbar onScan={handleOpenScanner} onMenuPress={() => setMenuVisible(true)} />
+        <BottomNavbar onScan={handleOpenScanner} currentPage="Home" onRefresh={handleRefresh} />
       </View>
-
-      {/* HMenu overlay rendered at page level so it covers full screen */}
-      <HMenu visible={menuVisible} onClose={() => setMenuVisible(false)} onNavigate={(route) => {
-        // handle page navigation here if you have navigation available
-        setMenuVisible(false);
-      }} />
      </SafeAreaView>
    );
  }
