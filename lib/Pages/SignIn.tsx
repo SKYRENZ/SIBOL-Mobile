@@ -82,27 +82,47 @@ export default function SignIn({ navigation }: Props) {
     usernameTouched, passwordTouched,
     setUsernameTouched, setPasswordTouched,
     setUsernameError, setPasswordError, // <-- add these
-    loading, snackbar, setSnackbar,
+    loading, setLoading, // <-- add setLoading here
+    snackbar, setSnackbar,
     handleUsernameBlur, handlePasswordBlur,
     handleSignIn,
   } = useSignIn(navigation);
 
   const handleGoogleSignIn = async () => {
     try {
-      // Example: Call your Google sign-in service
-      // const result = await startGoogleSignIn();
-      // Handle result, set token, navigate, etc.
-      setSnackbar({
-        visible: true,
-        message: 'Google sign-in is not yet implemented.',
-        type: 'info',
-      });
+      setLoading(true);
+      console.log('[SignIn] Starting Google sign-in...');
+      
+      const result = await startGoogleSignIn();
+
+      if (result.status === 'success' && result.token) {
+        await AsyncStorage.setItem('token', result.token);
+        await AsyncStorage.setItem('user', JSON.stringify(result.user));
+
+        if (result.user.role === 'admin') {
+          navigation.replace('HDashboard');
+        } else if (result.user.role === 'operator') {
+          navigation.replace('ODashboard');
+        } else {
+          navigation.replace('HDashboard');
+        }
+      } else if (result.status === 'pending') {
+        navigation.navigate('AdminPending', { email: result.email });
+      } else if (result.status === 'signup') {
+        navigation.navigate('SignUp', {
+          email: result.email,
+          firstName: result.firstName || '',
+          lastName: result.lastName || '',
+        });
+      }
     } catch (error: any) {
       setSnackbar({
         visible: true,
         message: error?.message || 'Google sign-in failed',
         type: 'error',
       });
+    } finally {
+      setLoading(false);
     }
   };
 

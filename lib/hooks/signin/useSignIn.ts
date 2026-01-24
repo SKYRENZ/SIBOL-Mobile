@@ -132,6 +132,7 @@ export function useSignIn(navigation: any) {
     setUsernameError,
     setPasswordError,
     loading,
+    setLoading,
     snackbar,
     setSnackbar,
     handleUsernameBlur,
