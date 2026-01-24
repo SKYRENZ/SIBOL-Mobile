@@ -11,6 +11,7 @@ import { startGoogleSignIn } from '../services/googleauthService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Button from '../components/commons/Button';
 import apiClient from '../services/apiClient';
+import Snackbar from '../components/commons/Snackbar'; // adjust path as needed
 
 type RootStackParamList = {
   Landing: undefined;
@@ -83,6 +84,12 @@ export default function SignIn({ navigation }: Props) {
   const [usernameError, setUsernameError] = useState(''); // changed from emailError
   const [loading, setLoading] = useState(false); // added
   const [serverError, setServerError] = useState<string | null>(null); // added
+  const [snackbar, setSnackbar] = useState({
+    visible: false,
+    message: '',
+    type: 'error' as 'error' | 'success' | 'info',
+  });
+  const [passwordError, setPasswordError] = useState(''); // Add this
 
   const handleUsernameChange = (text: string) => {
     setUsername(text);
@@ -126,7 +133,11 @@ export default function SignIn({ navigation }: Props) {
     } catch (error: any) {
       console.error('[SignIn] Google error:', error);
       if (error.message !== 'Sign-in cancelled') {
-        Alert.alert('Error', error.message || 'Google sign-in failed');
+        setSnackbar({
+          visible: true,
+          message: error.message || 'Google sign-in failed',
+          type: 'error',
+        });
       }
     } finally {
       setLoading(false);
@@ -162,10 +173,10 @@ export default function SignIn({ navigation }: Props) {
           <View style={[tw`flex-1 justify-center py-8`, styles.container]}>
             <View style={tw`items-center mb-8`}>
                <ResponsiveImage
-  source={require('../../assets/sibol-green-logo.png')}
-  aspectRatio={4}
-  maxWidthPercent={60}
-/>
+                  source={require('../../assets/sibol-green-logo.png')}
+                  aspectRatio={4}
+                  maxWidthPercent={60}
+                />
             </View>
 
             <View style={tw`gap-8`}>
@@ -214,14 +225,27 @@ export default function SignIn({ navigation }: Props) {
                     <TextInput
                       style={[
                         tw`border border-[#CBCAD7] rounded-md px-5 py-4.5 pr-12 text-[#686677]`,
+                        passwordError ? tw`border-red-500` : null,
                         styles.input,
                       ]}
                       placeholder="Enter your password"
                       placeholderTextColor="#686677"
                       value={password}
-                      onChangeText={setPassword}
+                      onChangeText={text => {
+                        setPassword(text);
+                        if (!text || text.length === 0) {
+                          setPasswordError('Password is required');
+                        } else {
+                          setPasswordError('');
+                        }
+                      }}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
+                      onBlur={() => {
+                        if (!password || password.length === 0) {
+                          setPasswordError('Password is required');
+                        }
+                      }}
                     />
                     <TouchableOpacity
                       style={tw`absolute right-5 top-0 h-full justify-center`}
@@ -230,6 +254,9 @@ export default function SignIn({ navigation }: Props) {
                       <EyeOffIcon />
                     </TouchableOpacity>
                   </View>
+                  {passwordError ? (
+                    <Text style={tw`text-red-500 text-xs mt-1`}>{passwordError}</Text>
+                  ) : null}
                 </View>
 
                 <TouchableOpacity 
@@ -248,14 +275,16 @@ export default function SignIn({ navigation }: Props) {
                   onPress={async () => {
                     setServerError(null);
 
+                    let hasError = false;
                     if (!validateUsername(username)) {
                       setUsernameError('Please enter a valid username');
-                      return;
+                      hasError = true;
                     }
                     if (!password || password.length === 0) {
-                      setServerError('Password is required');
-                      return;
+                      setPasswordError('Password is required');
+                      hasError = true;
                     }
+                    if (hasError) return;
 
                     try {
                       setLoading(true);
@@ -265,7 +294,11 @@ export default function SignIn({ navigation }: Props) {
                       const user = data?.user ?? (data as any);
   
                       if (!token && !user) {
-                        setServerError('Login failed');
+                        setSnackbar({
+                          visible: true,
+                          message: 'Invalid username or password',
+                          type: 'error',
+                        });
                         return;
                       }
   
@@ -277,7 +310,11 @@ export default function SignIn({ navigation }: Props) {
   
                       navigation.navigate(dest);
                     } catch (err: any) {
-                      setServerError(err?.message ?? 'Login failed');
+                      setSnackbar({
+                        visible: true,
+                        message: 'Wrong Username or Password',
+                        type: 'error',
+                      });
                     } finally {
                       setLoading(false);
                     }
@@ -291,11 +328,16 @@ export default function SignIn({ navigation }: Props) {
                   </Text>
                 </TouchableOpacity>
               </View>
-              {serverError ? <Text style={tw`text-red-500 mt-2`}>{serverError}</Text> : null}
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <Snackbar
+        visible={snackbar.visible}
+        message={snackbar.message}
+        type={snackbar.type}
+        onDismiss={() => setSnackbar(s => ({ ...s, visible: false }))}
+      />
     </SafeAreaView>
   );
 }

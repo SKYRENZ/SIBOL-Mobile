@@ -63,7 +63,7 @@ apiClient.interceptors.request.use(
         // removed debug token decode/logging
       }
     } catch (err) {
-      console.error('[Axios] Failed to get token:', err);
+      console.log('[Axios] Failed to get token:', err);
     }
 
     // ✅ If sending FormData, remove JSON content-type so axios can set multipart boundary
@@ -81,7 +81,7 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.error('[Axios] Request error:', error);
+    console.log('[Axios] Request error:', error);
     return Promise.reject(error);
   }
 );
@@ -98,7 +98,7 @@ apiClient.interceptors.response.use(
       const message = (error.response.data as any)?.message || 
                      (error.response.data as any)?.error || 
                      error.message;
-      console.error(`[Axios Error] ${error.response.status}:`, message);
+      console.log(`[Axios Error] ${error.response.status}:`, message);
       
       const err: any = new Error(message);
       err.status = error.response.status;
@@ -106,11 +106,11 @@ apiClient.interceptors.response.use(
       return Promise.reject(err);
     } else if (error.request) {
       // Request made but no response
-      console.error('[Axios] Network error - no response from server');
+      console.log('[Axios] Network error - no response from server');
       return Promise.reject(new Error('Cannot connect to server. Please check your network.'));
     } else {
       // Something else happened
-      console.error('[Axios] Error:', error.message);
+      console.log('[Axios] Error:', error.message);
       return Promise.reject(error);
     }
   }
@@ -164,7 +164,7 @@ export async function fetchBarangays() {
     console.warn('[mobile api] fetchBarangays - unexpected response shape', data);
     return { barangays: [] };
   } catch (err) {
-    console.error('[mobile api] fetchBarangays error', err);
+    console.log('[mobile api] fetchBarangays error', err);
     return { barangays: [] };
   }
 }
