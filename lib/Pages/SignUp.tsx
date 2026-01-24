@@ -7,7 +7,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Modal,
   FlatList,
   TouchableWithoutFeedback,
@@ -25,6 +24,7 @@ import { post } from '../services/apiClient';
 import { useSignUp } from '../hooks/signup/useSignUp';
 import Button from '../components/commons/Button';
 import AttachmentThumbnails from '../components/commons/AttachmentThumbnails'; // ✅ add this
+import Snackbar from '../components/commons/Snackbar'; // adjust path if needed
 
 type RootStackParamList = {
   Landing: undefined;
@@ -164,7 +164,11 @@ export default function SignUp({ navigation, route }: Props) {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert('Permission Required', 'Please allow access to your photo library');
+      setSnackbar({
+        visible: true,
+        message: 'Please allow access to your photo library',
+        type: 'error',
+      });
       return;
     }
 
@@ -193,7 +197,11 @@ export default function SignUp({ navigation, route }: Props) {
       !idImage ||
       !acceptedTerms
     ) {
-      Alert.alert('Missing Information', 'Please fill all required fields, upload an ID, and accept terms.');
+      setSnackbar({
+        visible: true,
+        message: 'Please fill all required fields, upload an ID, and accept terms.',
+        type: 'error',
+      });
       return;
     }
 
@@ -206,7 +214,11 @@ export default function SignUp({ navigation, route }: Props) {
       }
     } catch (err: any) {
       const message = err?.message || 'Sign up failed';
-      Alert.alert('Sign up failed', message);
+      setSnackbar({
+        visible: true,
+        message: message,
+        type: 'error',
+      });
     }
   };
 
@@ -222,6 +234,12 @@ export default function SignUp({ navigation, route }: Props) {
     barangay: false,
     idImage: false,
     terms: false,
+  });
+
+  const [snackbar, setSnackbar] = useState({
+    visible: false,
+    message: '',
+    type: 'error' as 'error' | 'success' | 'info',
   });
 
   return (
@@ -532,6 +550,13 @@ export default function SignUp({ navigation, route }: Props) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Snackbar
+        visible={snackbar.visible}
+        message={snackbar.message}
+        type={snackbar.type}
+        onDismiss={() => setSnackbar(s => ({ ...s, visible: false }))}
+      />
     </SafeAreaView>
   );
 }
