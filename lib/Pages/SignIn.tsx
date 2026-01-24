@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Button from '../components/commons/Button';
 import apiClient from '../services/apiClient';
 import Snackbar from '../components/commons/Snackbar'; // adjust path as needed
+import { useSignIn } from '../hooks/signin/useSignIn';
 
 type RootStackParamList = {
   Landing: undefined;
@@ -73,74 +74,35 @@ const validateUsername = (username: string) => {
 };
 
 export default function SignIn({ navigation }: Props) {
-  // Role id constants — **FIX: match your actual DB values**
-  
-  const ROLE_OPERATOR = 3;
-  const ROLE_HOUSEHOLD = 4; // ✅ FIX
-
-  const [username, setUsername] = useState('');           // changed from email
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [usernameError, setUsernameError] = useState(''); // changed from emailError
-  const [loading, setLoading] = useState(false); // added
-  const [serverError, setServerError] = useState<string | null>(null); // added
-  const [snackbar, setSnackbar] = useState({
-    visible: false,
-    message: '',
-    type: 'error' as 'error' | 'success' | 'info',
-  });
-  const [passwordError, setPasswordError] = useState(''); // Add this
-
-  const handleUsernameChange = (text: string) => {
-    setUsername(text);
-    if (text && !validateUsername(text)) {
-      setUsernameError('Please enter a valid username');
-    } else {
-      setUsernameError('');
-    }
-  };
+  const {
+    username, setUsername,
+    password, setPassword,
+    showPassword, setShowPassword,
+    usernameError, passwordError,
+    usernameTouched, passwordTouched,
+    setUsernameTouched, setPasswordTouched,
+    setUsernameError, setPasswordError, // <-- add these
+    loading, snackbar, setSnackbar,
+    handleUsernameBlur, handlePasswordBlur,
+    handleSignIn,
+  } = useSignIn(navigation);
 
   const handleGoogleSignIn = async () => {
     try {
-      setLoading(true);
-      console.log('[SignIn] Starting Google sign-in...');
-      
-      const result = await startGoogleSignIn();
-
-      if (result.status === 'success' && result.token) {
-        await AsyncStorage.setItem('token', result.token);
-        await AsyncStorage.setItem('user', JSON.stringify(result.user));
-
-        if (result.user.role === 'admin') {
-          navigation.replace('HDashboard');
-        } else if (result.user.role === 'operator') {
-          navigation.replace('ODashboard');
-        } else {
-          navigation.replace('HDashboard');
-        }
-      } else if (result.status === 'pending') {
-        // SSO account registered but pending admin approval
-        // Go directly to AdminPending (skip email verification)
-        navigation.navigate('AdminPending', { email: result.email });
-      } else if (result.status === 'signup') {
-        // No account found - redirect to signup with prefilled data
-        navigation.navigate('SignUp', {
-          email: result.email,
-          firstName: result.firstName || '',
-          lastName: result.lastName || '',
-        });
-      }
+      // Example: Call your Google sign-in service
+      // const result = await startGoogleSignIn();
+      // Handle result, set token, navigate, etc.
+      setSnackbar({
+        visible: true,
+        message: 'Google sign-in is not yet implemented.',
+        type: 'info',
+      });
     } catch (error: any) {
-      console.error('[SignIn] Google error:', error);
-      if (error.message !== 'Sign-in cancelled') {
-        setSnackbar({
-          visible: true,
-          message: error.message || 'Google sign-in failed',
-          type: 'error',
-        });
-      }
-    } finally {
-      setLoading(false);
+      setSnackbar({
+        visible: true,
+        message: error?.message || 'Google sign-in failed',
+        type: 'error',
+      });
     }
   };
 
@@ -203,19 +165,29 @@ export default function SignIn({ navigation }: Props) {
                 <View style={tw`gap-2`}>
                   <Text style={[tw`text-[#9794AA]`, styles.label]}>Username</Text>
                   <TextInput
-                    style={[ 
+                    style={[
                       tw`border border-[#CBCAD7] rounded-md px-5 py-4.5 text-[#686677]`,
-                      usernameError ? tw`border-red-500` : null,
+                      ((usernameError || (!username.trim() && usernameTouched)) ? tw`border-red-500` : null),
                       styles.input,
                     ]}
                     placeholder="Enter your username"
                     placeholderTextColor="#686677"
                     value={username}
-                    onChangeText={handleUsernameChange}
+                    onChangeText={text => {
+                      setUsername(text);
+                      if (text && !validateUsername(text)) {
+                        setUsernameError('Please enter a valid username');
+                      } else {
+                        setUsernameError('');
+                      }
+                    }}
                     autoCapitalize="none"
+                    onBlur={handleUsernameBlur}
                   />
-                  {usernameError ? (
-                    <Text style={tw`text-red-500 text-xs mt-1`}>{usernameError}</Text>
+                  {(usernameError || (!username.trim() && usernameTouched)) ? (
+                    <Text style={tw`text-red-500 text-xs mt-1`}>
+                      {usernameError || 'Username is required'}
+                    </Text>
                   ) : null}
                 </View>
 
@@ -225,7 +197,7 @@ export default function SignIn({ navigation }: Props) {
                     <TextInput
                       style={[
                         tw`border border-[#CBCAD7] rounded-md px-5 py-4.5 pr-12 text-[#686677]`,
-                        passwordError ? tw`border-red-500` : null,
+                        ((passwordError || (!password && passwordTouched)) ? tw`border-red-500` : null),
                         styles.input,
                       ]}
                       placeholder="Enter your password"
@@ -241,11 +213,7 @@ export default function SignIn({ navigation }: Props) {
                       }}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
-                      onBlur={() => {
-                        if (!password || password.length === 0) {
-                          setPasswordError('Password is required');
-                        }
-                      }}
+                      onBlur={handlePasswordBlur}
                     />
                     <TouchableOpacity
                       style={tw`absolute right-5 top-0 h-full justify-center`}
@@ -254,8 +222,10 @@ export default function SignIn({ navigation }: Props) {
                       <EyeOffIcon />
                     </TouchableOpacity>
                   </View>
-                  {passwordError ? (
-                    <Text style={tw`text-red-500 text-xs mt-1`}>{passwordError}</Text>
+                  {(passwordError || (!password && passwordTouched)) ? (
+                    <Text style={tw`text-red-500 text-xs mt-1`}>
+                      {passwordError || 'Password is required'}
+                    </Text>
                   ) : null}
                 </View>
 
@@ -272,53 +242,7 @@ export default function SignIn({ navigation }: Props) {
                   title={loading ? 'Signing in…' : 'Sign In'}
                   loading={loading}
                   textStyle={{ fontSize: 20 }}
-                  onPress={async () => {
-                    setServerError(null);
-
-                    let hasError = false;
-                    if (!validateUsername(username)) {
-                      setUsernameError('Please enter a valid username');
-                      hasError = true;
-                    }
-                    if (!password || password.length === 0) {
-                      setPasswordError('Password is required');
-                      hasError = true;
-                    }
-                    if (hasError) return;
-
-                    try {
-                      setLoading(true);
-                      (apiClient.defaults.headers as any)['x-client-type'] = 'mobile';
-                      const data = await apiLogin(username.trim(), password);
-                      const token = data?.token ?? data?.accessToken;
-                      const user = data?.user ?? (data as any);
-  
-                      if (!token && !user) {
-                        setSnackbar({
-                          visible: true,
-                          message: 'Invalid username or password',
-                          type: 'error',
-                        });
-                        return;
-                      }
-  
-                      // determine destination by numeric Roles field from backend
-                      const roleVal = Number(user?.Roles ?? user?.roleId ?? user?.role ?? user?.roles);
-                      // For now send admin to household dashboard as requested
-                      let dest: keyof RootStackParamList = 'HDashboard';
-                      if (roleVal === ROLE_OPERATOR) dest = 'ODashboard';
-  
-                      navigation.navigate(dest);
-                    } catch (err: any) {
-                      setSnackbar({
-                        visible: true,
-                        message: 'Wrong Username or Password',
-                        type: 'error',
-                      });
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
+                  onPress={handleSignIn}
                 />
 
                 <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
