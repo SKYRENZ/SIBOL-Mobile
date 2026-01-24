@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Animated, Text, TouchableOpacity, View } from 'react-native';
+import { Bell, AlertCircle, CheckCircle, Info } from 'lucide-react-native'; // Add this
 
 interface SnackbarProps {
   visible: boolean;
@@ -47,9 +48,19 @@ const Snackbar: React.FC<SnackbarProps> = ({
   if (!visible) return null;
 
   let bgColor = '#323232';
-  if (type === 'error') bgColor = '#E53935';
-  if (type === 'success') bgColor = '#43A047';
-  if (type === 'info') bgColor = '#323232';
+  let IconComponent = Bell;
+  if (type === 'error') {
+    bgColor = '#E53935';
+    IconComponent = AlertCircle;
+  }
+  if (type === 'success') {
+    bgColor = '#43A047';
+    IconComponent = CheckCircle;
+  }
+  if (type === 'info') {
+    bgColor = '#323232';
+    IconComponent = Info;
+  }
 
   return (
     <Animated.View
@@ -68,6 +79,7 @@ const Snackbar: React.FC<SnackbarProps> = ({
         zIndex: 1000,
       }}
     >
+      <IconComponent color="white" size={20} style={{ marginRight: 12 }} />
       <Text style={{ color: 'white', flex: 1 }}>{message}</Text>
       {actionLabel && onAction && (
         <TouchableOpacity onPress={onAction}>
