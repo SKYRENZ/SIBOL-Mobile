@@ -3,7 +3,7 @@ import 'dotenv/config'; // This loads your .env file
 export default {
   expo: {
     name: "SIBOL",
-    slug: "SIBOL",
+    slug: "SIBOL-mobile",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
