@@ -30,14 +30,14 @@ export default function Leaderboard({
     async function load() {
       setLoading(true);
       try {
-        const rows = await fetchLeaderboard(50);
+        const rows = await fetchLeaderboard(10); // limit to top 10
         if (!mounted) return;
         const mapped = rows.map((r: any, idx: number) => ({
           rank: r.rank ?? idx + 1,
           name: r.Username ?? r.name ?? r.username ?? 'Unknown',
           points: Number(r.Total_kg ?? r.points ?? 0),
         })) as LeaderboardEntry[];
-        setEntries(mapped);
+        setEntries(mapped.slice(0, 10)); // ensure at most 10 entries
       } catch (err) {
         console.error('[Leaderboard] fetch failed', err);
         setEntries([]);
@@ -65,7 +65,7 @@ export default function Leaderboard({
     return (
       <View style={tw`bg-white rounded-2xl border border-gray-200 p-5 m-4 shadow`}>
         <View style={tw`items-center mb-4`}>
-          <Text style={tw`text-2xl font-extrabold text-emerald-800`}>{brgyName} Leaderboard</Text>
+          <Text style={[tw`text-2xl font-extrabold text-teal-900`, { color: '#2E523A' }]}>{brgyName} Leaderboard</Text>
           <Text style={tw`text-sm font-semibold text-emerald-700`}>You're on the lead!</Text>
         </View>
         <View style={tw`py-8 items-center`}>
@@ -78,7 +78,7 @@ export default function Leaderboard({
   return (
     <View style={tw`bg-white rounded-2xl border border-gray-200 p-5 m-4 shadow`}>
       <View style={tw`items-center mb-4`}>
-        <Text style={tw`text-2xl font-extrabold text-emerald-800`}>{brgyName} Leaderboard</Text>
+        <Text style={[tw`text-2xl font-extrabold text-teal-900`, { color: '#2E523A' }]}>{brgyName} Leaderboard</Text>
         <Text style={tw`text-sm font-semibold text-emerald-700`}>These are the Top Contributors!</Text>
       </View>
 
@@ -92,7 +92,7 @@ export default function Leaderboard({
               ? tw`bg-gray-400`
               : entry.rank === 3
               ? tw`bg-orange-500`
-              : tw`bg-emerald-800`;
+              : tw`text-teal-900`;
 
           return (
             <View

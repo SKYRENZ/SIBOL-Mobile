@@ -39,7 +39,8 @@ export default function HDashboard(props: any) {
   const [qrMessageType, setQRMessageType] = useState<'success' | 'error'>('success');
   const [qrMessageData, setQRMessageData] = useState<{ points?: number; total?: number; message?: string }>({});
 
-  const [userPoints, setUserPoints] = useState<number>(0);
+  const [rewardPoints, setRewardPoints] = useState<number>(0);
+  const [totalKg, setTotalKg] = useState<number>(0);
   const [pointsLoading, setPointsLoading] = useState<boolean>(true);
   const [displayName, setDisplayName] = useState<string>('User');
 
@@ -62,7 +63,8 @@ export default function HDashboard(props: any) {
     setIsRefreshing(true);
     try {
       const data = await getMyPoints();
-      setUserPoints(data.points);
+      setRewardPoints(Number(data.points ?? 0));
+      setTotalKg(Number(data.totalContributions ?? 0));
     } catch (err) {
       console.error('[hDashboard] Failed to refresh points', err);
     } finally {
@@ -100,7 +102,8 @@ export default function HDashboard(props: any) {
       setQRMessageType('success');
       setQRMessageData({ points: result?.awarded, total: result?.totalPoints });
       setShowQRMessage(true);
-      if (typeof result?.totalPoints === 'number') setUserPoints(result.totalPoints);
+      if (typeof result?.totalPoints === 'number') setRewardPoints(result.totalPoints);
+      if (typeof result?.totalContributions === 'number') setTotalKg(result.totalContributions);
 
       // ✅ Only close scanner on success
       setShowScanner(false);
@@ -115,7 +118,7 @@ export default function HDashboard(props: any) {
     } finally {
       setIsProcessingScan(false);
     }
-  }, [setIsProcessingScan, setShowScanner, setQRMessageType, setQRMessageData, setShowQRMessage, setUserPoints]);
+  }, [setIsProcessingScan, setShowScanner, setQRMessageType, setQRMessageData, setShowQRMessage, setRewardPoints, setTotalKg]);
 
   // ✅ Fetch points on mount
   useFocusEffect(
@@ -124,8 +127,10 @@ export default function HDashboard(props: any) {
       const loadPoints = async () => {
         try {
           const data = await getMyPoints();
-          // removed debug logs
-          if (mounted) setUserPoints(Number(data.points ?? 0));
+          if (mounted) {
+            setRewardPoints(Number(data.points ?? 0));
+            setTotalKg(Number(data.totalContributions ?? 0));
+          }
         } catch (err) {
           console.error('[hDashboard] Failed to load points', err);
         } finally {
@@ -398,11 +403,11 @@ export default function HDashboard(props: any) {
                     />
                   </View>
                 </View>
-                {/* ✅ Show live points or loading */}
+                {/* ✅ Show total kg or loading */}
                 {pointsLoading ? (
                   <ActivityIndicator size="small" color="#2E523A" />
                 ) : (
-                  <Text style={styles.statNumber}>{userPoints.toFixed(2)}</Text>
+                  <Text style={styles.statNumber}>{formatKg(totalKg)}</Text>
                 )}
               </View>
               <Text style={styles.statLabel}>Your total contribution</Text>
@@ -417,7 +422,7 @@ export default function HDashboard(props: any) {
                     />
                   </View>
                 </View>
-                <Text style={styles.statNumber}>20</Text>
+                <Text style={styles.statNumber}>{rewardPoints}</Text>
               </View>
               <Text style={styles.statLabel}>Your reward points</Text>
             </View>
@@ -510,3 +515,12 @@ export default function HDashboard(props: any) {
      </SafeAreaView>
    );
  }
+
+// format kg: show no decimals for integers, otherwise show up to 2 decimals without trailing zeros
+const formatKg = (value?: number) => {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return "0kg";
+  if (Number.isInteger(n)) return `${n}kg`;
+  const rounded = Math.round(n * 100) / 100;
+  return `${rounded.toFixed(2).replace(/\.?0+$/, "")} kg`;
+};
