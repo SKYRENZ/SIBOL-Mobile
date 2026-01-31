@@ -60,15 +60,28 @@ export default function OMaintenance() {
             />
           </View>
 
-          <TouchableOpacity
-            style={tw`bg-primary rounded-md px-4 py-2 flex-row items-center justify-between self-start mb-6`}
-            onPress={() => setMachineDropdownOpen(!machineDropdownOpen)}
-          >
-            <Text style={tw`text-white font-bold text-[10px] mr-2`}>
-              {selectedMachine}
-            </Text>
-            <ChevronDown color="white" size={12} strokeWidth={2} />
-          </TouchableOpacity>
+          <View style={tw`flex-row items-center justify-between mb-6`}>
+            {/* machine dropdown - do not stretch */}
+            <TouchableOpacity
+              style={tw`bg-primary rounded-md px-4 py-2 flex-row items-center justify-between`}
+              onPress={() => setMachineDropdownOpen(!machineDropdownOpen)}
+            >
+              <Text style={tw`text-white font-bold text-[10px] mr-2`}>
+                {selectedMachine}
+              </Text>
+              <ChevronDown color="white" size={12} strokeWidth={2} />
+            </TouchableOpacity>
+
+            {/* Add Device - same style as dropdown, placed at far right */}
+            <TouchableOpacity
+              style={tw`bg-primary rounded-md px-4 py-2 flex-row items-center justify-between`}
+              onPress={() => navigation.navigate('WiFiConnectivity' as any)}
+            >
+              <Text style={tw`text-white font-bold text-[10px]`}>
+                Add Device
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {maintenanceRequests.map((request) => (
             <View

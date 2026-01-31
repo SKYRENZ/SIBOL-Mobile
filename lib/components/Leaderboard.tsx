@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 import tw from '../utils/tailwind';
-import { useResponsiveStyle, useResponsiveSpacing, useResponsiveFontSize } from '../utils/responsiveStyles';
+import { fetchLeaderboard } from '../services/leaderboardService';
 
 interface LeaderboardEntry {
   rank: number;
@@ -18,119 +18,43 @@ interface LeaderboardProps {
 
 export default function Leaderboard({
   brgyName = 'Brgy. 176-E',
-  entries = [
-    { rank: 1, name: 'Joemen Barrios', points: 120 },
-    { rank: 2, name: 'Laurenz Listangco', points: 100 },
-    { rank: 3, name: 'Karl Miranda', points: 95 },
-  ],
-  loading = false,
+  entries: _entries,
+  loading: _loading = false,
   userRank = 1,
 }: LeaderboardProps) {
-  const styles = useResponsiveStyle(({ isSm, isMd, isLg }) => ({
-    container: {
-      backgroundColor: 'white',
-      borderRadius: 30,
-      borderWidth: 1,
-      borderColor: 'rgba(0, 0, 0, 0.25)',
-      padding: isSm ? 16 : 20,
-      paddingTop: isSm ? 20 : 24,
-      marginHorizontal: isSm ? 12 : 16,
-      marginBottom: isSm ? 24 : 32,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 3,
-      elevation: 2,
-    },
-    headerContainer: {
-      alignItems: 'center',
-      marginBottom: isSm ? 20 : 24,
-    },
-    title: {
-      fontSize: isSm ? useResponsiveFontSize('2xl') : useResponsiveFontSize('3xl'),
-      fontWeight: 'bold',
-      color: '#2E523A',
-      marginBottom: isSm ? 8 : 10,
-      textAlign: 'center',
-    },
-    subtitle: {
-      fontSize: isSm ? useResponsiveFontSize('sm') : useResponsiveFontSize('md'),
-      fontWeight: '700',
-      color: '#2E523A',
-      textAlign: 'center',
-    },
-    entriesContainer: {
-      gap: isSm ? 10 : 12,
-    },
-    entryRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: 'white',
-      borderRadius: 15,
-      borderWidth: 1,
-      borderColor: 'rgba(0, 0, 0, 0.30)',
-      overflow: 'hidden',
-      paddingRight: isSm ? 12 : 14,
-      minHeight: isSm ? 50 : 60,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 1,
-    },
-    rankBadge: {
-      width: isSm ? 50 : 60,
-      height: '100%',
-      backgroundColor: '#2E523A',
-      justifyContent: 'center',
-      alignItems: 'center',
-      minHeight: isSm ? 50 : 60,
-      marginRight: isSm ? 12 : 14,
-    },
-    rankText: {
-      fontSize: isSm ? useResponsiveFontSize('xl') : useResponsiveFontSize('2xl'),
-      fontWeight: 'bold',
-      color: 'white',
-    },
-    entryContent: {
-      flex: 1,
-      justifyContent: 'space-between',
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    nameText: {
-      fontSize: isSm ? useResponsiveFontSize('sm') : useResponsiveFontSize('md'),
-      fontWeight: 'bold',
-      color: '#2E523A',
-      flex: 1,
-    },
-    pointsText: {
-      fontSize: isSm ? useResponsiveFontSize('sm') : useResponsiveFontSize('md'),
-      fontWeight: 'bold',
-      color: '#AFC8AD',
-      textAlign: 'right',
-    },
-    loadingContainer: {
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingVertical: isSm ? 40 : 50,
-    },
-    emptyContainer: {
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingVertical: isSm ? 40 : 50,
-    },
-    emptyText: {
-      fontSize: isSm ? useResponsiveFontSize('sm') : useResponsiveFontSize('md'),
-      color: '#6B7280',
-      textAlign: 'center',
-    },
-  }));
+  const [entries, setEntries] = useState<LeaderboardEntry[]>(_entries ?? []);
+  const [loading, setLoading] = useState<boolean>(_loading);
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      setLoading(true);
+      try {
+        const rows = await fetchLeaderboard(10); // limit to top 10
+        if (!mounted) return;
+        const mapped = rows.map((r: any, idx: number) => ({
+          rank: r.rank ?? idx + 1,
+          name: r.Username ?? r.name ?? r.username ?? 'Unknown',
+          points: Number(r.Total_kg ?? r.points ?? 0),
+        })) as LeaderboardEntry[];
+        setEntries(mapped.slice(0, 10)); // ensure at most 10 entries
+      } catch (err) {
+        console.error('[Leaderboard] fetch failed', err);
+        setEntries([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
+      <View style={tw`bg-white rounded-2xl border border-gray-200 p-5 m-4 shadow`}>
+        <View style={tw`py-8 items-center`}>
           <ActivityIndicator size="large" color="#2E523A" />
         </View>
       </View>
@@ -139,37 +63,57 @@ export default function Leaderboard({
 
   if (!entries || entries.length === 0) {
     return (
-      <View style={styles.container}>
-        <View style={styles.headerContainer}>
-          <Text style={styles.title}>{brgyName} Leaderboard</Text>
-          <Text style={styles.subtitle}>You're on the lead!</Text>
+      <View style={tw`bg-white rounded-2xl border border-gray-200 p-5 m-4 shadow`}>
+        <View style={tw`items-center mb-4`}>
+          <Text style={[tw`text-2xl font-extrabold text-teal-900`, { color: '#2E523A' }]}>{brgyName} Leaderboard</Text>
+          <Text style={tw`text-sm font-semibold text-emerald-700`}>You're on the lead!</Text>
         </View>
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No leaderboard data available</Text>
+        <View style={tw`py-8 items-center`}>
+          <Text style={tw`text-base text-gray-500`}>No leaderboard data available</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerContainer}>
-        <Text style={styles.title}>{brgyName} Leaderboard</Text>
-        <Text style={styles.subtitle}>You're on the lead!</Text>
+    <View style={tw`bg-white rounded-2xl border border-gray-200 p-5 m-4 shadow`}>
+      <View style={tw`items-center mb-4`}>
+        <Text style={[tw`text-2xl font-extrabold text-teal-900`, { color: '#2E523A' }]}>{brgyName} Leaderboard</Text>
+        <Text style={tw`text-sm font-semibold text-emerald-700`}>These are the Top Contributors!</Text>
       </View>
 
-      <View style={styles.entriesContainer}>
-        {entries.map((entry) => (
-          <View key={`${entry.rank}-${entry.name}`} style={styles.entryRow}>
-            <View style={styles.rankBadge}>
-              <Text style={styles.rankText}>{entry.rank}</Text>
+      <View style={tw`px-1`}>{/* small horizontal padding so badges are visible */}
+        {entries.map((entry, idx) => {
+          // badge background (use solid colors for RN)
+          const badgeStyle =
+            entry.rank === 1
+              ? tw`bg-yellow-400`
+              : entry.rank === 2
+              ? tw`bg-gray-400`
+              : entry.rank === 3
+              ? tw`bg-orange-500`
+              : tw`text-teal-900`;
+
+          return (
+            <View
+              key={`${entry.rank}-${entry.name}`}
+              style={tw`flex-row items-center bg-white rounded-lg overflow-hidden border border-gray-200 mb-3`}
+            >
+              {/* left colored square - full item height */}
+              <View style={[tw`w-14 h-14 justify-center items-center rounded-l-lg`, badgeStyle]}>
+                <Text style={tw`text-lg font-extrabold text-white`}>{entry.rank}</Text>
+              </View>
+
+              {/* content with gap */}
+              <View style={tw`flex-1 flex-row justify-between items-center px-4 py-3`}>
+                <Text numberOfLines={1} style={[tw`text-sm font-bold mr-4 flex-1`, { color: '#2E523A' }]}>{entry.name}</Text>
+                <View style={tw`ml-2`}>
+                  <Text style={tw`text-sm font-bold text-emerald-600`}>{entry.points} Kg</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.entryContent}>
-              <Text style={styles.nameText}>{entry.name}</Text>
-              <Text style={styles.pointsText}>{entry.points} Sibol Points</Text>
-            </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
     </View>
   );
