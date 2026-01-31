@@ -7,7 +7,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Modal,
   FlatList,
   TouchableWithoutFeedback,
@@ -25,6 +24,7 @@ import { post } from '../services/apiClient';
 import { useSignUp } from '../hooks/signup/useSignUp';
 import Button from '../components/commons/Button';
 import AttachmentThumbnails from '../components/commons/AttachmentThumbnails'; // ✅ add this
+import Snackbar from '../components/commons/Snackbar'; // adjust path if needed
 
 type RootStackParamList = {
   Landing: undefined;
@@ -164,7 +164,11 @@ export default function SignUp({ navigation, route }: Props) {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert('Permission Required', 'Please allow access to your photo library');
+      setSnackbar({
+        visible: true,
+        message: 'Please allow access to your photo library',
+        type: 'error',
+      });
       return;
     }
 
@@ -181,15 +185,28 @@ export default function SignUp({ navigation, route }: Props) {
   };
 
   const handleCreateAccount = async () => {
-    if (!acceptedTerms || !idImage) {
-      Alert.alert('Missing Information', 'Please upload an ID and accept terms.');
+    setSubmitted(true);
+
+    // Check for missing fields
+    if (
+      !role ||
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !email.trim() ||
+      !barangay ||
+      !idImage ||
+      !acceptedTerms
+    ) {
+      setSnackbar({
+        visible: true,
+        message: 'Please fill all required fields, upload an ID, and accept terms.',
+        type: 'error',
+      });
       return;
     }
 
     try {
-      // ✅ pass required attachment URI
       await handleSignUp(idImage);
-
       if (isSSO) {
         navigation.navigate('AdminPending' as any, { email });
       } else {
@@ -197,9 +214,33 @@ export default function SignUp({ navigation, route }: Props) {
       }
     } catch (err: any) {
       const message = err?.message || 'Sign up failed';
-      Alert.alert('Sign up failed', message);
+      setSnackbar({
+        visible: true,
+        message: message,
+        type: 'error',
+      });
     }
   };
+
+  // new: submitted state to track form submission
+  const [submitted, setSubmitted] = useState(false);
+
+  // touched state to track which fields have been interacted with
+  const [touched, setTouched] = useState({
+    role: false,
+    firstName: false,
+    lastName: false,
+    email: false,
+    barangay: false,
+    idImage: false,
+    terms: false,
+  });
+
+  const [snackbar, setSnackbar] = useState({
+    visible: false,
+    message: '',
+    type: 'error' as 'error' | 'success' | 'info',
+  });
 
   return (
     <SafeAreaView style={tw`flex-1 bg-white`}>
@@ -220,10 +261,10 @@ export default function SignUp({ navigation, route }: Props) {
             <View style={tw`items-center mb-6`}>
 
               <ResponsiveImage
-  source={require('../../assets/sibol-green-logo.png')}
-  aspectRatio={4}
-  maxWidthPercent={60}
-/>
+              source={require('../../assets/sibol-green-logo.png')}
+              aspectRatio={4}
+              maxWidthPercent={60}
+              />
             </View>
 
             <Text style={[tw`text-center font-bold text-primary mb-4`, styles.subheading]}>
@@ -232,7 +273,10 @@ export default function SignUp({ navigation, route }: Props) {
 
             <View style={tw`gap-4`}>
               <TouchableOpacity
-                style={tw`border-2 border-text-gray rounded-[10px] px-4 py-3 bg-white bg-opacity-80 flex-row items-center justify-between`}
+                style={[
+                  tw`border-2 rounded-[10px] px-4 py-3 bg-white bg-opacity-80 flex-row items-center justify-between`,
+                  (!role && submitted) ? tw`border-red-500` : tw`border-text-gray`
+                ]}
                 onPress={() => setShowRolePicker(!showRolePicker)}
               >
                 <Text style={[tw`text-[#686677]`, styles.input]}>
@@ -260,24 +304,28 @@ export default function SignUp({ navigation, route }: Props) {
 
               <View>
                 <Text style={[tw`text-primary mb-2`, styles.label]}>First Name</Text>
-                <TextInput
-                  style={[
-                    tw`border-2 border-text-gray rounded-[10px] px-4 py-3 bg-white bg-opacity-80 text-[#686677]`,
+                  <TextInput
+                    onBlur={() => setTouched(t => ({ ...t, firstName: true }))}
+                    style={[
+                    tw`border-2 rounded-[10px] px-4 py-3 bg-white bg-opacity-80 text-[#686677]`,
                     styles.input,
+                    (!firstName.trim() && (touched.firstName || submitted)) ? tw`border-red-500` : tw`border-text-gray`
                   ]}
-                  placeholder="First Name"
-                  placeholderTextColor="#686677"
-                  value={firstName}
-                  onChangeText={setFirstName}
-                />
+                    placeholder="First Name"
+                    placeholderTextColor="#686677"
+                    value={firstName}
+                    onChangeText={setFirstName}
+                  />
               </View>
 
               <View>
                 <Text style={[tw`text-primary mb-2`, styles.label]}>Last Name</Text>
                 <TextInput
+                  onBlur={() => setTouched(t => ({ ...t, lastName: true }))}
                   style={[
-                    tw`border-2 border-text-gray rounded-[10px] px-4 py-3 bg-white bg-opacity-80 text-[#686677]`,
+                    tw`border-2 rounded-[10px] px-4 py-3 bg-white bg-opacity-80 text-[#686677]`,
                     styles.input,
+                    (!lastName.trim() && (touched.lastName || submitted)) ? tw`border-red-500` : tw`border-text-gray`
                   ]}
                   placeholder="Last Name"
                   placeholderTextColor="#686677"
@@ -289,22 +337,20 @@ export default function SignUp({ navigation, route }: Props) {
               <View>
                 <Text style={[tw`text-primary mb-2`, styles.label]}>Email</Text>
                 <TextInput
+                  onBlur={() => setTouched(t => ({ ...t, email: true }))}
                   style={[
-                    tw`border-2 border-text-gray rounded-[10px] px-4 py-3 text-[#686677]`,
-                    // when SSO-provided make background green and darker text
+                    tw`border-2 rounded-[10px] px-4 py-3 text-[#686677]`,
                     route?.params?.email
-                      ? { backgroundColor: '#E8F6EA', color: '#22543D' } // light green bg + dark green text
+                      ? { backgroundColor: '#E8F6EA', color: '#22543D' }
                       : { backgroundColor: '#FFFFFF' },
-                    emailError ? tw`border-red-500` : null,
+                    (!email.trim() && (touched.email || submitted)) ? tw`border-red-500` : tw`border-text-gray`,
                     styles.input,
                   ]}
                   placeholder="Email"
                   placeholderTextColor="#686677"
                   value={email}
-                  // if email was provided by SSO, make it readonly / not editable
                   editable={!route?.params?.email}
                   onChangeText={(text) => {
-                    // don't allow editing when SSO-provided
                     if (route?.params?.email) return;
                     setEmail(text);
                     if (text && !validateEmail(text)) {
@@ -324,8 +370,14 @@ export default function SignUp({ navigation, route }: Props) {
               <View>
                 <Text style={[tw`text-primary mb-2`, styles.label]}>Barangay</Text>
                 <TouchableOpacity
-                  style={tw`border-2 border-text-gray rounded-[10px] px-4 py-3 bg-white bg-opacity-80 flex-row items-center justify-between`}
-                  onPress={() => setShowBarangayPicker(true)}
+                  onPress={() => {
+                    setShowBarangayPicker(true);
+                    setTouched(t => ({ ...t, barangay: true }));
+                  }}
+                  style={[
+                    tw`border-2 rounded-[10px] px-4 py-3 bg-white bg-opacity-80 flex-row items-center justify-between`,
+                    (!barangay && (touched.barangay || submitted)) ? tw`border-red-500` : tw`border-text-gray`
+                  ]}
                 >
                   <Text style={[tw`text-[#686677]`, styles.input]}>
                     {barangays.find((b) => String(b.id) === String(barangay))?.name || 'Select Barangay'}
@@ -383,8 +435,14 @@ export default function SignUp({ navigation, route }: Props) {
                 <Text style={[tw`text-primary mb-2`, styles.label]}>Upload an Image</Text>
 
                 <TouchableOpacity
-                  style={tw`border-2 border-text-gray rounded-[10px] px-4 py-3 bg-white bg-opacity-80 flex-row items-center justify-between`}
-                  onPress={handleImagePick}
+                  onPress={() => {
+                    handleImagePick();
+                    setTouched(t => ({ ...t, idImage: true }));
+                  }}
+                  style={[
+                    tw`border-2 rounded-[10px] px-4 py-3 bg-white bg-opacity-80 flex-row items-center justify-between`,
+                    (!idImage && (touched.idImage || submitted)) ? tw`border-red-500` : tw`border-text-gray`
+                  ]}
                 >
                   <Text style={[tw`text-[#686677]`, styles.input]}>
                     {idImage ? 'Change Image' : 'Select Image'}
@@ -445,13 +503,23 @@ export default function SignUp({ navigation, route }: Props) {
               </View>
 
               <TouchableOpacity
+                onPress={() => {
+                  setAcceptedTerms(!acceptedTerms);
+                  setTouched(t => ({ ...t, terms: true }));
+                }}
                 style={tw`flex-row items-center gap-2 mt-2`}
-                onPress={() => setAcceptedTerms(!acceptedTerms)}
               >
                 <View
-                  style={tw`w-5 h-5 rounded-[5px] ${
-                    acceptedTerms ? 'bg-primary' : 'border-2 border-text-gray bg-white'
-                  } items-center justify-center`}
+                  style={[
+                    tw`w-5 h-5 rounded-[5px] items-center justify-center`,
+                    acceptedTerms
+                      ? tw`bg-primary`
+                      : [
+                          tw`bg-white`,
+                          tw`border-2`,
+                          (!acceptedTerms && (touched.terms || submitted)) ? tw`border-red-500` : tw`border-text-gray`
+                        ]
+                  ]}
                 >
                   {acceptedTerms && <CheckIcon />}
                 </View>
@@ -482,6 +550,13 @@ export default function SignUp({ navigation, route }: Props) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Snackbar
+        visible={snackbar.visible}
+        message={snackbar.message}
+        type={snackbar.type}
+        onDismiss={() => setSnackbar(s => ({ ...s, visible: false }))}
+      />
     </SafeAreaView>
   );
 }

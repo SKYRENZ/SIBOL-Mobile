@@ -1,5 +1,5 @@
 import { Platform, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import jsQR from 'jsqr';
 
 // Import expo-camera for native platforms
@@ -7,9 +7,12 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 
 interface CameraWrapperProps {
   onCapture: (imageData: string) => void;
+  setSnackbar?: (snackbar: { visible: boolean; message: string; type: 'error' | 'success' | 'info' }) => void;
+  isProcessingScan?: boolean;
+  active?: boolean; // <-- add this
 }
 
-export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
+export const CameraWrapper = forwardRef(({ onCapture, setSnackbar, isProcessingScan, active }: CameraWrapperProps, ref) => {
   // Web refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasWebPermission, setHasWebPermission] = useState(false);
@@ -27,11 +30,38 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
     hasScannedRef.current = false;
   }, []);
 
+  // Reset scan flag when scanner is (re)opened
   useEffect(() => {
-    if (Platform.OS === 'web') {
+    if (active) {
+      hasScannedRef.current = false;
+    }
+  }, [active]);
+
+  useImperativeHandle(ref, () => ({
+    resetScan: () => {
+      hasScannedRef.current = false;
+    }
+  }));
+  
+  useEffect(() => {
+    if (Platform.OS === 'web' && active) {
+      // Force clear previous stream before requesting a new one
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
       requestWebCameraAccess();
     }
-  }, []);
+  }, [active]);
+
+  useEffect(() => {
+    if (!active && Platform.OS === 'web') {
+      setIsVideoReady(false);
+      setHasWebPermission(false);
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    }
+  }, [active]);
 
   const requestWebCameraAccess = async () => {
     try {
@@ -84,7 +114,6 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
     if (Platform.OS !== 'web') return;
     if (!isVideoReady) return;
 
-    // ✅ Reset scan flag when component mounts
     hasScannedRef.current = false;
 
     let rafId: number | null = null;
@@ -118,25 +147,27 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
           hasScannedRef.current = true;
           console.log('✅ QR detected, stopping scan loop');
           // ✅ Pass decoded string instead of image dataURL
-          onCapture(code.data);
+          if (!isProcessingScan) {
+            onCapture(code.data); // <-- use onCapture directly
+          }
           return;
         }
       }
       rafId = requestAnimationFrame(scanFrame);
     };
 
-    console.log('[Camera] Starting QR scan loop');
     rafId = requestAnimationFrame(scanFrame);
-    
+
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
-      // ✅ Stop video stream when component unmounts
+      // ✅ Stop video stream and clear srcObject
       if (videoRef.current?.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null; // <-- add this line
       }
     };
-  }, [hasWebPermission, isVideoReady, onCapture]);
+  }, [hasWebPermission, isVideoReady, onCapture, isProcessingScan]);
 
   // WEB PLATFORM
   if (Platform.OS === 'web') {
@@ -254,7 +285,7 @@ export const CameraWrapper = ({ onCapture }: CameraWrapperProps) => {
       {/* Shutter removed: auto-capture when QR detected */}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   Text,
@@ -25,6 +25,7 @@ import { decodeQrFromImage } from '../utils/qrDecoder';
 import { scanQr } from '../services/apiClient';
 import { getMyPoints } from '../services/profileService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Snackbar from '../components/commons/Snackbar'; // adjust path if needed
 
 export default function HDashboard(props: any) {
   const [showScanner, setShowScanner] = useState(false);
@@ -41,6 +42,8 @@ export default function HDashboard(props: any) {
   const [userPoints, setUserPoints] = useState<number>(0);
   const [pointsLoading, setPointsLoading] = useState<boolean>(true);
   const [displayName, setDisplayName] = useState<string>('User');
+
+  const cameraRef = useRef<any>(null);
 
   const handleOpenScanner = async () => {
     // Request camera permission on Android
@@ -72,17 +75,21 @@ export default function HDashboard(props: any) {
     setIsProcessingScan(false);
   };
 
+  const [snackbar, setSnackbar] = useState({
+    visible: false,
+    message: '',
+    type: 'error' as 'error' | 'success' | 'info',
+  });
+
   const handleCapture = useCallback(async (captured: string) => {
+    setSnackbar(s => ({ ...s, visible: false })); // Hide snackbar before processing
     setIsProcessingScan(true);
     try {
-      // If we ever receive an image dataURL (web legacy), decode it.
-      // On native (expo camera) CameraWrapper already passes the decoded QR string.
       const qrString =
         Platform.OS === 'web' && typeof captured === 'string' && captured.startsWith('data:')
           ? await decodeQrFromImage(captured)
           : captured;
 
-      // Parse QR payload (your QR contains weight "6")
       const weight = parseFloat(String(qrString));
       if (!Number.isFinite(weight) || weight <= 0) throw new Error('Invalid QR payload');
 
@@ -94,14 +101,19 @@ export default function HDashboard(props: any) {
       setQRMessageData({ points: result?.awarded, total: result?.totalPoints });
       setShowQRMessage(true);
       if (typeof result?.totalPoints === 'number') setUserPoints(result.totalPoints);
+
+      // ✅ Only close scanner on success
+      setShowScanner(false);
     } catch (err: any) {
-      console.error('QR scan failed', err);
-      setQRMessageType('error');
-      setQRMessageData({ message: err?.message || 'Scan failed' });
-      setShowQRMessage(true);
+      console.log('QR scan failed', err);
+      setSnackbar({
+        visible: true,
+        message: err?.message || 'Scan failed',
+        type: 'error',
+      });
+      // ✅ Do NOT close the scanner here
     } finally {
       setIsProcessingScan(false);
-      setShowScanner(false);
     }
   }, [setIsProcessingScan, setShowScanner, setQRMessageType, setQRMessageData, setShowQRMessage, setUserPoints]);
 
@@ -143,6 +155,13 @@ export default function HDashboard(props: any) {
       }
     })();
   }, []);
+
+  const handleErrorDismiss = () => {
+    setSnackbar(s => ({ ...s, visible: false }));
+    if (cameraRef.current?.resetScan) {
+      cameraRef.current.resetScan();
+    }
+  };
 
   const styles = useResponsiveStyle(({ isSm, isMd, isLg }) => ({
     safeArea: {
@@ -424,8 +443,22 @@ export default function HDashboard(props: any) {
           onRequestClose={handleCloseScanner}
         >
           <View style={tw`flex-1 bg-black`}>
-            <CameraWrapper onCapture={handleCapture} />
+            <CameraWrapper
+              ref={cameraRef}
+              onCapture={handleCapture}
+              setSnackbar={setSnackbar}
+              isProcessingScan={isProcessingScan}
+              active={showScanner}
+            />
             
+            {/* Snackbar should be here */}
+            <Snackbar
+              visible={snackbar.visible}
+              message={snackbar.message}
+              type={snackbar.type}
+              onDismiss={handleErrorDismiss}
+            />
+
             {/* ✅ Processing overlay */}
             {isProcessingScan && (
               <View style={tw`absolute inset-0 bg-black bg-opacity-75 items-center justify-center`}>

@@ -3,7 +3,7 @@ import 'dotenv/config'; // This loads your .env file
 export default {
   expo: {
     name: "SIBOL",
-    slug: "SIBOL",
+    slug: "SIBOL-mobile",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
@@ -40,8 +40,8 @@ export default {
       },
 
       // ✅ New split base URLs
-      EXPO_PUBLIC_API_BASE_WEB: process.env.EXPO_PUBLIC_API_BASE_WEB,
       EXPO_PUBLIC_API_BASE_MOBILE: process.env.EXPO_PUBLIC_API_BASE_MOBILE,
+      EXPO_PUBLIC_API_BASE_WEB: process.env.EXPO_PUBLIC_API_BASE_WEB,
       GOOGLE_ANDROID_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
       GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
     },
