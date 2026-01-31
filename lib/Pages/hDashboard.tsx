@@ -24,6 +24,7 @@ import { CameraWrapper } from '../components/CameraWrapper';
 import { decodeQrFromImage } from '../utils/qrDecoder';
 import { scanQr } from '../services/apiClient';
 import { getMyPoints } from '../services/profileService';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snackbar from '../components/commons/Snackbar'; // adjust path if needed
 
@@ -351,6 +352,24 @@ export default function HDashboard(props: any) {
 
 
 
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('user');
+        if (!raw) return;
+        const u = JSON.parse(raw);
+        const first = u?.IsFirstLogin ?? u?.isFirstLogin ?? 0;
+        if (first === 1 || first === '1' || first === true) {
+          setIsFirstLogin(true);
+          setShowChangePassword(true);
+        }
+      } catch (e) {}
+    })();
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={[tw`flex-1`]}>
@@ -512,6 +531,12 @@ export default function HDashboard(props: any) {
       <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
         <BottomNavbar onScan={handleOpenScanner} currentPage="Home" onRefresh={handleRefresh} />
       </View>
+
+      <ChangePasswordModal
+        visible={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+        requireChange={isFirstLogin}
+      />
      </SafeAreaView>
    );
  }
