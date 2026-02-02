@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
   KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -110,6 +111,8 @@ export default function CommentsSection({
 
   const [ticketEvents, setTicketEvents] = useState<MaintenanceEvent[]>([]); // ✅ NEW
   const [loadingEvents, setLoadingEvents] = useState(false);               // ✅ NEW
+
+  const [keyboardPad, setKeyboardPad] = useState(0);
 
   const formatFullStamp = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -253,6 +256,32 @@ export default function CommentsSection({
       setPendingAttachments(prev => [...prev, ...picked]);
     }
   };
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'android' ? 'keyboardDidShow' : 'keyboardWillShow';
+    const hideEvent = Platform.OS === 'android' ? 'keyboardDidHide' : 'keyboardWillHide';
+
+    const onShow = (e: any) => {
+      const h = e?.endCoordinates?.height ?? 0;
+      setKeyboardVisible(true);
+      setKeyboardPad(h);
+      if (Platform.OS === 'android') setAndroidReflowPad(h);
+      // ensure recent messages and input are visible
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+    };
+    const onHide = () => {
+      setKeyboardVisible(false);
+      setKeyboardPad(0);
+      if (Platform.OS === 'android') setAndroidReflowPad(0);
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // ✅ Auto-open picker should not fire in read-only mode
   const autoPickFiredRef = useRef(false);
@@ -458,21 +487,12 @@ export default function CommentsSection({
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
       <View style={tw`flex-1 bg-black/50`}>
         <KeyboardAvoidingView
-          style={{
-            flex: 1,
-            justifyContent: keyboardVisible ? 'flex-end' : 'center',
-            alignItems: 'center',
-            paddingBottom: Platform.OS === 'android' ? androidReflowPad : 0,
-          }}
+          // keep modal centered so header doesn't move; we'll pad inner content when keyboard opens
+          style={[tw`justify-center items-center flex-1`, { paddingBottom: Platform.OS === 'android' ? androidReflowPad : 0 }]}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
         >
-          <View
-            style={[
-              tw`bg-white rounded-lg w-11/12 flex flex-col`,
-              { height: '85%', marginBottom: keyboardVisible ? 12 : 0 },
-            ]}
-          >
+          <View style={[tw`bg-white rounded-lg w-11/12 flex flex-col`, { height: '90%' }]}>
             {/* Header */}
             <View style={tw`flex-row justify-between items-center p-4 border-b border-gray-200`}>
               <Text style={tw`text-lg font-bold text-gray-800`}>Remarks</Text>
@@ -541,36 +561,32 @@ export default function CommentsSection({
                   if (item.kind === 'event') {
                     const theme = getEventTheme((ticketEvents.find(e => `e-${e.Event_Id}` === item.key)?.Event_type) || '');
 
-                    // ✅ Full-width event box "touching" edges: compensate ScrollView p-4 with -16 margins.
+                    // ✅ Full-width event box "touching" edges: compensate ScrollView p-4 with negative margin via inline for pixel-perfect
                     return (
                       <View
                         key={item.key}
-                        style={{
-                          marginHorizontal: -16,
-                          paddingHorizontal: 16,
-                          paddingVertical: 10,
-                          backgroundColor: theme.bg,
-                          borderLeftWidth: 4,
-                          borderLeftColor: theme.border,
-                          marginBottom: 12,
-                        }}
+                        style={[
+                          tw`px-4 py-2 mb-3`,
+                          // small inline pieces remain for dynamic colors and negative horizontal margin
+                          { marginHorizontal: -16, backgroundColor: theme.bg, borderLeftWidth: 4, borderLeftColor: theme.border },
+                        ]}
                       >
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
+                        <View style={tw`flex-row justify-between`} >
                           {/* ✅ whole event text colored */}
-                          <Text style={{ fontSize: 12, fontWeight: '700', color: theme.text, flex: 1 }}>
+                          <Text style={[tw`text-sm font-extrabold`, { color: theme.text, flex: 1 }]}>
                             {item.toDisplay
                               ? `${item.title} by ${item.actorDisplay} to ${item.toDisplay}`
                               : `${item.title} by ${item.actorDisplay}`}
                           </Text>
 
                           {/* ✅ time stays muted */}
-                          <Text style={{ fontSize: 11, color: 'rgba(31,77,54,0.7)' }}>
+                          <Text style={[tw`text-xs`, { fontSize: 11, color: 'rgba(31,77,54,0.7)' }]}>
                             {formatFullStamp(item.createdAt)}
                           </Text>
                         </View>
 
                         {!!item.reason && (
-                          <Text style={{ marginTop: 6, fontSize: 12, color: theme.text }}>
+                          <Text style={[tw`mt-2 text-sm`, { color: theme.text }]}>
                             Reason: {item.reason}
                           </Text>
                         )}
@@ -580,22 +596,27 @@ export default function CommentsSection({
 
                   const isMine = item.isMine;
 
-                  // ✅ existing bubble UI (remarks + attachments) stays as-is
+                  // ✅ existing bubble UI (remarks + attachments) stays as-is but using tailwind for layout
                   return (
                     <View
                       key={item.key}
-                      style={{ marginBottom: 12, alignSelf: isMine ? 'flex-end' : 'flex-start', maxWidth: '78%' }}
+                      style={[
+                        tw`mb-3`,
+                        { alignSelf: isMine ? 'flex-end' : 'flex-start', maxWidth: '78%' },
+                      ]}
                     >
-                      <View style={{ flexDirection: 'row', justifyContent: isMine ? 'flex-end' : 'flex-start', marginBottom: 4 }}>
-                        <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
+                      <View style={[tw`flex-row mb-1`, { justifyContent: isMine ? 'flex-end' : 'flex-start' }]}>
+                        <Text style={tw`font-semibold text-[13px]`} >
                           {item.senderLabel}
                         </Text>
                       </View>
 
                       <View
                         style={[
-                          { padding: 10, borderRadius: 10, backgroundColor: isMine ? '#FFFFFF' : '#88AB8E' },
+                          tw`p-2 rounded-md`,
                           shadowStyle,
+                          // background depends on isMine
+                          { backgroundColor: isMine ? '#FFFFFF' : '#88AB8E' },
                         ]}
                       >
                         {item.kind === 'remark' ? (
@@ -646,14 +667,7 @@ export default function CommentsSection({
                       <Image source={{ uri: att.uri }} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
                       <TouchableOpacity
                         onPress={() => removePendingAttachment(idx)}
-                        style={{
-                          position: 'absolute',
-                          top: 4,
-                          right: 4,
-                          backgroundColor: 'rgba(0,0,0,0.45)',
-                          borderRadius: 12,
-                          padding: 4,
-                        }}
+                        style={tw`absolute top-1 right-1 rounded-full p-1 bg-[rgba(0,0,0,0.45)]`}
                         accessibilityLabel="Remove attachment"
                       >
                         <LucideX color="#fff" size={12} strokeWidth={2.2} />
@@ -669,18 +683,19 @@ export default function CommentsSection({
             {!readOnly && (
               <View style={tw`border-t border-gray-200 p-4`}>
                 <View style={tw`flex-row items-center bg-white border border-gray-300 rounded-full px-3`}>
-                  <TouchableOpacity onPress={handlePickAttachments} style={{ marginRight: 8 }}>
+                  <TouchableOpacity onPress={handlePickAttachments} style={tw`mr-2`}>
                     <LucideImage color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
                   </TouchableOpacity>
 
                   <TextInput
-                    style={[tw`flex-1 text-sm`, { paddingVertical: 0, height: 36, textAlignVertical: 'center' }]}
+                    style={tw`flex-1 text-sm py-0 h-9`}
                     placeholder="Type a remark..."
                     placeholderTextColor="#8A8A8A"
                     value={newMessage}
                     onChangeText={setNewMessage}
                     onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120)}
                     multiline={false}
+                    textAlignVertical="center"
                   />
 
                   <TouchableOpacity
