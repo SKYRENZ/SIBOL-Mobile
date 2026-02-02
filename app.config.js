@@ -29,7 +29,8 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.sprout.SIBOLmobile"
+      package: "com.sprout.SIBOLmobile",
+      softwareKeyboardLayoutMode: "resize"
     },
     web: {
       favicon: "./assets/favicon.png"
