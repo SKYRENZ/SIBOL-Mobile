@@ -11,6 +11,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Paperclip, X, ChevronDown } from 'lucide-react-native';
@@ -57,6 +58,8 @@ export default function RequestForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [kavKey, setKavKey] = useState(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -255,44 +258,67 @@ export default function RequestForm({
     });
   };
 
+  // Keyboard handling (prevents cutoff + fixes "stuck gap" on some Android devices)
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+      if (Platform.OS === 'android') {
+        // remount after keyboard fully dismisses to avoid leftover whitespace
+        setTimeout(() => setKavKey(k => k + 1), 220);
+      }
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={tw`flex-1 bg-black/35 justify-center items-center p-4`}>
-          <TouchableWithoutFeedback>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              style={tw`w-full items-center`}
+        <TouchableWithoutFeedback>
+          <KeyboardAvoidingView
+            key={kavKey}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+            style={tw`flex-1 w-full`}
+          >
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              // Center when closed; allow natural top layout + scrolling when keyboard is open
+              contentContainerStyle={[
+                tw`px-0 py-4`,
+                { flexGrow: 1, justifyContent: keyboardVisible ? 'flex-start' : 'center' },
+              ]}
             >
-              <ScrollView
-                contentContainerStyle={tw`flex-grow justify-center`}
-                keyboardShouldPersistTaps="handled"
+              <View
+                style={[
+                  tw`w-full max-w-[345px] bg-white rounded-[14px] p-5 pb-6 relative`,
+                  { alignSelf: 'center' },
+                  {
+                    shadowColor: '#000',
+                    shadowOpacity: 0.15,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowRadius: 4,
+                    elevation: 8,
+                  },
+                ]}
               >
-                <View
-                  style={[
-                    tw`w-full max-w-[345px] bg-white rounded-[14px] p-5 pb-6 relative`,
-                    {
-                      shadowColor: '#000',
-                      shadowOpacity: 0.15,
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowRadius: 4,
-                      elevation: 8,
-                    },
-                  ]}
-                >
-                  <View style={tw`flex-row justify-between items-center mb-4 relative`}>
-                    <Text style={tw`flex-1 text-center text-[18px] font-bold text-[#6C8770]`}>
-                      Request Form
-                    </Text>
-                     <TouchableOpacity
-                       onPress={onClose}
-                       style={tw`absolute right-0 p-1`}
-                       activeOpacity={0.7}
-                       disabled={loading}
-                     >
-                       <X color="#88AB8E" size={20} strokeWidth={2.5} />
-                     </TouchableOpacity>
-                   </View>
+                <View style={tw`flex-row justify-between items-center mb-4 relative`}>
+                  <Text style={tw`flex-1 text-center text-[18px] font-bold text-[#6C8770]`}>
+                    Request Form
+                  </Text>
+                   <TouchableOpacity
+                     onPress={onClose}
+                     style={tw`absolute right-0 p-1`}
+                     activeOpacity={0.7}
+                     disabled={loading}
+                   >
+                     <X color="#88AB8E" size={20} strokeWidth={2.5} />
+                   </TouchableOpacity>
+                 </View>
 
                   <View style={tw`mb-4`}>
                     <Text style={tw`text-[13px] font-semibold text-[#88AB8E] mb-1.5`}>Request:</Text>

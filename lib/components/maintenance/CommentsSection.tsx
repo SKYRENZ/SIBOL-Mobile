@@ -9,6 +9,7 @@ import {
   Image,
   Alert,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -89,6 +90,13 @@ export default function CommentsSection({
 }: CommentsSectionProps) {
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef<ScrollView>(null);
+
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  // Android-only: tiny style toggle to force reflow without remount (prevents stuck-gap without "tick")
+  const [androidReflowPad, setAndroidReflowPad] = useState(0);
+
+  const restoreScrollAfterRemountRef = useRef(false);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [uploadedAttachments, setUploadedAttachments] = useState<MaintenanceAttachment[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
@@ -447,268 +455,289 @@ export default function CommentsSection({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={tw`flex-1 bg-black bg-opacity-50 items-center justify-center`}>
-        <View style={tw`bg-white rounded-lg w-11/12 h-5/6 flex flex-col`}>
-
-          {/* Header */}
-          <View style={tw`flex-row justify-between items-center p-4 border-b border-gray-200`}>
-            <Text style={tw`text-lg font-bold text-gray-800`}>Remarks</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={tw`text-2xl text-gray-600`}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Uploaded attachments strip (small squares, clickable, no "Add") */}
-          <View style={tw`px-4 pt-3 pb-2 border-b border-gray-100`}>
-            <View style={tw`flex-row items-center justify-between mb-2`}>
-              <Text style={tw`text-sm font-semibold text-gray-700`}>Attachments</Text>
-              <Text style={tw`text-xs text-gray-400`}>
-                {uploadedAttachments.length > 0 ? `${uploadedAttachments.length}` : ''}
-              </Text>
+    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
+      <View style={tw`flex-1 bg-black/50`}>
+        <KeyboardAvoidingView
+          style={{
+            flex: 1,
+            justifyContent: keyboardVisible ? 'flex-end' : 'center',
+            alignItems: 'center',
+            paddingBottom: Platform.OS === 'android' ? androidReflowPad : 0,
+          }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+        >
+          <View
+            style={[
+              tw`bg-white rounded-lg w-11/12 flex flex-col`,
+              { height: '85%', marginBottom: keyboardVisible ? 12 : 0 },
+            ]}
+          >
+            {/* Header */}
+            <View style={tw`flex-row justify-between items-center p-4 border-b border-gray-200`}>
+              <Text style={tw`text-lg font-bold text-gray-800`}>Remarks</Text>
+              <TouchableOpacity onPress={onClose}>
+                <Text style={tw`text-2xl text-gray-600`}>✕</Text>
+              </TouchableOpacity>
             </View>
 
-            {loadingAttachments ? (
-              <Text style={tw`text-xs text-gray-400`}>Loading attachments...</Text>
-            ) : !hasUploadedAttachments ? (
-              <Text style={tw`text-xs text-gray-400`}>No attachments</Text>
-            ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {uploadedAttachments.map((att) => (
-                  <TouchableOpacity
-                    key={`uploaded_${att.Attachment_Id}`}
-                    activeOpacity={0.85}
-                    onPress={() => openPreview(att.File_path, att.File_name, att.File_type)}
-                    style={[
-                      tw`mr-2 bg-gray-50 border border-gray-200 overflow-hidden`,
-                      { width: thumbSize, height: thumbSize, borderRadius: thumbRadius },
-                    ]}
-                  >
-                    {isLikelyImage(att.File_name || att.File_path, att.File_type) ? (
-                      <Image
-                        source={{ uri: att.File_path }}
-                        resizeMode="cover"
-                        style={{ width: '100%', height: '100%' }}
-                      />
-                    ) : (
-                      <View style={tw`flex-1 items-center justify-center px-1`}>
-                        <Text style={tw`text-[9px] text-gray-600 font-semibold`} numberOfLines={2}>
-                          FILE
-                        </Text>
+            {/* Uploaded attachments strip (small squares, clickable, no "Add") */}
+            <View style={tw`px-4 pt-3 pb-2 border-b border-gray-100`}>
+              <View style={tw`flex-row items-center justify-between mb-2`}>
+                <Text style={tw`text-sm font-semibold text-gray-700`}>Attachments</Text>
+                <Text style={tw`text-xs text-gray-400`}>
+                  {uploadedAttachments.length > 0 ? `${uploadedAttachments.length}` : ''}
+                </Text>
+              </View>
+
+              {loadingAttachments ? (
+                <Text style={tw`text-xs text-gray-400`}>Loading attachments...</Text>
+              ) : !hasUploadedAttachments ? (
+                <Text style={tw`text-xs text-gray-400`}>No attachments</Text>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {uploadedAttachments.map((att) => (
+                    <TouchableOpacity
+                      key={`uploaded_${att.Attachment_Id}`}
+                      activeOpacity={0.85}
+                      onPress={() => openPreview(att.File_path, att.File_name, att.File_type)}
+                      style={[
+                        tw`mr-2 bg-gray-50 border border-gray-200 overflow-hidden`,
+                        { width: thumbSize, height: thumbSize, borderRadius: thumbRadius },
+                      ]}
+                    >
+                      {isLikelyImage(att.File_name || att.File_path, att.File_type) ? (
+                        <Image
+                          source={{ uri: att.File_path }}
+                          resizeMode="cover"
+                          style={{ width: '100%', height: '100%' }}
+                        />
+                      ) : (
+                        <View style={tw`flex-1 items-center justify-center px-1`}>
+                          <Text style={tw`text-[9px] text-gray-600 font-semibold`} numberOfLines={2}>
+                            FILE
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Timeline (remarks + attachments) */}
+            <ScrollView
+              ref={scrollRef}
+              style={tw`flex-1 p-4`}
+              contentContainerStyle={tw`pb-3`}
+              keyboardShouldPersistTaps="handled"
+            >
+              {(loadingEvents || loadingAttachments) && timeline.length === 0 ? (
+                <Text style={tw`text-gray-400 text-center py-8`}>Loading...</Text>
+              ) : timeline.length === 0 ? (
+                <Text style={tw`text-gray-400 text-center py-8`}>No history yet</Text>
+              ) : (
+                timeline.map((item) => {
+                  if (item.kind === 'event') {
+                    const theme = getEventTheme((ticketEvents.find(e => `e-${e.Event_Id}` === item.key)?.Event_type) || '');
+
+                    // ✅ Full-width event box "touching" edges: compensate ScrollView p-4 with -16 margins.
+                    return (
+                      <View
+                        key={item.key}
+                        style={{
+                          marginHorizontal: -16,
+                          paddingHorizontal: 16,
+                          paddingVertical: 10,
+                          backgroundColor: theme.bg,
+                          borderLeftWidth: 4,
+                          borderLeftColor: theme.border,
+                          marginBottom: 12,
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
+                          {/* ✅ whole event text colored */}
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: theme.text, flex: 1 }}>
+                            {item.toDisplay
+                              ? `${item.title} by ${item.actorDisplay} to ${item.toDisplay}`
+                              : `${item.title} by ${item.actorDisplay}`}
+                          </Text>
+
+                          {/* ✅ time stays muted */}
+                          <Text style={{ fontSize: 11, color: 'rgba(31,77,54,0.7)' }}>
+                            {formatFullStamp(item.createdAt)}
+                          </Text>
+                        </View>
+
+                        {!!item.reason && (
+                          <Text style={{ marginTop: 6, fontSize: 12, color: theme.text }}>
+                            Reason: {item.reason}
+                          </Text>
+                        )}
                       </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-          </View>
+                    );
+                  }
 
-          {/* Timeline (remarks + attachments) */}
-          <ScrollView ref={scrollRef} style={tw`flex-1 p-4`}>
-            {(loadingEvents || loadingAttachments) && timeline.length === 0 ? (
-              <Text style={tw`text-gray-400 text-center py-8`}>Loading...</Text>
-            ) : timeline.length === 0 ? (
-              <Text style={tw`text-gray-400 text-center py-8`}>No history yet</Text>
-            ) : (
-              timeline.map((item) => {
-                if (item.kind === 'event') {
-                  const theme = getEventTheme((ticketEvents.find(e => `e-${e.Event_Id}` === item.key)?.Event_type) || '');
+                  const isMine = item.isMine;
 
-                  // ✅ Full-width event box "touching" edges: compensate ScrollView p-4 with -16 margins.
+                  // ✅ existing bubble UI (remarks + attachments) stays as-is
                   return (
                     <View
                       key={item.key}
-                      style={{
-                        marginHorizontal: -16,
-                        paddingHorizontal: 16,
-                        paddingVertical: 10,
-                        backgroundColor: theme.bg,
-                        borderLeftWidth: 4,
-                        borderLeftColor: theme.border,
-                        marginBottom: 12,
-                      }}
+                      style={{ marginBottom: 12, alignSelf: isMine ? 'flex-end' : 'flex-start', maxWidth: '78%' }}
                     >
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
-                        {/* ✅ whole event text colored */}
-                        <Text style={{ fontSize: 12, fontWeight: '700', color: theme.text, flex: 1 }}>
-                          {item.toDisplay
-                            ? `${item.title} by ${item.actorDisplay} to ${item.toDisplay}`
-                            : `${item.title} by ${item.actorDisplay}`}
-                        </Text>
-
-                        {/* ✅ time stays muted */}
-                        <Text style={{ fontSize: 11, color: 'rgba(31,77,54,0.7)' }}>
-                          {formatFullStamp(item.createdAt)}
+                      <View style={{ flexDirection: 'row', justifyContent: isMine ? 'flex-end' : 'flex-start', marginBottom: 4 }}>
+                        <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
+                          {item.senderLabel}
                         </Text>
                       </View>
 
-                      {!!item.reason && (
-                        <Text style={{ marginTop: 6, fontSize: 12, color: theme.text }}>
-                          Reason: {item.reason}
+                      <View
+                        style={[
+                          { padding: 10, borderRadius: 10, backgroundColor: isMine ? '#FFFFFF' : '#88AB8E' },
+                          shadowStyle,
+                        ]}
+                      >
+                        {item.kind === 'remark' ? (
+                          <Text style={{ color: isMine ? '#1F4D36' : '#FFFFFF', fontSize: 14 }}>
+                            {item.text}
+                          </Text>
+                        ) : (
+                          <TouchableOpacity
+                            activeOpacity={0.9}
+                            onPress={() => openPreview(item.url, item.name, item.type)}
+                          >
+                            {isLikelyImage(item.name || item.url, item.type) ? (
+                              <Image
+                                source={{ uri: item.url }}
+                                resizeMode="cover"
+                                style={{ width: 160, height: 160, borderRadius: 10 }}
+                              />
+                            ) : (
+                              <Text style={{ color: isMine ? '#1F4D36' : '#FFFFFF', fontSize: 14 }}>
+                                Attachment
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+                        )}
+
+                        <Text style={{ marginTop: 6, fontSize: 11, color: isMine ? '#6B7280' : '#F1F5F9' }}>
+                          {formatFullStamp(item.createdAt)}
                         </Text>
-                      )}
+                      </View>
                     </View>
                   );
-                }
+                })
+              )}
+            </ScrollView>
 
-                const isMine = item.isMine;
-
-                // ✅ existing bubble UI (remarks + attachments) stays as-is
-                return (
-                  <View
-                    key={item.key}
-                    style={{ marginBottom: 12, alignSelf: isMine ? 'flex-end' : 'flex-start', maxWidth: '78%' }}
-                  >
-                    <View style={{ flexDirection: 'row', justifyContent: isMine ? 'flex-end' : 'flex-start', marginBottom: 4 }}>
-                      <Text style={{ fontWeight: '600', fontSize: 13, color: '#1F4D36' }}>
-                        {item.senderLabel}
-                      </Text>
-                    </View>
-
+            {/* Pending attachments ABOVE input */}
+            {!readOnly && pendingAttachments.length > 0 && (
+              <View style={tw`px-4 pb-2`}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {pendingAttachments.map((att, idx) => (
                     <View
+                      key={`pending_${att.uri}_${idx}`}
                       style={[
-                        { padding: 10, borderRadius: 10, backgroundColor: isMine ? '#FFFFFF' : '#88AB8E' },
-                        shadowStyle,
+                        tw`mr-2 bg-gray-100 border border-gray-200 overflow-hidden`,
+                        { width: thumbSize, height: thumbSize, borderRadius: thumbRadius },
                       ]}
                     >
-                      {item.kind === 'remark' ? (
-                        <Text style={{ color: isMine ? '#1F4D36' : '#FFFFFF', fontSize: 14 }}>
-                          {item.text}
-                        </Text>
-                      ) : (
-                        <TouchableOpacity
-                          activeOpacity={0.9}
-                          onPress={() => openPreview(item.url, item.name, item.type)}
-                        >
-                          {isLikelyImage(item.name || item.url, item.type) ? (
-                            <Image
-                              source={{ uri: item.url }}
-                              resizeMode="cover"
-                              style={{ width: 160, height: 160, borderRadius: 10 }}
-                            />
-                          ) : (
-                            <Text style={{ color: isMine ? '#1F4D36' : '#FFFFFF', fontSize: 14 }}>
-                              Attachment
-                            </Text>
-                          )}
-                        </TouchableOpacity>
-                      )}
-
-                      <Text style={{ marginTop: 6, fontSize: 11, color: isMine ? '#6B7280' : '#F1F5F9' }}>
-                        {formatFullStamp(item.createdAt)}
-                      </Text>
+                      <Image source={{ uri: att.uri }} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
+                      <TouchableOpacity
+                        onPress={() => removePendingAttachment(idx)}
+                        style={{
+                          position: 'absolute',
+                          top: 4,
+                          right: 4,
+                          backgroundColor: 'rgba(0,0,0,0.45)',
+                          borderRadius: 12,
+                          padding: 4,
+                        }}
+                        accessibilityLabel="Remove attachment"
+                      >
+                        <LucideX color="#fff" size={12} strokeWidth={2.2} />
+                      </TouchableOpacity>
                     </View>
-                  </View>
-                );
-              })
+                  ))}
+                </ScrollView>
+                <Text style={tw`text-[10px] text-gray-400 mt-1`}>Selected: {pendingAttachments.length}</Text>
+              </View>
             )}
-          </ScrollView>
 
-          {/* Pending attachments ABOVE input */}
-          {!readOnly && pendingAttachments.length > 0 && (
-            <View style={tw`px-4 pb-2`}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {pendingAttachments.map((att, idx) => (
-                  <View
-                    key={`pending_${att.uri}_${idx}`}
-                    style={[
-                      tw`mr-2 bg-gray-100 border border-gray-200 overflow-hidden`,
-                      { width: thumbSize, height: thumbSize, borderRadius: thumbRadius },
-                    ]}
+            {/* Input Area */}
+            {!readOnly && (
+              <View style={tw`border-t border-gray-200 p-4`}>
+                <View style={tw`flex-row items-center bg-white border border-gray-300 rounded-full px-3`}>
+                  <TouchableOpacity onPress={handlePickAttachments} style={{ marginRight: 8 }}>
+                    <LucideImage color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
+                  </TouchableOpacity>
+
+                  <TextInput
+                    style={[tw`flex-1 text-sm`, { paddingVertical: 0, height: 36, textAlignVertical: 'center' }]}
+                    placeholder="Type a remark..."
+                    placeholderTextColor="#8A8A8A"
+                    value={newMessage}
+                    onChangeText={setNewMessage}
+                    onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120)}
+                    multiline={false}
+                  />
+
+                  <TouchableOpacity
+                    onPress={handleSendMessage}
+                    disabled={!canSend}
+                    style={{ marginLeft: 8, opacity: canSend ? 1 : 0.35 }}
                   >
-                    <Image source={{ uri: att.uri }} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
-                    <TouchableOpacity
-                      onPress={() => removePendingAttachment(idx)}
-                      style={{
-                        position: 'absolute',
-                        top: 4,
-                        right: 4,
-                        backgroundColor: 'rgba(0,0,0,0.45)',
-                        borderRadius: 12,
-                        padding: 4,
-                      }}
-                      accessibilityLabel="Remove attachment"
-                    >
-                      <LucideX color="#fff" size={12} strokeWidth={2.2} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-              <Text style={tw`text-[10px] text-gray-400 mt-1`}>Selected: {pendingAttachments.length}</Text>
-            </View>
-          )}
-
-          {/* Input Area */}
-          {!readOnly && (
-            <View style={tw`border-t border-gray-200 p-4`}>
-              <View style={tw`flex-row items-center bg-white border border-gray-300 rounded-full px-3`}>
-                <TouchableOpacity onPress={handlePickAttachments} style={{ marginRight: 8 }}>
-                  <LucideImage color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
-                </TouchableOpacity>
-
-                <TextInput
-                  style={[tw`flex-1 text-sm`, { paddingVertical: 0, height: 36, textAlignVertical: 'center' }]}
-                  placeholder="Type a remark..."
-                  placeholderTextColor="#8A8A8A"
-                  value={newMessage}
-                  onChangeText={setNewMessage}
-                  multiline={false}
-                />
-
-                <TouchableOpacity
-                  onPress={handleSendMessage}
-                  disabled={!canSend}
-                  style={{ marginLeft: 8, opacity: canSend ? 1 : 0.35 }}
-                >
-                  <LucideSend color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* ✅ Attachment preview + download */}
-          <Modal visible={previewVisible} transparent animationType="fade">
-            <View style={tw`flex-1 bg-black bg-opacity-70 items-center justify-center`}>
-              <View style={tw`bg-white rounded-lg w-11/12 max-h-5/6 overflow-hidden`}>
-                <View style={tw`flex-row justify-between items-center p-3 border-b border-gray-200`}>
-                  <Text style={tw`text-sm font-semibold text-gray-800`}>Attachment</Text>
-
-                  <View style={tw`flex-row items-center`}>
-                    <TouchableOpacity onPress={handleDownload} style={tw`mr-4`}>
-                      <LucideDownload color="#2E523A" size={18} strokeWidth={2} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => {
-                        setPreviewVisible(false);
-                        setPreviewUrl(null);
-                        setPreviewIsImage(false);
-                      }}
-                    >
-                      <LucideX color="#2E523A" size={18} strokeWidth={2} />
-                    </TouchableOpacity>
-                  </View>
+                    <LucideSend color="#88AB8E" style={{ opacity: 0.89 }} size={20} strokeWidth={1.5} />
+                  </TouchableOpacity>
                 </View>
+              </View>
+            )}
 
-                <View style={tw`p-3`}>
-                  {previewUrl && previewIsImage ? (
-                    <Image
-                      source={{ uri: previewUrl }}
-                      resizeMode="contain"
-                      style={{ width: '100%', height: 420, backgroundColor: '#111827', borderRadius: 10 }}
-                    />
-                  ) : (
-                    <View style={tw`h-40 items-center justify-center bg-gray-100 rounded-lg border border-gray-200`}>
-                      <Text style={tw`text-gray-600 text-sm`}>Preview not available</Text>
-                      <Text style={tw`text-gray-400 text-xs mt-1`}>Use Download to save/share</Text>
+            {/* ✅ Attachment preview + download */}
+            <Modal visible={previewVisible} transparent animationType="fade">
+              <View style={tw`flex-1 bg-black bg-opacity-70 items-center justify-center`}>
+                <View style={tw`bg-white rounded-lg w-11/12 max-h-5/6 overflow-hidden`}>
+                  <View style={tw`flex-row justify-between items-center p-3 border-b border-gray-200`}>
+                    <Text style={tw`text-sm font-semibold text-gray-800`}>Attachment</Text>
+
+                    <View style={tw`flex-row items-center`}>
+                      <TouchableOpacity onPress={handleDownload} style={tw`mr-4`}>
+                        <LucideDownload color="#2E523A" size={18} strokeWidth={2} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          setPreviewVisible(false);
+                          setPreviewUrl(null);
+                          setPreviewIsImage(false);
+                        }}
+                      >
+                        <LucideX color="#2E523A" size={18} strokeWidth={2} />
+                      </TouchableOpacity>
                     </View>
-                  )}
+                  </View>
+
+                  <View style={tw`p-3`}>
+                    {previewUrl && previewIsImage ? (
+                      <Image
+                        source={{ uri: previewUrl }}
+                        resizeMode="contain"
+                        style={{ width: '100%', height: 420, backgroundColor: '#111827', borderRadius: 10 }}
+                      />
+                    ) : (
+                      <View style={tw`h-40 items-center justify-center bg-gray-100 rounded-lg border border-gray-200`}>
+                        <Text style={tw`text-gray-600 text-sm`}>Preview not available</Text>
+                        <Text style={tw`text-gray-400 text-xs mt-1`}>Use Download to save/share</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               </View>
-            </View>
-          </Modal>
+            </Modal>
 
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
