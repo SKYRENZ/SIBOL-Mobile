@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import * as Location from 'expo-location';
 import { MapPin } from 'lucide-react-native';
 import BottomNavbar from '../components/oBotNav';
 import OWasteInput from '../components/oWasteInput';
@@ -80,7 +81,7 @@ export default function oMap({ navigation }: any) {
 
   useEffect(() => {
     let mounted = true;
-    let watchId: number | null = null;
+    let locationSubscription: any = null;
 
     (async () => {
       if (Platform.OS === 'web') {
@@ -106,7 +107,7 @@ export default function oMap({ navigation }: any) {
           { enableHighAccuracy: true }
         );
 
-        watchId = navigator.geolocation.watchPosition(
+        const watchId = navigator.geolocation.watchPosition(
           (pos) => {
             if (!mounted) return;
             const { latitude, longitude, accuracy } = pos.coords;
@@ -120,35 +121,67 @@ export default function oMap({ navigation }: any) {
           { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
         );
 
-        return;
+        return () => {
+          mounted = false;
+          if (watchId !== null && navigator?.geolocation?.clearWatch) {
+            navigator.geolocation.clearWatch(watchId);
+          }
+        };
       }
 
-      if (Platform.OS !== 'android' && Platform.OS !== 'ios') return;
+      // Mobile: prefer Expo Location API (works in Expo builds). Fallback to react-native-permissions.
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        const granted = status === 'granted';
+        if (!mounted) return;
+        setLocationGranted(granted);
+        if (!granted) {
+          Alert.alert(
+            'Location Permission',
+            'Location permission is needed to show your distance from the nearest container.'
+          );
+          return;
+        }
 
-      const permission =
-        Platform.OS === 'android'
-          ? PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION
-          : PERMISSIONS.IOS.LOCATION_WHEN_IN_USE;
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+        if (!mounted) return;
+        setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        setUserAccuracy(typeof pos.coords.accuracy === 'number' ? pos.coords.accuracy : null);
 
-      const result = await request(permission);
-      if (!mounted) return;
-
-      const granted = result === RESULTS.GRANTED;
-      setLocationGranted(granted);
-
-      if (!granted) {
-        Alert.alert(
-          'Location Permission',
-          'Location permission is needed to show your distance from the nearest container.'
+        locationSubscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Highest, timeInterval: 5000, distanceInterval: 1 },
+          (p: Location.LocationObject) => {
+            if (!mounted) return;
+            setUserLocation({ latitude: p.coords.latitude, longitude: p.coords.longitude });
+            setUserAccuracy(typeof p.coords.accuracy === 'number' ? p.coords.accuracy : null);
+          }
         );
+      } catch (err) {
+        // Fallback: use react-native-permissions request if expo-location isn't available or fails
+        try {
+          const permission =
+            Platform.OS === 'android'
+              ? PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION
+              : PERMISSIONS.IOS.LOCATION_WHEN_IN_USE;
+          const result = await request(permission);
+          if (!mounted) return;
+          const granted = result === RESULTS.GRANTED;
+          setLocationGranted(granted);
+          if (!granted) {
+            Alert.alert(
+              'Location Permission',
+              'Location permission is needed to show your distance from the nearest container.'
+            );
+          }
+        } catch {
+          // ignore
+        }
       }
     })();
 
     return () => {
       mounted = false;
-      if (watchId !== null && navigator?.geolocation?.clearWatch) {
-        navigator.geolocation.clearWatch(watchId);
-      }
+      try { locationSubscription?.remove?.(); } catch {}
     };
   }, []);
 

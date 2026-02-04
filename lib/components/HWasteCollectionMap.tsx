@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import MapView, { Marker, Callout, UrlTile, Region } from 'react-native-maps';
 import tw from '../utils/tailwind';
+import { API_BASE } from '../services/apiClient';
 import type { WasteContainer } from '../services/wasteContainerService';
 
 type Props = {
@@ -76,7 +77,7 @@ export default function HWasteCollectionMap({
             : undefined
         }
       >
-        <UrlTile urlTemplate="https://a.tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
+        <UrlTile urlTemplate={`${API_BASE.replace(/\/$/, '')}/api/map/tiles/{z}/{x}/{y}.png`} maximumZ={19} />
 
         {containers.map((c) => (
           <Marker
