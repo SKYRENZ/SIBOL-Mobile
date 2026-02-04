@@ -102,8 +102,10 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { if (!requireChange) onClose(); }}>
       <View style={tw`flex-1 bg-black bg-opacity-40 justify-center items-center px-4`}>
-        <View style={[tw`w-full max-w-md bg-white rounded-lg overflow-hidden`, { backgroundColor: '#2E523A', borderBottomColor: 'transparent' }]}>
-          <View style={tw`px-4 py-3 border-b`}>
+        {/* Card should be white */}
+        <View style={tw`w-full max-w-md bg-white rounded-lg overflow-hidden`}>
+          {/* Header only should be green */}
+          <View style={[tw`px-4 py-3 border-b`, { backgroundColor: '#2E523A', borderBottomColor: 'rgba(255,255,255,0.15)' }]}>
             <Text style={tw`text-lg font-semibold text-white`}>Change Password</Text>
           </View>
 
