@@ -73,3 +73,18 @@ export async function connectToESP32(ssid: string): Promise<void> {
 
   throw new Error('No supported WifiManager connect method found');
 }
+
+// new: disconnect helper
+export async function disconnectFromESP32(ssid?: string): Promise<void> {
+  const mgr: any = (WifiManager as any)?.default ?? WifiManager;
+  if (typeof mgr.disconnect === 'function') {
+    await mgr.disconnect();
+    return;
+  }
+  if (typeof mgr.disconnectFromSSID === 'function') {
+    // some implementations accept an SSID arg
+    await mgr.disconnectFromSSID(ssid ?? '');
+    return;
+  }
+  throw new Error('No disconnect method available on WifiManager');
+}

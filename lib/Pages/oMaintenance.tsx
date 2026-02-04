@@ -5,6 +5,7 @@ import BottomNavbar from '../components/oBotNav';
 import { ChevronDown } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { disconnectFromESP32 } from '../config/esp32Connection';
 
 type TabType = 'Maintenance' | 'Additive' | 'Process';
 
@@ -35,6 +36,22 @@ export default function OMaintenance() {
       // route.params.connectedNetwork = undefined; // avoid mutating route.params directly in some setups
     }
   }, [route.params?.connectedNetwork]);
+
+  const handleDisconnect = async () => {
+    if (!connectedDevice) return;
+    try {
+      await disconnectFromESP32(connectedDevice);
+    } catch (e) {
+      // ignore errors for now
+    } finally {
+      setConnectedDevice(null);
+      setSelectedMachine('SIBOL Machine 1');
+    }
+  };
+
+  const handleConnect = () => {
+    navigation.navigate('WiFiConnectivity' as any);
+  };
 
   const maintenanceRequests: MaintenanceRequest[] = [];
 
@@ -90,6 +107,30 @@ export default function OMaintenance() {
             <View style={tw`border border-[#88AB8E] rounded-[10px] bg-white p-4 mb-6`}>
               <Text style={tw`text-sm text-[#4F6853] font-semibold mb-1`}>Connected Device</Text>
               <Text style={tw`text-lg font-bold text-[#2E523A]`}>{connectedDevice}</Text>
+
+              {/* divider */}
+              <View style={{ height: 1, backgroundColor: '#E5E7EB', marginTop: 12, marginBottom: 12 }} />
+
+              {/* buttons: disconnect / connect */}
+              <View style={tw`flex-row`}>
+                <TouchableOpacity
+                  onPress={handleDisconnect}
+                  disabled={!connectedDevice}
+                  style={[
+                    tw`flex-1 py-2 mr-2 rounded-lg items-center`,
+                    !connectedDevice ? tw`bg-gray-100 border border-gray-200` : tw`bg-white border border-[#E5E7EB]`
+                  ]}
+                >
+                  <Text style={tw`text-[#4F6853]`}>Disconnect</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleConnect}
+                  style={tw`flex-1 py-2 ml-2 rounded-lg items-center bg-[#4F6853]`}
+                >
+                  <Text style={tw`text-white`}>Connect to network</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ) : null}
 
