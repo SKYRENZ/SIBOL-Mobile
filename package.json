@@ -27,6 +27,7 @@
     "expo-location": "^19.0.8",
     "expo-sharing": "~14.0.8",
     "expo-status-bar": "~3.0.8",
+    "expo-system-ui": "^6.0.9",
     "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.563.0",
