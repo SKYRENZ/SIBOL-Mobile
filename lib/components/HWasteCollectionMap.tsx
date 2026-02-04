@@ -57,6 +57,14 @@ export default function HWasteCollectionMap({
     );
   }, [userLocation, recenterKey]);
 
+  // ✅ Choose tile source
+  const tileUrl = useMemo(() => {
+    const backendUrl = `${API_BASE.replace(/\/$/, '')}/api/map/tiles/{z}/{x}/{y}.png`;
+    const publicUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const isLocalBackend = /^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2|10\.0\.3\.2)/i.test(API_BASE);
+    return isLocalBackend ? backendUrl : publicUrl;
+  }, []);
+
   return (
     <View style={tw`flex-1 bg-white`}>
       <MapView
@@ -77,7 +85,7 @@ export default function HWasteCollectionMap({
             : undefined
         }
       >
-        <UrlTile urlTemplate={`${API_BASE.replace(/\/$/, '')}/api/map/tiles/{z}/{x}/{y}.png`} maximumZ={19} />
+        <UrlTile urlTemplate={tileUrl} maximumZ={19} />
 
         {containers.map((c) => (
           <Marker
