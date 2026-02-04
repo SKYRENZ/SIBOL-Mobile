@@ -3,7 +3,6 @@ import {
   View,
   Text,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
@@ -14,16 +13,29 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import BottomNavbar from '../components/hBotNav';
-import { User, Edit, X, Check, Award, Gift } from 'lucide-react-native';
+import { User, Edit, Award, Gift } from 'lucide-react-native';
 
 type TabType = 'leaderboard' | 'contributions' | 'rewards';
 
+type HProfileRouteParams = {
+  updatedData?: {
+    username: string;
+    address: string;
+    areaCovered?: string;
+    firstName?: string;
+    lastName?: string;
+    contact?: string;
+    email?: string;
+    barangay?: string;
+  };
+};
+
 export default function HProfile() {
   const navigation = useNavigation();
+  const route = useRoute<RouteProp<{ HProfile: HProfileRouteParams }, 'HProfile'>>();
   const [activeTab, setActiveTab] = useState<TabType>('leaderboard');
-  const [isEditing, setIsEditing] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
   const slideAnim = useState(new Animated.Value(30))[0];
 
@@ -44,7 +56,13 @@ export default function HProfile() {
   }, []);
   const [userData, setUserData] = useState({
     username: 'User#39239',
+    firstName: 'Juan',
+    lastName: 'Dela Cruz',
     address: '1263 Petunia St. Area A, Camarin, Caloocan City',
+    areaCovered: 'Camarin Area A',
+    contact: '+63 912 345 6789',
+    email: 'juan.delacruz@example.com',
+    barangay: 'Barangay Camarin',
     totalContributions: 12,
     points: 112,
     contributions: [
@@ -62,35 +80,38 @@ export default function HProfile() {
       { id: '3', name: 'Karl Miranda', points: 95, rank: 3 },
     ]
   });
-  const [editData, setEditData] = useState({
-    username: 'User#39239',
-    address: '1263 Petunia St. Area A, Camarin, Caloocan City'
-  });
-
-  const handleBack = () => {
-    navigation.goBack();
-  };
-
   const handleEdit = () => {
-    setIsEditing(true);
+    navigation.navigate('HProfileEdit' as never, {
+      initialData: {
+        username: userData.username,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        address: userData.address,
+        areaCovered: userData.areaCovered,
+        contact: userData.contact,
+        email: userData.email,
+        barangay: userData.barangay,
+      },
+    } as never);
   };
 
-  const handleSave = () => {
-    setUserData(prev => ({
-      ...prev,
-      username: editData.username,
-      address: editData.address
-    }));
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setEditData({
-      username: userData.username,
-      address: userData.address
-    });
-    setIsEditing(false);
-  };
+  useEffect(() => {
+    const updated = route.params?.updatedData;
+    if (updated) {
+      setUserData(prev => ({
+        ...prev,
+        username: updated.username,
+        address: updated.address,
+        areaCovered: updated.areaCovered ?? prev.areaCovered,
+        firstName: updated.firstName ?? prev.firstName,
+        lastName: updated.lastName ?? prev.lastName,
+        contact: updated.contact ?? prev.contact,
+        email: updated.email ?? prev.email,
+        barangay: updated.barangay ?? prev.barangay,
+      }));
+      navigation.setParams?.({ updatedData: undefined } as never);
+    }
+  }, [route.params?.updatedData, navigation]);
 
   const renderHeader = () => (
     <Animated.View 
@@ -116,50 +137,19 @@ export default function HProfile() {
           <User size={40} color="#2E523A" />
         </Animated.View>
         <View style={styles.userInfo}>
-          {isEditing ? (
-            <TextInput
-              style={[styles.username, styles.input]}
-              value={editData.username}
-              onChangeText={(text) => setEditData(prev => ({ ...prev, username: text }))}
-              autoFocus
-            />
-          ) : (
-            <Text style={styles.username}>{userData.username}</Text>
-          )}
+          <Text style={styles.username}>{userData.username}</Text>
           <View style={styles.addressContainer}>
-            {isEditing ? (
-              <TextInput
-                style={[styles.address, styles.input, { flex: 1 }]}
-                value={editData.address}
-                onChangeText={(text) => setEditData(prev => ({ ...prev, address: text }))}
-                multiline
-              />
-            ) : (
-              <Text style={styles.address}>{userData.address}</Text>
-            )}
-            {isEditing ? (
-              <View style={styles.editActions}>
-                <TouchableOpacity 
-                  style={[styles.editButton, { backgroundColor: '#2E523A' }]} 
-                  onPress={handleSave}
-                >
-                  <Check size={16} color="#FFFFFF" />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.editButton, { marginLeft: 8, backgroundColor: '#E0E0E0' }]} 
-                  onPress={handleCancel}
-                >
-                  <X size={16} color="#6B7280" />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity 
-                style={styles.editButton} 
-                onPress={handleEdit}
-              >
-                <Edit size={16} color="#2E523A" />
-              </TouchableOpacity>
-            )}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.address}>{userData.email}</Text>
+              <Text style={[styles.address, { marginTop: 4 }]}>{userData.address}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={handleEdit}
+              activeOpacity={0.8}
+            >
+              <Edit size={16} color="#2E523A" />
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -258,68 +248,74 @@ export default function HProfile() {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <SafeAreaView style={styles.container}>
-          {renderHeader()}
-
-          {/* Tabs */}
-          <Animated.View 
-            style={[
-              styles.tabsContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }]
-              }
-            ]}
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <TouchableOpacity 
-              style={[styles.tab, activeTab === 'leaderboard' && styles.activeTab]}
-              onPress={() => setActiveTab('leaderboard')}
-              activeOpacity={0.7}
+            {renderHeader()}
+            {/* Tabs */}
+            <Animated.View
+              style={[
+                styles.tabsContainer,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }],
+                  marginTop: -12
+                }
+              ]}
             >
-              <Award 
-                size={20} 
-                color={activeTab === 'leaderboard' ? '#2E523A' : '#9E9E9E'} 
-                fill={activeTab === 'leaderboard' ? '#2E523A' : 'none'}
-              />
-              <Text style={[styles.tabText, activeTab === 'leaderboard' && styles.activeTabText]}>
-                Leaderboard
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.tab, activeTab === 'contributions' && styles.activeTab]}
-              onPress={() => setActiveTab('contributions')}
-              activeOpacity={0.7}
-            >
-              <Award 
-                size={20} 
-                color={activeTab === 'contributions' ? '#2E523A' : '#9E9E9E'}
-                fill={activeTab === 'contributions' ? '#2E523A' : 'none'}
-              />
-              <Text style={[styles.tabText, activeTab === 'contributions' && styles.activeTabText]}>
-                Contributions
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.tab, activeTab === 'rewards' && styles.activeTab]}
-              onPress={() => setActiveTab('rewards')}
-              activeOpacity={0.7}
-            >
-              <Gift 
-                size={20} 
-                color={activeTab === 'rewards' ? '#2E523A' : '#9E9E9E'} 
-                fill={activeTab === 'rewards' ? '#2E523A' : 'none'}
-              />
-              <Text style={[styles.tabText, activeTab === 'rewards' && styles.activeTabText]}>
-                Rewards
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
+              <TouchableOpacity
+                style={[styles.tab, activeTab === 'leaderboard' && styles.activeTab]}
+                onPress={() => setActiveTab('leaderboard')}
+                activeOpacity={0.7}
+              >
+                <Award
+                  size={20}
+                  color={activeTab === 'leaderboard' ? '#2E523A' : '#9E9E9E'}
+                  fill={activeTab === 'leaderboard' ? '#2E523A' : 'none'}
+                />
+                <Text style={[styles.tabText, activeTab === 'leaderboard' && styles.activeTabText]}>
+                  Leaderboard
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.tab, activeTab === 'contributions' && styles.activeTab]}
+                onPress={() => setActiveTab('contributions')}
+                activeOpacity={0.7}
+              >
+                <Award
+                  size={20}
+                  color={activeTab === 'contributions' ? '#2E523A' : '#9E9E9E'}
+                  fill={activeTab === 'contributions' ? '#2E523A' : 'none'}
+                />
+                <Text style={[styles.tabText, activeTab === 'contributions' && styles.activeTabText]}>
+                  Contributions
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.tab, activeTab === 'rewards' && styles.activeTab]}
+                onPress={() => setActiveTab('rewards')}
+                activeOpacity={0.7}
+              >
+                <Gift
+                  size={20}
+                  color={activeTab === 'rewards' ? '#2E523A' : '#9E9E9E'}
+                  fill={activeTab === 'rewards' ? '#2E523A' : 'none'}
+                />
+                <Text style={[styles.tabText, activeTab === 'rewards' && styles.activeTabText]}>
+                  Rewards
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
 
           {/* Content */}
           <View style={styles.content}>
             {renderTabContent()}
           </View>
+          </ScrollView>
 
           {/* Bottom Navigation */}
           <View style={styles.bottomNav}>
@@ -409,18 +405,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
-  editActions: {
-    flexDirection: 'row',
-    marginLeft: 8,
-  },
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    fontFamily: 'Inter-Regular',
-  },
   tabsContainer: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
@@ -436,6 +420,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
+  },
+  scrollContent: {
+    paddingBottom: 160,
   },
   tab: {
     flex: 1,
