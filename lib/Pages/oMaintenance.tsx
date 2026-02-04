@@ -4,7 +4,7 @@ import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import { ChevronDown } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 type TabType = 'Maintenance' | 'Additive' | 'Process';
 
@@ -21,20 +21,22 @@ interface MaintenanceRequest {
 export default function OMaintenance() {
   const [selectedTab, setSelectedTab] = useState<TabType>('Maintenance');
   const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 1');
+  const [connectedDevice, setConnectedDevice] = useState<string | null>(null);
   const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
 
-  const maintenanceRequests: MaintenanceRequest[] = [
-    {
-      id: '1',
-      title: 'Change filters',
-      description: 'Change the stage 2 filters on SIBOL Machine 2',
-      requestNumber: '112103',
-      dateAssigned: 'August 10, 2025',
-      dueDate: 'August 10, 2025',
-      remarks: 'Change filter',
-    },
-  ];
+  React.useEffect(() => {
+    const ssid = route.params?.connectedNetwork;
+    if (ssid) {
+      setSelectedMachine(String(ssid));
+      setConnectedDevice(String(ssid));
+      // clear the param to avoid repeated updates if desired
+      // route.params.connectedNetwork = undefined; // avoid mutating route.params directly in some setups
+    }
+  }, [route.params?.connectedNetwork]);
+
+  const maintenanceRequests: MaintenanceRequest[] = [];
 
   return (
     <View style={tw`flex-1 bg-white`}>
@@ -82,6 +84,14 @@ export default function OMaintenance() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Connected device display */}
+          {connectedDevice ? (
+            <View style={tw`border border-[#88AB8E] rounded-[10px] bg-white p-4 mb-6`}>
+              <Text style={tw`text-sm text-[#4F6853] font-semibold mb-1`}>Connected Device</Text>
+              <Text style={tw`text-lg font-bold text-[#2E523A]`}>{connectedDevice}</Text>
+            </View>
+          ) : null}
 
           {maintenanceRequests.map((request) => (
             <View

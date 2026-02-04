@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, Platform, PermissionsAndroid } from 'react-native';
 import WifiManager from 'react-native-wifi-reborn';
+import { connectToESP32 } from '../config/esp32Connection';
 // use the React Native version of Lucide (renders native SVGs)
 import { Wifi, ArrowLeft, Check } from 'lucide-react-native';
+import { useRoute } from '@react-navigation/native';
 import tw from '../utils/tailwind';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,15 +19,27 @@ type WiFiConnectivityScreenNavigationProp = NativeStackNavigationProp<RootStackP
 export default function WiFiConnectivity() {
   const navigation = useNavigation<WiFiConnectivityScreenNavigationProp>();
   const [isConnected, setIsConnected] = React.useState(false);
+  const [connecting, setConnecting] = React.useState(false);
   const [selectedNetwork, setSelectedNetwork] = React.useState('');
+  const route = useRoute<any>();
   const [wifiNetworks, setWifiNetworks] = React.useState<{ name: string; strength: number }[]>([]);
   const [scanning, setScanning] = React.useState(false);
   const [scanError, setScanError] = React.useState<string | null>(null);
   const [permissionGranted, setPermissionGranted] = React.useState<boolean | null>(null);
   
-  const handleConnect = () => {
-    // Show the success popup immediately
-    setIsConnected(true);
+  const connectToNetwork = async () => {
+    if (!selectedNetwork) return;
+    setScanError(null);
+    setConnecting(true);
+    try {
+      await connectToESP32(selectedNetwork);
+      setIsConnected(true);
+      navigation.navigate('OMaintenance' as any, { connectedNetwork: selectedNetwork });
+    } catch (e: any) {
+      setScanError(e?.message ?? String(e));
+    } finally {
+      setConnecting(false);
+    }
   };
 
   const handleNetworkSelect = (networkName: string) => {
@@ -110,7 +124,7 @@ export default function WiFiConnectivity() {
               <Wifi size={40} color="#4F6853" />
             </View>
             <Text style={tw`text-2xl font-bold text-[#2E523A] text-center mb-2`}>
-              Add your Wi-Fi
+              Add Device
             </Text>
             <Text style={tw`text-center text-gray-600 mb-6 px-4`}>
               Select your Wi-Fi network to connect your SIBOL Machine
@@ -180,14 +194,16 @@ export default function WiFiConnectivity() {
       
       <View style={tw`px-5 py-4 border-t border-gray-200`}>
         <TouchableOpacity
-          onPress={handleConnect}
-          disabled={!selectedNetwork}
+          onPress={connectToNetwork}
+          disabled={!selectedNetwork || connecting}
           style={[
             tw`bg-[#4F6853] py-3 rounded-lg items-center`,
-            !selectedNetwork && tw`opacity-50`
+            (!selectedNetwork || connecting) && tw`opacity-50`
           ]}
         >
-          <Text style={tw`text-white font-semibold text-base`}>Connect</Text>
+          <Text style={tw`text-white font-semibold text-base`}>
+            {connecting ? 'Connecting…' : 'Connect'}
+          </Text>
         </TouchableOpacity>
       </View>
 
