@@ -9,7 +9,6 @@ import {
     Keyboard,
     ActivityIndicator,
     Image,
-    StyleSheet
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import tw from '../utils/tailwind';
@@ -159,59 +158,44 @@ export default function HMenu({ visible, onClose, onNavigate }: Props) {
     return (
         <>
             <TouchableWithoutFeedback onPress={onClose}>
-                <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
-                    <TouchableWithoutFeedback>
-                        <Animated.View
-                            style={[
-                                styles.menuContainer,
-                                { transform: [{ translateX }], width: SIDEBAR_WIDTH, backgroundColor: '#18472F' },
-                            ]}
-                        >
-                            {/* Header */}
-                            <View style={styles.header}>
-                                <View>
-                                    <Text style={styles.username}>{displayName}</Text>
-                                </View>
-                                <View style={styles.avatarContainer}>
-                                    <Image 
-                                        source={{ uri: 'https://via.placeholder.com/40' }} 
-                                        style={styles.avatar} 
-                                    />
-                                </View>
-                            </View>
+                <View style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, tw`bg-[rgba(0,0,0,0.5)]`]}>
+                     <TouchableWithoutFeedback>
+                         <Animated.View
+                             style={[
+                                 { transform: [{ translateX }], width: SIDEBAR_WIDTH },
+                                 tw`h-full bg-[#18472F]`,
+                             ]}
+                         >
+                             {/* Header */}
+                             <View style={tw`w-full bg-[#A6BCAF] px-5 py-4 flex-row justify-between items-center`}>
+                                 <View>
+                                     <Text style={tw`text-[16px] font-semibold text-[#18472F]`}>{displayName}</Text>
+                                 </View>
+                                 <View style={tw`w-10 h-10 rounded-full bg-[#E0E0E0] overflow-hidden`}>
+                                     <Image source={{ uri: 'https://via.placeholder.com/40' }} style={tw`w-full h-full`} />
+                                 </View>
+                             </View>
 
-                            {/* Menu Items */}
-                            <View style={styles.menuItems}>
-                                {menuItems.map((item) => (
-                                    <TouchableOpacity
-                                        key={item.id}
-                                        style={styles.menuItem}
-                                        onPress={() => handleNavigation(item.id)}
-                                    >
-                                        <item.icon size={20} color="#FFFFFF" style={styles.menuIcon} />
-                                        <Text style={styles.menuText}>{item.label}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
+                             {/* Menu Items */}
+                             <View style={tw`py-2`}>
+                                 {menuItems.map((item) => (
+                                     <TouchableOpacity key={item.id} style={tw`flex-row items-center py-4 px-5`} onPress={() => handleNavigation(item.id)}>
+                                         <item.icon size={20} color="#FFFFFF" />
+                                         <Text style={tw`text-[16px] text-white font-medium ml-4`}>{item.label}</Text>
+                                     </TouchableOpacity>
+                                 ))}
+                             </View>
 
-                            {/* Sign Out Button */}
-                            <TouchableOpacity 
-                                style={styles.signOutButton}
-                                onPress={() => setShowSignOutModal(true)}
-                                disabled={loggingOut}
-                            >
-                                {loggingOut ? (
-                                    <ActivityIndicator color="#18472F" />
-                                ) : (
-                                    <>
-                                        <LogOut size={20} color="#18472F" style={styles.signOutIcon} />
-                                        <Text style={styles.signOutText}>Sign Out</Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
-                        </Animated.View>
-                    </TouchableWithoutFeedback>
-                </View>
+                             {/* Sign Out Button */}
+                             <TouchableOpacity style={tw`absolute bottom-8 left-5 right-5 bg-[#A6BCAF] rounded-md py-3 flex-row items-center justify-center`} onPress={() => setShowSignOutModal(true)} disabled={loggingOut}>
+                                 {loggingOut ? <ActivityIndicator color="#18472F" /> : <>
+                                     <LogOut size={20} color="#18472F" />
+                                     <Text style={tw`text-[#18472F] text-[16px] font-semibold ml-3`}>Sign Out</Text>
+                                 </>}
+                             </TouchableOpacity>
+                         </Animated.View>
+                     </TouchableWithoutFeedback>
+                 </View>
             </TouchableWithoutFeedback>
 
             <SignOutModal
@@ -223,85 +207,3 @@ export default function HMenu({ visible, onClose, onNavigate }: Props) {
         </>
     );
 }
-
-const styles = StyleSheet.create({
-    overlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-    },
-    menuContainer: {
-        height: '100%',
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        elevation: 20,
-        shadowColor: '#000',
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-    },
-    header: {
-        width: '100%',
-        backgroundColor: '#A6BCAF',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    username: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#18472F',
-    },
-    avatarContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#E0E0E0',
-        overflow: 'hidden',
-    },
-    avatar: {
-        width: '100%',
-        height: '100%',
-    },
-    menuItems: {
-        paddingVertical: 10,
-    },
-    menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 16,
-        paddingHorizontal: 20,
-    },
-    menuIcon: {
-        marginRight: 16,
-    },
-    menuText: {
-        fontSize: 16,
-        color: '#FFFFFF',
-        fontWeight: '500',
-    },
-    signOutButton: {
-        position: 'absolute',
-        bottom: 30,
-        left: 20,
-        right: 20,
-        backgroundColor: '#A6BCAF',
-        borderRadius: 8,
-        paddingVertical: 14,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    signOutIcon: {
-        marginRight: 8,
-    },
-    signOutText: {
-        color: '#18472F',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-});

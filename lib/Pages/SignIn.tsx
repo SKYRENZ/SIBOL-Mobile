@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaView } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import tw from '../utils/tailwind';
@@ -147,10 +148,13 @@ export default function SignIn({ navigation }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={tw`flex-1`}
       >
-        <ScrollView
+        <KeyboardAwareScrollView
+          enableOnAndroid
+          extraScrollHeight={Platform.OS === 'ios' ? 20 : 120}
+          keyboardOpeningTime={0}
           contentContainerStyle={tw`flex-grow`}
-          showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           <View style={[tw`flex-1 justify-center py-8`, styles.container]}>
             <View style={tw`items-center mb-8`}>
@@ -274,7 +278,7 @@ export default function SignIn({ navigation }: Props) {
               </View>
             </View>
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
       <Snackbar
         visible={snackbar.visible}
