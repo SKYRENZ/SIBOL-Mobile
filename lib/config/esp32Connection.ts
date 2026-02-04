@@ -1,16 +1,21 @@
 import WifiManager from 'react-native-wifi-reborn';
 
-export async function connectToESP32(ssid: string): Promise<void> {
+export async function connectToESP32(ssid: string, password?: string): Promise<void> {
   if (!ssid) throw new Error('SSID is required');
 
   const mgr: any = (WifiManager as any)?.default ?? WifiManager;
-  // hard-coded ESP32 password per request
-  const password = ssid === 'ESP32_AP' ? '12345678' : '';
+  const pwd = password ?? '';
 
   // 1) direct open SSID API
   if (typeof mgr.connectToSSID === 'function') {
-    await mgr.connectToSSID(ssid);
-    return;
+    // open network API doesn't accept password — call when no password
+    if (pwd) {
+      // some implementations provide connectToProtectedSSID only when password is needed
+      // fallthrough to protected path
+    } else {
+      await mgr.connectToSSID(ssid);
+      return;
+    }
   }
 
   // 2) protected SSID variants (try several signatures / callback styles)
@@ -19,7 +24,7 @@ export async function connectToESP32(ssid: string): Promise<void> {
 
     // Try common Promise forms first (3-arg then 4-arg)
     try {
-      const res = fn(ssid, password, false); // (ssid, password, isWEP)
+      const res = fn(ssid, pwd, false); // (ssid, password, isWEP)
       if (res && typeof res.then === 'function') {
         await res;
         return;
@@ -27,7 +32,7 @@ export async function connectToESP32(ssid: string): Promise<void> {
     } catch (_) {}
 
     try {
-      const res4 = fn(ssid, password, false, false); // (ssid, password, isWEP, isHidden/flags)
+      const res4 = fn(ssid, pwd, false, false); // (ssid, password, isWEP, isHidden/flags)
       if (res4 && typeof res4.then === 'function') {
         await res4;
         return;
@@ -38,8 +43,7 @@ export async function connectToESP32(ssid: string): Promise<void> {
     try {
       await new Promise<void>((resolve, reject) => {
         try {
-          fn(ssid, password, false, (result: any) => {
-            // consider any callback invocation as success
+          fn(ssid, pwd, false, (result: any) => {
             resolve();
           });
         } catch (err) {
@@ -50,13 +54,12 @@ export async function connectToESP32(ssid: string): Promise<void> {
     } catch (_) {}
 
     // Try callback-style with 5 args: (ssid, password, isWEP, successCb, failureCb)
-    // This is last-resort because some natives expect 4 args only (calling with 5 may throw)
     try {
       await new Promise<void>((resolve, reject) => {
         try {
           fn(
             ssid,
-            password,
+            pwd,
             false,
             () => resolve(),
             (err: any) => reject(err ?? new Error('Connection failed'))
@@ -74,7 +77,6 @@ export async function connectToESP32(ssid: string): Promise<void> {
   throw new Error('No supported WifiManager connect method found');
 }
 
-// new: disconnect helper
 export async function disconnectFromESP32(ssid?: string): Promise<void> {
   const mgr: any = (WifiManager as any)?.default ?? WifiManager;
   if (typeof mgr.disconnect === 'function') {
@@ -82,7 +84,6 @@ export async function disconnectFromESP32(ssid?: string): Promise<void> {
     return;
   }
   if (typeof mgr.disconnectFromSSID === 'function') {
-    // some implementations accept an SSID arg
     await mgr.disconnectFromSSID(ssid ?? '');
     return;
   }
