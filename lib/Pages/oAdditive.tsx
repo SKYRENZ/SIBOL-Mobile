@@ -66,10 +66,17 @@ export default function OAdditive() {
 
   useEffect(() => {
     if (!selectedMachineId) return;
-    fetchAdditives(selectedMachineId)
-      .then(setAdditives)
-      .catch(() => setAdditives([]));
+    refreshAdditives(selectedMachineId);
   }, [selectedMachineId]);
+
+  const refreshAdditives = async (machineId: number) => {
+    try {
+      const rows = await fetchAdditives(machineId);
+      setAdditives(rows);
+    } catch {
+      setAdditives([]);
+    }
+  };
 
   const filteredAdditives = useMemo(() => {
     if (!additives.length) return [];
@@ -220,10 +227,10 @@ export default function OAdditive() {
           await createAdditive({
             machine_id: selectedMachineId,
             additive_type_id: payload.additiveId,
-            stage: 'N/A',
             value: Number(payload.value),
             units: payload.unit,
           });
+          // await refreshAdditives(selectedMachineId); // refresh immediately
         }}
       />
 
