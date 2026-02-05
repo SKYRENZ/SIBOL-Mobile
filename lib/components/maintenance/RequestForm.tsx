@@ -366,40 +366,8 @@ export default function RequestForm({
                      </TouchableOpacity>
                    </View>
 
-                  <View style={tw`mb-4`}>
-                    <Text style={tw`text-[13px] font-semibold text-[#88AB8E] mb-1.5`}>Machine ID:</Text>
-                     <TextInput
-                       value={sibolMachineNo}
-                       onChangeText={(text) => {
-                         setSibolMachineNo(text);
-                         if (error) setError(null);
-                       }}
-                       placeholder="Enter machine number"
-                       placeholderTextColor="#B0C4B0"
-                       style={tw`bg-white border border-[#88AB8E] rounded-[10px] px-3 py-2.5 text-[12px] text-[#2E523A] font-medium min-h-[40px]`}
-                       maxLength={50}
-                       editable={!loading}
-                     />
-                   </View>
-
                   <View style={tw`flex-row justify-between mb-4`}>
-                    <View style={tw`flex-1 mr-2`}>
-                      <Text style={tw`text-[13px] font-semibold text-[#88AB8E] mb-1.5`}>Area:</Text>
-                       <TextInput
-                         value={area}
-                         onChangeText={(text) => {
-                           setArea(text);
-                           if (error) setError(null);
-                         }}
-                         placeholder="Enter area"
-                         placeholderTextColor="#B0C4B0"
-                         style={tw`bg-white border border-[#88AB8E] rounded-[10px] px-3 py-2.5 text-[12px] text-[#2E523A] font-medium min-h-[40px]`}
-                         maxLength={50}
-                         editable={!loading}
-                       />
-                     </View>
-
-                    <View style={tw`flex-1 ml-2`}>
+                    <View style={tw`flex-1`}>
                       <Text style={tw`text-[13px] font-semibold text-[#88AB8E] mb-1.5`}>Date:</Text>
                        <TextInput
                         style={tw`bg-white border border-[#88AB8E] rounded-[10px] px-3 py-2.5 text-[12px] text-[#2E523A] font-medium min-h-[40px]`}

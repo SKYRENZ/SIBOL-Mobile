@@ -36,7 +36,7 @@ export default {
         googleMaps: {
           apiKey: process.env.EXPO_PUBLIC_ANDROID_GOOGLE_MAPS_API_KEY
         }
-      }
+      },
       softwareKeyboardLayoutMode: "resize"
     },
     web: {
