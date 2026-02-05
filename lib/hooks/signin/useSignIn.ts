@@ -26,6 +26,7 @@ export function useSignIn(navigation: any) {
   };
 
   const handleUsernameChange = (text: string) => {
+    if (loading) return; // ✅ block edits while signing in
     setUsername(text);
     if (text && !validateUsername(text)) {
       setUsernameError('Please enter a valid username');
@@ -35,6 +36,7 @@ export function useSignIn(navigation: any) {
   };
 
   const handlePasswordChange = (text: string) => {
+    if (loading) return; // ✅ block edits while signing in
     setPassword(text);
     if (!text || text.length === 0) {
       setPasswordError('Password is required');
@@ -58,6 +60,8 @@ export function useSignIn(navigation: any) {
   };
 
   const handleSignIn = async () => {
+    if (loading) return; // ✅ prevent double submit / loops
+
     let hasError = false;
     if (!validateUsername(username)) {
       setUsernameError('Please enter a valid username');
