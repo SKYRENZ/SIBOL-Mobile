@@ -1,12 +1,14 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Image, TouchableOpacity, Linking, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { X, MoreVertical } from 'lucide-react-native';
 import tw from '../../utils/tailwind';
 import Svg, { Path } from 'react-native-svg';
+import EndConvo from '../EndConvo';
 
 export default function ChatHeader() {
   const navigation = useNavigation();
+  const [showEndConvoModal, setShowEndConvoModal] = useState(false);
   const cloudLeftAnim = useRef(new Animated.Value(-80)).current;
   const cloudRightAnim = useRef(new Animated.Value(400)).current;
 
@@ -53,8 +55,8 @@ export default function ChatHeader() {
     Linking.openURL('mailto:uccsibol@gmail.com');
   };
 
-  const handleGoBack = () => {
-    navigation.goBack();
+  const handleClosePress = () => {
+    setShowEndConvoModal(true);
   };
 
   return (
@@ -98,7 +100,7 @@ export default function ChatHeader() {
       {/* Header Content - Fixed Layout */}
       <View style={[tw`absolute top-0 left-0 right-0 z-30 flex-row items-center`, { paddingTop: 16, paddingHorizontal: 12 }]}>
         {/* Close Button */}
-        <TouchableOpacity onPress={handleGoBack} style={tw`p-1`}>
+        <TouchableOpacity onPress={handleClosePress} style={tw`p-1`}>
           <X size={22} color="#FFF" strokeWidth={3} />
         </TouchableOpacity>
 
@@ -137,6 +139,9 @@ export default function ChatHeader() {
 
       {/* Spacer for header height */}
       <View style={{ height: 110 }} />
+
+      {/* End Conversation Modal */}
+      <EndConvo visible={showEndConvoModal} onClose={() => setShowEndConvoModal(false)} />
     </View>
   );
 }
