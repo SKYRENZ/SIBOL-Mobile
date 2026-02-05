@@ -6,6 +6,7 @@ import { ChevronDown } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { disconnectFromESP32 } from '../config/esp32Connection';
+import ConnectNetworkModal from '../components/ConnectNetworkModal';
 
 type TabType = 'Maintenance' | 'Additive' | 'Process';
 
@@ -24,6 +25,8 @@ export default function OMaintenance() {
   const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 1');
   const [connectedDevice, setConnectedDevice] = useState<string | null>(null);
   const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
+  const [connectModalVisible, setConnectModalVisible] = useState(false);
+  const [wifiConnecting, setWifiConnecting] = useState(false);
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
@@ -50,7 +53,23 @@ export default function OMaintenance() {
   };
 
   const handleConnect = () => {
-    navigation.navigate('WiFiConnectivity' as any);
+    // ✅ show modal instead of navigating away
+    setConnectModalVisible(true);
+  };
+
+  const handleConnectWifiSubmit = async (ssid: string, password: string) => {
+    if (!connectedDevice) return;
+
+    setWifiConnecting(true);
+    try {
+      // TODO: call your ESP32 provisioning function here
+      // Example (if you add one):
+      // await provisionESP32Wifi(connectedDevice, ssid, password);
+
+      setConnectModalVisible(false);
+    } finally {
+      setWifiConnecting(false);
+    }
   };
 
   const maintenanceRequests: MaintenanceRequest[] = [];
@@ -118,7 +137,7 @@ export default function OMaintenance() {
                   disabled={!connectedDevice}
                   style={[
                     tw`flex-1 py-2 mr-2 rounded-lg items-center`,
-                    !connectedDevice ? tw`bg-gray-100 border border-gray-200` : tw`bg-white border border-[#E5E7EB]`
+                    !connectedDevice ? tw`bg-gray-100 border border-gray-200` : tw`bg-white border border-[#E5E7EB]`,
                   ]}
                 >
                   <Text style={tw`text-[#4F6853]`}>Disconnect</Text>
@@ -126,9 +145,13 @@ export default function OMaintenance() {
 
                 <TouchableOpacity
                   onPress={handleConnect}
-                  style={tw`flex-1 py-2 ml-2 rounded-lg items-center bg-[#4F6853]`}
+                  disabled={wifiConnecting}
+                  style={[
+                    tw`flex-1 py-2 ml-2 rounded-lg items-center bg-[#4F6853]`,
+                    wifiConnecting ? tw`opacity-50` : null,
+                  ]}
                 >
-                  <Text style={tw`text-white`}>Connect to network</Text>
+                  <Text style={tw`text-white`}>{wifiConnecting ? 'Connecting…' : 'Connect to network'}</Text>
                 </TouchableOpacity>
               </View>
             </View>
