@@ -37,6 +37,7 @@ export default {
           apiKey: process.env.EXPO_PUBLIC_ANDROID_GOOGLE_MAPS_API_KEY
         }
       }
+      softwareKeyboardLayoutMode: "resize"
     },
     web: {
       favicon: "./assets/favicon.png"

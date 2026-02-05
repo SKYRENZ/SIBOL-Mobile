@@ -16,7 +16,7 @@ import { logout } from '../services/authService';
 import SignOutModal from './SignOutModal'; // ✅ Import modal
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SIDEBAR_WIDTH = Math.min(320, Math.floor(SCREEN_WIDTH * 0.58));
+const SIDEBAR_WIDTH = Math.min(300, Math.floor(SCREEN_WIDTH * 0.8));
 
 type Props = {
 	visible: boolean;
@@ -105,10 +105,11 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
 				<View style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, tw`bg-[rgba(0,0,0,0.3)]`]}>
 					<TouchableWithoutFeedback onPress={() => {}}>
 						<Animated.View
+							// use full-height percent so it responds to different screen containers (safe area, tablets)
 							style={[
 								{
 									width: SIDEBAR_WIDTH,
-									height: SCREEN_HEIGHT,
+									height: '100%',
 									transform: [{ translateX }],
 									position: 'absolute',
 									left: 0,
@@ -121,73 +122,43 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
 								tw`bg-[#193827]`,
 							]}
 						>
-							<TouchableOpacity
-								style={{ width: '100%', backgroundColor: '#A6BCAF', paddingHorizontal: 12, paddingTop: 20, paddingBottom: 14 }}
-								onPress={() => {
-									navigation.navigate('OProfile' as never);
-									onClose();
-								}}
-							>
-								<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+							<TouchableOpacity style={tw`w-full bg-[#A6BCAF] px-5 py-4`} onPress={() => { navigation.navigate('OProfile' as never); onClose(); }}>
+								<View style={tw`flex-row justify-between items-center`}>
 									<View>
-										<Text style={{ fontSize: 14, fontWeight: '600', color: '#18472f' }}>{displayName}</Text>
-										<Text style={{ fontSize: 11, color: '#18472f', marginTop: 4 }}>{roleLabel}</Text>
+										<Text style={tw`text-[16px] font-semibold text-[#18472F]`}>{displayName}</Text>
+										<Text style={tw`text-[11px] text-[#18472F] mt-1`}>{roleLabel}</Text>
 									</View>
-
-                                     <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
-                                         <User color="#18472f" size={22} />
-                                     </View>
-                                 </View>
-                             </TouchableOpacity>
+									<View style={tw`w-10 h-10 rounded-full bg-[#E0E0E0] items-center justify-center`}>
+										<User color="#18472F" size={20} />
+									</View>
+								</View>
+							</TouchableOpacity>
 
 							<View style={tw`h-[1px] bg-[#264A3C] my-2`} />
 
-							<View style={tw`mt-2 px-2`}>
-								<TouchableOpacity
-									style={tw`flex-row items-center py-3 px-3 rounded`}
-									onPress={() => {
-										navigation.navigate('OMaintenance' as never);
-										onClose();
-									}}
-								>
-									<HardDrive color="#E6F0E9" size={18} />
-									<Text style={tw`text-[14px] text-[#E6F0E9] ml-3`}>SIBOL Machines</Text>
+							<View style={tw`py-2`}>
+								{/* tailwind items to match hMenu sizing */}
+								<TouchableOpacity style={tw`flex-row items-center py-4 px-5`} onPress={() => { navigation.navigate('OMaintenance' as never); onClose(); }}>
+									<HardDrive color="#E6F0E9" size={20} />
+									<Text style={tw`text-[16px] text-[#E6F0E9] font-medium ml-4`}>SIBOL Machines</Text>
 								</TouchableOpacity>
 
-								<TouchableOpacity
-									style={tw`flex-row items-center py-3 px-3 rounded`}
-									onPress={() => {
-										navigation.navigate('ChatSupport' as never);
-										onClose();
-									}}
-								>
-									<MessageSquare color="#E6F0E9" size={18} />
-									<Text style={tw`text-[14px] text-[#E6F0E9] ml-3`}>Chat Support</Text>
+								<TouchableOpacity style={tw`flex-row items-center py-4 px-5`} onPress={() => { navigation.navigate('ChatSupport' as never); onClose(); }}>
+									<MessageSquare color="#E6F0E9" size={20} />
+									<Text style={tw`text-[16px] text-[#E6F0E9] font-medium ml-4`}>Chat Support</Text>
 								</TouchableOpacity>
 
-								<TouchableOpacity
-									style={tw`flex-row items-center py-3 px-3 rounded`}
-									onPress={() => {
-										onNavigate?.('Settings');
-										onClose();
-									}}
-								>
-									<Settings color="#E6F0E9" size={18} />
-									<Text style={tw`text-[14px] text-[#E6F0E9] ml-3`}>Settings</Text>
+								<TouchableOpacity style={tw`flex-row items-center py-4 px-5`} onPress={() => { onNavigate?.('Settings'); onClose(); }}>
+									<Settings color="#E6F0E9" size={20} />
+									<Text style={tw`text-[16px] text-[#E6F0E9] font-medium ml-4`}>Settings</Text>
 								</TouchableOpacity>
 							</View>
 
-							<View style={{ flex: 1 }} />
-
-							<View style={tw`px-4 pb-6`}>
-								<TouchableOpacity
-									onPress={() => setShowSignOutModal(true)} // ✅ Show modal instead of Alert
-									style={tw`flex-row items-center justify-center bg-[#A6BCAF] rounded py-3`}
-								>
-									<LogOut color="#18472f" size={18} />
-									<Text style={tw`ml-3 text-[14px] font-semibold text-[#18472f]`}>Sign Out</Text>
-								</TouchableOpacity>
-							</View>
+							{/* Anchor sign-out to bottom like hMenu for consistent layout */}
+							<TouchableOpacity style={tw`absolute bottom-8 left-5 right-5 bg-[#A6BCAF] rounded-md py-3 flex-row items-center justify-center`} onPress={() => setShowSignOutModal(true)}>
+								<LogOut color="#18472F" size={20} />
+								<Text style={tw`text-[#18472F] text-[16px] font-semibold ml-3`}>Sign Out</Text>
+							</TouchableOpacity>
 						</Animated.View>
 					</TouchableWithoutFeedback>
 				</View>

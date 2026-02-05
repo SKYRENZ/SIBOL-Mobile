@@ -3,6 +3,7 @@ import { View, TouchableOpacity, Text, Platform } from 'react-native';
 import tw from '../utils/tailwind';
 import { Menu, MessageSquare, Home as HomeIcon, ArrowLeft, QrCode } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMenu } from './MenuProvider';
 
 interface BottomNavbarProps {
@@ -15,7 +16,7 @@ export default function BottomNavbar({ onScan, currentPage, onRefresh }: BottomN
 	const navigation = useNavigation<any>();
 	const { openMenu } = useMenu();
 
-	const handleNavigation = (page: string) => {
+	const handleNavigation = async (page: string) => {
 		if (page === currentPage) {
 			if (onRefresh) {
 				onRefresh();
@@ -36,9 +37,27 @@ export default function BottomNavbar({ onScan, currentPage, onRefresh }: BottomN
 				case 'Scan':
 					if (onScan) onScan();
 					break;
-				case 'Back':
-					navigation.goBack();
+				case 'Back': {
+					// verify token first
+					const token = await AsyncStorage.getItem('token');
+					if (!token) {
+						// not authenticated — go to SignIn
+						navigation.navigate('SignIn' as never);
+						break;
+					}
+					// safe to navigate back if previous route is not an auth screen
+					const state = navigation.getState && navigation.getState();
+					const routes = state?.routes ?? [];
+					const idx = typeof state?.index === 'number' ? state.index : routes.length - 1;
+					const prev = routes[idx - 1];
+					const authScreens = ['SignIn', 'SignUp', 'Landing', 'VerifyEmail', 'ForgotPassword'];
+					if (prev && !authScreens.includes(prev.name)) {
+						navigation.goBack();
+					} else {
+						navigation.navigate('HDashboard' as never);
+					}
 					break;
+				}
 			}
 		}
 	};

@@ -4,6 +4,7 @@ import tw from '../utils/tailwind';
 import { useNavigation } from '@react-navigation/native';
 import { Menu, FileText, Home as HomeIcon, Map as MapIcon, ArrowLeft } from 'lucide-react-native';
 import { useMenu } from './MenuProvider';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface BottomNavbarProps {
   currentPage?: 'Menu' | 'Request' | 'Home' | 'Map' | 'Back';
@@ -14,7 +15,7 @@ export default function BottomNavbar({ currentPage, onRefresh }: BottomNavbarPro
   const navigation = useNavigation();
   const { openMenu } = useMenu();
 
-  const handleNavigation = (page: string) => {
+  const handleNavigation = async (page: string) => {
     if (page === currentPage) {
       if (onRefresh) {
         onRefresh();
@@ -45,9 +46,24 @@ export default function BottomNavbar({ currentPage, onRefresh }: BottomNavbarPro
         case 'Map':
           navigation.navigate('OMap' as never);
           break;
-        case 'Back':
-          navigation.goBack();
+        case 'Back': {
+          const token = await AsyncStorage.getItem('token');
+          if (!token) {
+            navigation.navigate('SignIn' as never);
+            break;
+          }
+          const state = navigation.getState && navigation.getState();
+          const routes = state?.routes ?? [];
+          const idx = typeof state?.index === 'number' ? state.index : routes.length - 1;
+          const prev = routes[idx - 1];
+          const authScreens = ['SignIn', 'SignUp', 'Landing', 'VerifyEmail', 'ForgotPassword'];
+          if (prev && !authScreens.includes(prev.name)) {
+            navigation.goBack();
+          } else {
+            navigation.navigate('ODashboard' as never);
+          }
           break;
+        }
       }
     }
   };

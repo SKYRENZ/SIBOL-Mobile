@@ -26,6 +26,7 @@ import ChatIntro from './lib/Pages/ChatIntro';
 import WiFiConnectivity from './lib/Pages/WiFiConnectivity';
 import OProfile from './lib/Pages/oProfile';
 import HProfile from './lib/Pages/hProfile';
+import HProfileEdit from './lib/Pages/hProfileEdit';
 import HMap from './lib/Pages/hMap';
 
 const Stack = createNativeStackNavigator();
@@ -61,6 +62,7 @@ export default function App() {
           <Stack.Screen name="ChatIntro" component={ChatIntro} />
           <Stack.Screen name="OProfile" component={OProfile} />
           <Stack.Screen name="HProfile" component={HProfile} />
+          <Stack.Screen name="HProfileEdit" component={HProfileEdit} />
           <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
           <Stack.Screen name="WiFiConnectivity" component={WiFiConnectivity} />

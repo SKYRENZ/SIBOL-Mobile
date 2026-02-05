@@ -10,8 +10,9 @@ import {
   Modal,
   FlatList,
   TouchableWithoutFeedback,
-  Image, // ✅ add
+  Image,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -248,10 +249,13 @@ export default function SignUp({ navigation, route }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={tw`flex-1`}
       >
-        <ScrollView
+        <KeyboardAwareScrollView
+          enableOnAndroid
+          extraScrollHeight={Platform.OS === 'ios' ? 20 : 120}
+          keyboardOpeningTime={0}
           contentContainerStyle={tw`flex-grow`}
-          showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           <View style={[tw`flex-1 py-8`, styles.container]}>
             <Text style={[tw`text-center font-bold text-primary mb-6`, styles.heading]}>
@@ -548,7 +552,7 @@ export default function SignUp({ navigation, route }: Props) {
               </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
 
       <Snackbar
