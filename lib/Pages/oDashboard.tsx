@@ -13,9 +13,11 @@ import {
 } from 'react-native';
 import tw from '../utils/tailwind';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Droplet } from 'lucide-react-native';
 import BottomNavbar from '../components/oBotNav';
 import ResponsiveTaskCard from '../components/primitives/ResponsiveTaskCard';
 import ResponsiveImage from '../components/primitives/ResponsiveImage';
+import CreateFeedstockModal from '../components/CreateFeedstockModal';
 import { useResponsiveStyle, useResponsiveFontSize } from '../utils/responsiveStyles';
 import { useResponsiveContext } from '../utils/ResponsiveContext';
 import { useNavigation } from '@react-navigation/native';
@@ -116,6 +118,7 @@ export default function ODashboard() {
   const screenHeight = Dimensions.get('window').height;
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showActivatePopup, setShowActivatePopup] = useState(false);
+  const [showCreateFeedstockModal, setShowCreateFeedstockModal] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const isTallScreen = screenHeight > 800;
@@ -244,12 +247,20 @@ export default function ODashboard() {
                   <Text style={[tw`text-[#2E523A]`, { fontSize: styles.sectionTitle.fontSize, fontWeight: 'bold' }]}>
                     SIBOL Machines
                   </Text>
-                  <TouchableOpacity 
-                    onPress={() => setShowActivatePopup(true)}
-                    style={tw`bg-primary p-2 rounded-full`}
-                  >
-                    <MaterialIcons name="add" size={24} color="white" />
-                  </TouchableOpacity>
+                  <View style={tw`flex-row gap-2`}>
+                    <TouchableOpacity
+                      onPress={() => setShowCreateFeedstockModal(true)}
+                      style={tw`bg-primary p-2 rounded-full`}
+                    >
+                      <Droplet size={24} color="white" fill="white" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setShowActivatePopup(true)}
+                      style={tw`bg-primary p-2 rounded-full`}
+                    >
+                      <MaterialIcons name="add" size={24} color="white" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
 
@@ -300,7 +311,7 @@ export default function ODashboard() {
                   Are you sure you want to activate a new SIBOL Machine?
                 </Text>
                 <View style={tw`flex-row justify-center space-x-4 mt-4`}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => setShowActivatePopup(false)}
                     style={[
                       tw`px-6 py-2 rounded-md border border-gray-300 flex-1 max-w-[120px] items-center`,
@@ -309,7 +320,7 @@ export default function ODashboard() {
                   >
                     <Text style={tw`text-gray-700 font-medium`}>Cancel</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => {
                       setShowActivatePopup(false);
                       navigation.navigate('WiFiConnectivity');
@@ -327,6 +338,16 @@ export default function ODashboard() {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      {/* Create Feedstock Modal */}
+      <CreateFeedstockModal
+        visible={showCreateFeedstockModal}
+        onClose={() => setShowCreateFeedstockModal(false)}
+        onCreate={(weightKg) => {
+          console.log('Creating feedstock with weight:', weightKg);
+          // Add your feedstock creation logic here
+        }}
+      />
     </SafeAreaView>
   );
 }
