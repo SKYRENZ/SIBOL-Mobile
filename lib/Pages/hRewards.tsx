@@ -20,6 +20,7 @@ import { ArrowLeft, Gift } from 'lucide-react-native';
 import useRewards from '../hooks/useRewards';
 import RedemptionModal from '../components/RedemptionModal';
 import { getMyPoints } from '../services/profileService';
+import BottomNavbar from '../components/hBotNav';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_GAP = 16;
@@ -127,7 +128,7 @@ export default function HRewards() {
   const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
     scrollView: { flex: 1 },
-    scrollViewContent: { paddingBottom: 40 },
+    scrollViewContent: { paddingBottom: 120 },
     container: { flex: 1, backgroundColor: '#FFFFFF' },
     header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingBottom: 0, backgroundColor: 'transparent', position: 'relative', zIndex: 10 },
     backButton: { padding: 4, marginRight: 12 },
@@ -182,7 +183,11 @@ export default function HRewards() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollViewContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <ArrowLeft size={24} color="#2E523A" />
@@ -236,8 +241,10 @@ export default function HRewards() {
 
       <RedemptionModal visible={showClaimModal} code={claimCode} pointsUsed={selectedReward?.points || 0} onClose={closeModal} />
 
-      {/* download handled inside modal via parent handler -> using Share above */}
-      {/* We keep modal's Download button behavior by intercepting onClose and share; RedemptionModal UI contains Download button - to wire it, we can handle share via the modal's OK button or integrate an explicit prop if you want deeper control. */}
+      {/* ✅ Household bottom nav */}
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
+        <BottomNavbar />
+      </View>
     </SafeAreaView>
   );
 }
