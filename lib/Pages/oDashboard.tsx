@@ -362,10 +362,6 @@ export default function ODashboard() {
       <CreateFeedstockModal
         visible={showCreateFeedstockModal}
         onClose={() => setShowCreateFeedstockModal(false)}
-        onCreate={(weightKg) => {
-          console.log('Creating feedstock with weight:', weightKg);
-          // Add your feedstock creation logic here
-        }}
       />
 
       <ChangePasswordModal
