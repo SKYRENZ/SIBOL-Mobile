@@ -137,6 +137,8 @@ export default function SignUp({ navigation, route }: Props) {
   const [previewUri, setPreviewUri] = useState<string | null>(null);
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [hasReadTerms, setHasReadTerms] = useState(false);
   const [showRolePicker, setShowRolePicker] = useState(false);
   const [showBarangayPicker, setShowBarangayPicker] = useState(false);
 
@@ -506,31 +508,52 @@ export default function SignUp({ navigation, route }: Props) {
                 </Modal>
               </View>
 
-              <TouchableOpacity
-                onPress={() => {
-                  setAcceptedTerms(!acceptedTerms);
-                  setTouched(t => ({ ...t, terms: true }));
-                }}
-                style={tw`flex-row items-center gap-2 mt-2`}
-              >
-                <View
-                  style={[
-                    tw`w-5 h-5 rounded-[5px] items-center justify-center`,
-                    acceptedTerms
-                      ? tw`bg-primary`
-                      : [
-                          tw`bg-white`,
-                          tw`border-2`,
-                          (!acceptedTerms && (touched.terms || submitted)) ? tw`border-red-500` : tw`border-text-gray`
-                        ]
-                  ]}
+              <View style={tw`flex-row items-center gap-2 mt-2`}>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (hasReadTerms) {
+                      setAcceptedTerms(!acceptedTerms);
+                      setTouched(t => ({ ...t, terms: true }));
+                    } else {
+                      setShowTermsModal(true);
+                    }
+                  }}
+                  disabled={!hasReadTerms && !acceptedTerms}
                 >
-                  {acceptedTerms && <CheckIcon />}
-                </View>
+                  <View
+                    style={[
+                      tw`w-5 h-5 rounded-[5px] items-center justify-center`,
+                      acceptedTerms
+                        ? tw`bg-primary`
+                        : [
+                            tw`bg-white`,
+                            tw`border-2`,
+                            (!acceptedTerms && (touched.terms || submitted)) ? tw`border-red-500` : tw`border-text-gray`,
+                            !hasReadTerms && tw`opacity-50`
+                          ]
+                    ]}
+                  >
+                    {acceptedTerms && <CheckIcon />}
+                  </View>
+                </TouchableOpacity>
                 <Text style={[tw`text-primary`, { fontSize: 11, fontWeight: '600' }]}>
-                  I accept the terms and privacy policy
+                  I accept the{' '}
+                  <Text 
+                    style={[tw`text-primary underline`, { fontSize: 11, fontWeight: '700' }]}
+                    onPress={() => {
+                      setShowTermsModal(true);
+                      setHasReadTerms(false);
+                    }}
+                  >
+                    terms and privacy policy
+                  </Text>
+                  {!hasReadTerms && !acceptedTerms && (
+                    <Text style={[tw`text-gray-500`, { fontSize: 10 }]}>
+                      {' '}(Read to accept)
+                    </Text>
+                  )}
                 </Text>
-              </TouchableOpacity>
+              </View>
 
               <Button
                 title={loading ? 'Creating account...' : 'Create account'}
@@ -561,6 +584,181 @@ export default function SignUp({ navigation, route }: Props) {
         type={snackbar.type}
         onDismiss={() => setSnackbar(s => ({ ...s, visible: false }))}
       />
+
+      {/* Terms and Privacy Policy Modal */}
+      <Modal
+        visible={showTermsModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowTermsModal(false)}
+      >
+        <View style={tw`flex-1 bg-black/50 justify-end`}>
+          <View style={tw`bg-white rounded-t-3xl h-5/6`}>
+            {/* Header */}
+            <View style={tw`flex-row items-center justify-between px-6 py-4 border-b border-gray-200`}>
+              <Text style={tw`text-xl font-bold text-primary`}>Terms & Privacy Policy</Text>
+              <TouchableOpacity onPress={() => setShowTermsModal(false)}>
+                <Text style={tw`text-primary text-2xl font-bold`}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Scrollable Content */}
+            <ScrollView 
+              style={tw`flex-1 px-6 py-4`} 
+              showsVerticalScrollIndicator={true}
+              onScroll={(event) => {
+                const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+                const isScrolledToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 20;
+                if (isScrolledToBottom && !hasReadTerms) {
+                  setHasReadTerms(true);
+                }
+              }}
+              scrollEventThrottle={400}
+            >
+              {/* Terms of Service */}
+              <Text style={tw`text-2xl font-bold text-primary mb-4`}>Terms of Service</Text>
+              
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>1. Acceptance of Terms</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                By accessing or using SIBOL ("the Service"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Service. Your continued use of the Service constitutes acceptance of any modifications to these terms.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>2. Eligibility</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                You must be at least 18 years of age to use SIBOL. By using the Service, you represent and warrant that you meet this age requirement and have the legal capacity to enter into these Terms of Service.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>3. Use of Service</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                You agree to use SIBOL only for lawful purposes and in accordance with these Terms. You shall not use the Service to engage in any activity that violates applicable laws, infringes on the rights of others, or disrupts the operation of the Service. SIBOL reserves the right to suspend or terminate your account if you violate these terms.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>4. User Accounts</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                To access certain features of the Service, you may be required to create an account. You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You agree to notify SIBOL immediately of any unauthorized use of your account.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>5. Intellectual Property</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                All content, trademarks, logos, and intellectual property displayed on SIBOL are the property of SIBOL or its licensors. You may not reproduce, distribute, modify, or create derivative works from any content without prior written consent from SIBOL.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>6. User Content</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                You retain ownership of any content you submit to SIBOL. However, by submitting content, you grant SIBOL a worldwide, non-exclusive, royalty-free license to use, reproduce, modify, and distribute your content in connection with the Service. You are solely responsible for the content you submit and must ensure it does not violate any laws or infringe on third-party rights.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>7. Disclaimers</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                SIBOL is provided "as is" and "as available" without warranties of any kind, either express or implied. SIBOL does not guarantee that the Service will be uninterrupted, error-free, or secure. You use the Service at your own risk.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>8. Limitations of Liability</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                To the maximum extent permitted by law, SIBOL and its affiliates, officers, employees, and agents shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising out of or related to your use of the Service. In no event shall SIBOL's total liability exceed the amount you paid, if any, for accessing the Service.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>9. Contact</Text>
+              <Text style={tw`text-sm text-gray-700 mb-6`}>
+                If you have any questions about these Terms of Service, please contact us at sibolucc@gmail.com or through the contact information provided in the application.
+              </Text>
+
+              {/* Privacy Policy */}
+              <Text style={tw`text-2xl font-bold text-primary mb-4 mt-6`}>Privacy Policy</Text>
+              
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>Data Privacy Act Compliance</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                SIBOL is committed to protecting your privacy and ensuring compliance with the Data Privacy Act of 2012 (Republic Act No. 10173) of the Philippines. This Privacy Policy explains how we collect, use, store, and protect your personal information in accordance with applicable data protection laws.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>1. Information We Collect</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                We collect the following types of information:
+                {"\n"}• Personal Information: Name, email address, contact number, barangay/area information, and identification documents you provide during registration.
+                {"\n"}• Usage Data: Information about how you interact with our Service, including device information, IP addresses, browser type, and access times.
+                {"\n"}• Location Data: With your consent, we may collect location information to provide location-based services.
+                {"\n"}• Waste Management Data: Information related to waste collection, disposal, and recycling activities you engage in through the Service.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>2. How We Use Information</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                We use your information for the following purposes:
+                {"\n"}• To provide, maintain, and improve the Service.
+                {"\n"}• To process your registration and authenticate your account.
+                {"\n"}• To facilitate waste management operations and communications.
+                {"\n"}• To send you notifications, updates, and administrative messages.
+                {"\n"}• To analyze usage patterns and enhance user experience.
+                {"\n"}• To comply with legal obligations and enforce our Terms of Service.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>3. Sharing of Information</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                We do not sell your personal information. We may share your information with:
+                {"\n"}• Service Providers: Third-party vendors who assist in operating the Service, subject to confidentiality obligations.
+                {"\n"}• Government Authorities: When required by law or to protect the rights, property, or safety of SIBOL, our users, or the public.
+                {"\n"}• Business Transfers: In connection with a merger, acquisition, or sale of assets, your information may be transferred to the successor entity.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>4. Cookies and Tracking Technologies</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                We use cookies and similar tracking technologies to enhance your experience on SIBOL. Cookies are small data files stored on your device that help us remember your preferences and analyze Service usage. You can manage cookie preferences through your browser settings, but disabling cookies may affect certain features of the Service.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>5. Data Retention</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                We retain your personal information for as long as necessary to fulfill the purposes described in this Privacy Policy, unless a longer retention period is required or permitted by law. When your information is no longer needed, we will securely delete or anonymize it.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>6. Data Security</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                We implement reasonable security measures to protect your personal information from unauthorized access, disclosure, alteration, or destruction. However, no method of transmission over the internet or electronic storage is 100% secure. While we strive to protect your information, we cannot guarantee absolute security.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>7. Your Rights</Text>
+              <Text style={tw`text-sm text-gray-700 mb-3`}>
+                Under the Data Privacy Act, you have the right to:
+                {"\n"}• Access your personal information and request a copy.
+                {"\n"}• Correct inaccurate or incomplete information.
+                {"\n"}• Object to or restrict the processing of your information.
+                {"\n"}• Request deletion of your information, subject to legal requirements.
+                {"\n"}• Withdraw consent at any time, where processing is based on consent.
+                {"\n"}To exercise these rights, please contact us at sibolucc@gmail.com.
+              </Text>
+
+              <Text style={tw`text-base font-bold text-primary mt-4 mb-2`}>8. Contact</Text>
+              <Text style={tw`text-sm text-gray-700 mb-6`}>
+                If you have any questions or concerns about this Privacy Policy or our data practices, please contact our Data Protection Officer at sibolucc@gmail.com.
+              </Text>
+
+              <Text style={tw`text-xs text-gray-500 mb-4 italic`}>
+                Last Updated: February 6, 2026
+              </Text>
+            </ScrollView>
+
+            {/* Footer Button */}
+            <View style={tw`px-6 py-4 border-t border-gray-200`}>
+              {!hasReadTerms && (
+                <Text style={tw`text-center text-gray-500 text-xs mb-2`}>
+                  Please scroll to the bottom to continue
+                </Text>
+              )}
+              <Button
+                title={hasReadTerms ? "I Understand" : "Scroll to Bottom"}
+                onPress={() => {
+                  if (hasReadTerms) {
+                    setAcceptedTerms(true);
+                    setTouched(t => ({ ...t, terms: true }));
+                    setShowTermsModal(false);
+                  }
+                }}
+                disabled={!hasReadTerms}
+                textStyle={{ fontSize: 16, fontWeight: '700', color: '#FFFDF4' }}
+                style={!hasReadTerms ? tw`opacity-50` : undefined}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
