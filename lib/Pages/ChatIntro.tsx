@@ -16,7 +16,7 @@ export default function ChatIntro() {
   const [kavKey, setKavKey] = useState(0);
 
   const [messageText, setMessageText] = useState('');
-  const [messages, setMessages] = useState<{ type: 'ai' | 'user'; text: string }[]>([
+  const [messages, setMessages] = useState<{ type: 'ai' | 'user'; text: string; translatedText?: string; showTranslation?: boolean }[]>([
     { type: 'ai', text: 'Good day, User! How can I assist you today?' }
   ]);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -24,6 +24,7 @@ export default function ChatIntro() {
   const [showFAQs, setShowFAQs] = useState(true);
   const [isAITyping, setIsAITyping] = useState(false);
   const [isUserTyping, setIsUserTyping] = useState(false);
+  const [translatingIndex, setTranslatingIndex] = useState<number | null>(null);
   const cloudLeftAnim = useRef(new Animated.Value(400)).current;
   const cloudRightAnim = useRef(new Animated.Value(-100)).current;
   const scrollRef = useRef<any>(null);
@@ -88,6 +89,36 @@ export default function ChatIntro() {
       ]);
     } finally {
       setIsAITyping(false);
+    }
+  };
+
+  const handleTranslate = async (index: number) => {
+    const message = messages[index];
+    
+    // If already translated, toggle display
+    if (message.translatedText) {
+      setMessages(prev => prev.map((msg, i) => 
+        i === index ? { ...msg, showTranslation: !msg.showTranslation } : msg
+      ));
+      return;
+    }
+
+    // Detect if message is likely in English (simple check for common English words)
+    const englishPattern = /\b(the|is|are|was|were|have|has|can|will|would|should|this|that|you|your|how|what|when|where|why)\b/i;
+    const isEnglish = englishPattern.test(message.text);
+    
+    // Request translation from backend
+    setTranslatingIndex(index);
+    try {
+      const translationCommand = isEnglish ? 'TRANSLATE_TO_TAGALOG:' : 'TRANSLATE_TO_ENGLISH:';
+      const data = await sendChatMessage(`${translationCommand} ${message.text}`);
+      setMessages(prev => prev.map((msg, i) => 
+        i === index ? { ...msg, translatedText: data.reply, showTranslation: true } : msg
+      ));
+    } catch (error) {
+      console.error('Translation error:', error);
+    } finally {
+      setTranslatingIndex(null);
     }
   };
 
@@ -230,8 +261,15 @@ export default function ChatIntro() {
                       }
                     ]}>
                       <Text style={tw`text-white text-[14px] font-bold font-inter`}>
-                        {message.text}
+                        {message.showTranslation && message.translatedText ? message.translatedText : message.text}
                       </Text>
+                      
+                      {/* Translate Button - Inside message box, bottom right */}
+                      <TouchableOpacity onPress={() => handleTranslate(index)} style={tw`self-end mt-2`} disabled={translatingIndex === index}>
+                        <Text style={[tw`text-white text-[10px] font-bold font-inter`, { textDecorationLine: 'underline' }]}>
+                          {translatingIndex === index ? 'Translating...' : (message.showTranslation ? 'Hide Translate' : 'Translate')}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 ) : (
