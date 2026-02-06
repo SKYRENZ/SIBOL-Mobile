@@ -2,36 +2,58 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import tw from '../../utils/tailwind';
 
-interface TaskCardProps {
+export interface TaskCardProps {
   title: string;
   description: string;
   dueDate: string;
-  onView?: () => void; // ✅ add
+  onViewPress?: () => void;
 }
 
-export default function ResponsiveTaskCard({ title, description, dueDate, onView }: TaskCardProps) {
+export default function ResponsiveTaskCard({
+  title,
+  description,
+  dueDate,
+  onViewPress,
+}: TaskCardProps) {
+  const viewDisabled = !onViewPress;
+
+  const Row = ({ label, value }: { label: string; value: string }) => (
+    <View style={tw`flex-row items-start mt-1`}>
+      <Text style={tw`text-gray-600 text-xs font-semibold w-20`}>{label}:</Text>
+      <Text style={tw`text-[#2E523A] text-xs flex-1`} numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
+  );
+
   return (
-    <View style={tw`bg-white rounded-xl p-4 mr-3 w-[260px]`}>
-      <View style={tw`flex-row items-center`}>
-        <View style={tw`flex-1`}>
-          <Text style={tw`text-[#2E523A] font-bold text-sm`} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text style={tw`text-gray-600 text-xs mt-1`} numberOfLines={2}>
-            {description}
-          </Text>
-          <Text style={tw`text-gray-500 text-[11px] mt-2`}>
-            {dueDate}
-          </Text>
-        </View>
+    <View style={tw`bg-white rounded-xl p-4 mr-4 w-72`}>
+      <Row label="Title" value={title} />
+      <Row label="Description" value={description} />
+
+      <View style={tw`flex-row items-start mt-1`}>
+        <Text style={tw`text-gray-600 text-xs font-semibold w-20`}>Due Date:</Text>
+        <Text style={tw`text-gray-600 text-xs flex-1`} numberOfLines={1}>
+          {dueDate}
+        </Text>
       </View>
-      <View style={tw`mt-3 flex-row justify-end`}>
+
+      {/* ✅ Stretch button full width and center text */}
+      <View style={tw`mt-3`}>
         <TouchableOpacity
-          onPress={onView}
-          disabled={!onView}
-          style={tw`bg-primary px-3 py-1.5 rounded-md ${onView ? '' : 'opacity-50'}`}
+          onPress={onViewPress}
+          disabled={viewDisabled}
+          activeOpacity={0.85}
+          style={[
+            tw`w-full py-2 rounded-md items-center justify-center`,
+            viewDisabled ? tw`bg-gray-300` : tw`bg-[#2f6b3f]`,
+          ]}
         >
-          <Text style={tw`text-white text-[11px] font-bold`}>View</Text>
+          <Text
+            style={viewDisabled ? tw`text-gray-600 text-xs font-semibold` : tw`text-white text-xs font-semibold`}
+          >
+            View Details
+          </Text>
         </TouchableOpacity>
       </View>
     </View>

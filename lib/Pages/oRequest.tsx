@@ -26,6 +26,11 @@ export default function ORequest() {
   const route = useRoute<any>(); // ✅ keep loose to avoid navigator typing mismatch
   const lastNavAtRef = useRef<number | null>(null); // ✅ prevents re-applying params repeatedly
 
+  // ✅ NEW: store each rendered card Y position inside the ScrollView content
+  const itemYRef = useRef<Record<string, number>>({});
+  // ✅ NEW: when Dashboard requests "open this ticket", remember it until layout is ready
+  const pendingScrollToIdRef = useRef<string | null>(null);
+
   const {
     pendingTickets,
     forReviewTickets,
@@ -39,6 +44,24 @@ export default function ORequest() {
   } = useMaintenance();
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // ✅ NEW: try scroll when we have layout info
+  const tryScrollToPendingId = useCallback(() => {
+    const id = pendingScrollToIdRef.current;
+    if (!id) return;
+
+    const y = itemYRef.current[id];
+    if (typeof y !== 'number') return;
+
+    // small offset so it doesn't stick to the very top edge
+    const targetY = Math.max(0, y - 12);
+
+    // wait a tick so the expansion layout settles
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ x: 0, y: targetY, animated: true });
+      pendingScrollToIdRef.current = null; // ✅ consume it (scroll only once)
+    }, 50);
+  }, []);
 
   // ✅ Apply navigation intent from Dashboard:
   // - force tab (Pending)
@@ -55,9 +78,13 @@ export default function ORequest() {
     }
 
     if (params.openRequestId) {
-      setExpandedIds(new Set([String(params.openRequestId)]));
-      // optional: scroll to top so the user sees the list immediately
-      setTimeout(() => scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true }), 0);
+      const id = String(params.openRequestId);
+
+      setExpandedIds(new Set([id]));
+      pendingScrollToIdRef.current = id;
+
+      // ✅ DON'T force scroll to top; we'll scroll to the ticket once layout is measured
+      // setTimeout(() => scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true }), 0);
     }
   }, [route.params]);
 
@@ -180,6 +207,11 @@ export default function ORequest() {
 
   const filteredRequests = getFilteredTickets();
 
+  // ✅ NEW: whenever list renders / expands, attempt the scroll
+  useEffect(() => {
+    tryScrollToPendingId();
+  }, [activeFilter, filteredRequests.length, expandedIds, tryScrollToPendingId]);
+
   return (
     <View style={tw`flex-1 bg-white`}>
       <ScrollView ref={scrollViewRef} style={tw`flex-1`}>
@@ -207,13 +239,25 @@ export default function ORequest() {
             </View>
           ) : (
             filteredRequests.map((request) => (
-              <RequestCard
+              // ✅ Wrap each card so we can measure its Y position
+              <View
                 key={request.id}
-                request={request}
-                onToggleExpand={toggleRequestExpanded}
-                onMarkDone={handleMarkDone}
-                onCancelRequest={handleCancelRequest}
-              />
+                onLayout={(e) => {
+                  itemYRef.current[request.id] = e.nativeEvent.layout.y;
+
+                  // ✅ if this is the one we need, scroll as soon as we learn its position
+                  if (pendingScrollToIdRef.current === request.id) {
+                    tryScrollToPendingId();
+                  }
+                }}
+              >
+                <RequestCard
+                  request={request}
+                  onToggleExpand={toggleRequestExpanded}
+                  onMarkDone={handleMarkDone}
+                  onCancelRequest={handleCancelRequest}
+                />
+              </View>
             ))
           )}
         </View>

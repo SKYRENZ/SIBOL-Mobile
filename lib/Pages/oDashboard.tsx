@@ -26,8 +26,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import { useMaintenance } from '../hooks/useMaintenance'; // ✅ add
 
+type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
+
 type RootStackParamList = {
   WiFiConnectivity: undefined;
+
+  // ✅ add: make sure this matches your navigator screen name for oRequest
+  ORequest: { initialTab?: FilterTab; openRequestId?: string; navAt?: number };
   // Add other screens here as needed
 };
 
@@ -192,6 +197,24 @@ export default function ODashboard() {
     }
   }));
 
+  const handleSeeAll = useCallback(() => {
+    navigation.navigate('ORequest', {
+      initialTab: 'Pending',
+      navAt: Date.now(),
+    });
+  }, [navigation]);
+
+  const handleViewTicket = useCallback(
+    (requestId: number) => {
+      navigation.navigate('ORequest', {
+        initialTab: 'Pending',
+        openRequestId: String(requestId),
+        navAt: Date.now(),
+      });
+    },
+    [navigation]
+  );
+
   // ✅ Only show On-going (this is what you call "Pending" in Operator UI)
   const onGoingTickets = useMemo(() => {
     return (tickets || []).filter(t => t.Status === 'On-going');
@@ -202,9 +225,10 @@ export default function ODashboard() {
       const due = t.Due_date ? new Date(t.Due_date).toLocaleDateString() : null;
       return {
         key: String(t.Request_Id),
+        requestId: Number(t.Request_Id), // ✅ add
         title: t.Title || 'Untitled',
         description: t.Details || '',
-        dueDate: due ? `Due: ${due}` : 'Due: —',
+        dueDate: due ? `${due}` : '—',
       };
     });
   }, [onGoingTickets]);
@@ -243,7 +267,7 @@ export default function ODashboard() {
                 <Text style={[tw`text-white`, { fontSize: styles.sectionTitle.fontSize, fontWeight: 'bold' }]}>
                   Tasks and Reminders
                 </Text>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={handleSeeAll}>
                   <Text style={tw`text-white text-sm underline`}>See All</Text>
                 </TouchableOpacity>
               </View>
@@ -274,10 +298,11 @@ export default function ODashboard() {
                 ) : (
                   taskCards.map((task) => (
                     <ResponsiveTaskCard
-                      key={task.key}
+                      key={task.key}                 // ✅ React key (not a prop)
                       title={task.title}
                       description={task.description}
                       dueDate={task.dueDate}
+                      onViewPress={() => handleViewTicket(task.requestId)}  // ✅ clickable
                     />
                   ))
                 )}

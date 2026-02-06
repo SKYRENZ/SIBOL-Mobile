@@ -6,25 +6,26 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  FlatList,
+  Keyboard,
+  ActivityIndicator,
 } from 'react-native';
-import { ChevronDown } from 'lucide-react-native';
-import tw from '../utils/tailwind';
+import { ChevronDown, X } from 'lucide-react-native';
 import Button from './commons/Button';
 import { fetchAdditiveTypes, AdditiveType } from '../services/additivesService';
+import tw from 'twrnc'; // ✅ match RequestForm
 
 interface AdditiveInputProps {
   visible: boolean;
   onClose: () => void;
   onSave?: (payload: {
     additiveId: number;
+    additiveName: string; // ✅ add
     unit: string;
     value: string;
-  }) => void;
+  }) => Promise<void> | void;
 }
 
 export default function AdditiveInput({ visible, onClose, onSave }: AdditiveInputProps) {
@@ -36,6 +37,26 @@ export default function AdditiveInput({ visible, onClose, onSave }: AdditiveInpu
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const [saving, setSaving] = useState(false);
+
+  // ✅ same keyboard handling approach as RequestForm
+  const [kavKey, setKavKey] = useState(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+      if (Platform.OS === 'android') {
+        setTimeout(() => setKavKey((k) => k + 1), 220);
+      }
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   useEffect(() => {
     if (visible) {
       fetchAdditiveTypes()
@@ -45,17 +66,16 @@ export default function AdditiveInput({ visible, onClose, onSave }: AdditiveInpu
   }, [visible]);
 
   useEffect(() => {
-    if (!visible) resetForm();
+    if (!visible) {
+      setAdditive('');
+      setAdditiveId(null);
+      setUnit('');
+      setValue('');
+      setError(null);
+      setAdditiveDropdownOpen(false);
+      setSaving(false);
+    }
   }, [visible]);
-
-  const resetForm = () => {
-    setAdditive('');
-    setAdditiveId(null);
-    setUnit('');
-    setValue('');
-    setError(null);
-    setAdditiveDropdownOpen(false);
-  };
 
   const handleSelectAdditive = (selected: AdditiveType) => {
     setAdditive(selected.name);
@@ -81,117 +101,183 @@ export default function AdditiveInput({ visible, onClose, onSave }: AdditiveInpu
     if (error) setError(null);
   };
 
-  const validateAndSave = () => {
+  const validateAndSave = async () => {
+    if (saving) return;
+
     setError(null);
+    if (!additiveId) return setError('Please select an additive');
+    if (!unit || !unit.trim()) return setError('Please select a unit');
+    if (!value || !/^\d+(\.\d{1,2})?$/.test(value)) return setError('Please enter a valid numeric value');
 
-    if (!additiveId) {
-      setError('Please select an additive');
-      return;
+    try {
+      setSaving(true);
+      await onSave?.({
+        additiveId,
+        additiveName: additive, // ✅ add
+        unit,
+        value,
+      });
+      onClose();
+    } catch {
+      setError('Failed to add additive. Please try again.');
+      setSaving(false);
     }
-
-    if (!unit || !unit.trim()) {
-      setError('Please select a unit');
-      return;
-    }
-
-    if (!value || !/^\d+(\.\d{1,2})?$/.test(value)) {
-      setError('Please enter a valid numeric value');
-      return;
-    }
-
-    onSave?.({ additiveId, unit, value });
-    resetForm();
-    onClose();
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.backdrop}>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={() => !saving && onClose()}>
+        <View style={tw`flex-1 bg-black/35 justify-center items-center p-4`}>
           <TouchableWithoutFeedback>
             <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              style={styles.centered}
+              key={kavKey}
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+              style={tw`flex-1 w-full`}
             >
-              <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-                <View style={styles.card}>
-                  <Text style={styles.heading}>Input an Additive</Text>
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[
+                  tw`px-0 py-4`,
+                  { flexGrow: 1, justifyContent: keyboardVisible ? 'flex-start' : 'center' },
+                ]}
+              >
+                <View
+                  style={[
+                    tw`w-full max-w-[345px] bg-white rounded-[14px] p-5 pb-6 relative`,
+                    { alignSelf: 'center' },
+                    {
+                      shadowColor: '#000',
+                      shadowOpacity: 0.15,
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowRadius: 4,
+                      elevation: 8,
+                    },
+                  ]}
+                >
+                  <View style={tw`flex-row justify-between items-center mb-4 relative`}>
+                    <Text style={tw`flex-1 text-center text-[18px] font-bold text-[#6C8770]`}>
+                      Input an Additive
+                    </Text>
 
-                  <View style={styles.fieldContainer}>
-                    <Text style={styles.label}>Additive:</Text>
                     <TouchableOpacity
-                      style={styles.dropdownButton}
-                      onPress={() => setAdditiveDropdownOpen(!additiveDropdownOpen)}
+                      onPress={onClose}
+                      style={tw`absolute right-0 p-1`}
+                      activeOpacity={0.7}
+                      disabled={saving}
                     >
-                      <Text style={[styles.dropdownButtonText, !additive && styles.placeholderText]}>
+                      <X color="#88AB8E" size={20} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={tw`mb-4`}>
+                    <Text style={tw`text-[13px] font-semibold text-[#88AB8E] mb-1.5`}>Additive:</Text>
+
+                    <TouchableOpacity
+                      style={tw`bg-white border border-[#88AB8E] rounded-[10px] px-3 py-2.5 min-h-[40px] flex-row items-center justify-between`}
+                      onPress={() => setAdditiveDropdownOpen((v) => !v)}
+                      disabled={saving}
+                      activeOpacity={0.85}
+                    >
+                      <Text
+                        style={
+                          additive
+                            ? tw`text-[12px] text-[#2E523A] font-medium`
+                            : tw`text-[12px] text-[#B0C4B0] font-medium`
+                        }
+                      >
                         {additive || 'Select additive'}
                       </Text>
-                      <ChevronDown color="#6C8770" size={14} />
+                      <ChevronDown color="#88AB8E" size={18} />
                     </TouchableOpacity>
+
                     {additiveDropdownOpen && (
-                      <View style={styles.dropdownMenu}>
-                        <FlatList
-                          data={additiveOptions}
-                          keyExtractor={(item) => String(item.id)}
-                          renderItem={({ item }) => (
+                      <View style={tw`mt-2 bg-white border border-[#88AB8E] rounded-[10px] max-h-[180px] overflow-hidden`}>
+                        <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                          {additiveOptions.map((item) => (
                             <TouchableOpacity
-                              style={styles.dropdownItem}
+                              key={String(item.id)}
+                              style={tw`px-3 py-3 border-b border-[#E6F0E9]`}
                               onPress={() => handleSelectAdditive(item)}
+                              disabled={saving}
                             >
-                              <Text style={styles.dropdownItemText}>{item.name}</Text>
+                              <Text style={tw`text-[12px] text-[#2E523A] font-medium`}>{item.name}</Text>
                             </TouchableOpacity>
-                          )}
-                        />
+                          ))}
+                        </ScrollView>
                       </View>
                     )}
                   </View>
 
-                  <View style={styles.rowContainer}>
-                    <View style={styles.halfField}>
-                      <Text style={styles.label}>Unit:</Text>
+                  <View style={tw`flex-row gap-3 mb-4`}>
+                    <View style={tw`flex-1`}>
+                      <Text style={tw`text-[13px] font-semibold text-[#88AB8E] mb-1.5`}>Unit:</Text>
                       <TextInput
-                        style={styles.input}
+                        style={tw`bg-white border border-[#88AB8E] rounded-[10px] px-3 py-2.5 text-[12px] text-[#2E523A] font-medium min-h-[40px]`}
                         placeholder="e.g. liters"
+                        placeholderTextColor="#B0C4B0"
                         value={unit}
                         onChangeText={handleChangeUnit}
+                        editable={!saving}
                       />
                     </View>
 
-                    <View style={styles.halfField}>
-                      <Text style={styles.label}>Value:</Text>
+                    <View style={tw`flex-1`}>
+                      <Text style={tw`text-[13px] font-semibold text-[#88AB8E] mb-1.5`}>Value:</Text>
                       <TextInput
-                        style={styles.input}
+                        style={tw`bg-white border border-[#88AB8E] rounded-[10px] px-3 py-2.5 text-[12px] text-[#2E523A] font-medium min-h-[40px]`}
                         placeholder="0.00"
+                        placeholderTextColor="#B0C4B0"
                         value={value}
                         keyboardType="numeric"
                         onChangeText={handleChangeValue}
+                        editable={!saving}
                       />
                     </View>
                   </View>
 
-                  <View style={styles.rowContainer}>
-                    <View style={styles.halfField}>
-                      <Text style={styles.label}>Date:</Text>
-                      <Text style={styles.readonlyText}>
-                        {new Date().toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </Text>
+                  <View style={tw`flex-row gap-3 mb-4`}>
+                    <View style={tw`flex-1`}>
+                      <Text style={tw`text-[13px] font-semibold text-[#88AB8E] mb-1.5`}>Date:</Text>
+                      <TextInput
+                        style={tw`bg-white border border-[#88AB8E] rounded-[10px] px-3 py-2.5 text-[12px] text-[#2E523A] font-medium min-h-[40px]`}
+                        value={new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        editable={false}
+                      />
                     </View>
 
-                    <View style={styles.halfField}>
-                      <Text style={styles.label}>Time:</Text>
-                      <Text style={styles.readonlyText}>
-                        {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                      </Text>
+                    <View style={tw`flex-1`}>
+                      <Text style={tw`text-[13px] font-semibold text-[#88AB8E] mb-1.5`}>Time:</Text>
+                      <TextInput
+                        style={tw`bg-white border border-[#88AB8E] rounded-[10px] px-3 py-2.5 text-[12px] text-[#2E523A] font-medium min-h-[40px]`}
+                        value={new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        editable={false}
+                      />
                     </View>
                   </View>
 
-                  {error ? <Text style={styles.error}>{error}</Text> : null}
+                  {error ? (
+                    <Text style={tw`text-[#C65C5C] text-[12px] mb-3 text-center font-medium`}>
+                      {error}
+                    </Text>
+                  ) : null}
 
-                  <Button title="Add" onPress={validateAndSave} variant="primary" />
+                  <View style={tw`mt-2`}>
+                    <Button
+                      title={saving ? 'Adding...' : 'Add'}
+                      onPress={validateAndSave}
+                      variant="primary"
+                      style={tw`min-h-[44px]`}
+                      disabled={saving}
+                    />
+                  </View>
+
+                  {saving && (
+                    <View style={tw`absolute inset-0 bg-white/80 justify-center items-center rounded-[14px]`}>
+                      <ActivityIndicator size="large" color="#2E523A" />
+                    </View>
+                  )}
                 </View>
               </ScrollView>
             </KeyboardAvoidingView>
@@ -201,166 +287,3 @@ export default function AdditiveInput({ visible, onClose, onSave }: AdditiveInpu
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  centered: {
-    width: '100%',
-    alignItems: 'center',
-    overflow: 'visible',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    overflow: 'visible',
-  },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 20,
-    paddingBottom: 24, 
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 4,
-    elevation: 8,
-    overflow: 'visible',
-    position: 'relative',
-  },
-  heading: {
-    textAlign: 'center',
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#6C8770',
-    marginBottom: 18,
-  },
-  fieldContainer: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#88AB8E',
-    marginBottom: 6,
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  halfField: {
-    flex: 1,
-  },
-  dropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#88AB8E',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    minHeight: 40,
-  },
-  dropdownButtonText: {
-    fontSize: 12,
-    color: '#2E523A',
-    fontWeight: '500',
-    flex: 1,
-  },
-  placeholderText: {
-    color: '#B0C4B0',
-  },
-  overlayContainer: {
-    position: 'absolute',
-    top: 128,
-    left: 20,
-    right: 20,
-    zIndex: 100,
-    elevation: 20,
-  },
-  dropdownMenuOverlay: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#88AB8E',
-    borderRadius: 8,
-    maxHeight: 180,
-    zIndex: 100,
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-  },
-  dropdownMenu: {
-    marginTop: 6,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#88AB8E',
-    borderRadius: 8,
-    maxHeight: 120,
-    zIndex: 10,
-  },
-  dropdownItem: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E6F0E9',
-  },
-  dropdownItemText: {
-    fontSize: 12,
-    color: '#2E523A',
-    fontWeight: '500',
-  },
-  dropdownItemTextSelected: {
-    color: '#2E523A',
-    fontWeight: '700',
-  },
-  input: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#88AB8E',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 12,
-    color: '#2E523A',
-    fontWeight: '500',
-    minHeight: 40,
-    justifyContent: 'center',
-  },
-  error: {
-    color: '#C65C5C',
-    fontSize: 12,
-    marginBottom: 12,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  buttonContainer: {
-    marginTop: 8,
-  },
-  button: {
-    minHeight: 44,
-  },
-  readonlyText: {
-    backgroundColor: '#F6FBF7',
-    borderWidth: 1,
-    borderColor: '#88AB8E',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 12,
-    color: '#2E523A',
-    fontWeight: '500',
-    minHeight: 40,
-  },
-});
