@@ -1,80 +1,37 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import tw from '../../utils/tailwind';
-import { useResponsiveStyle, useResponsiveFontSize } from '../../utils/responsiveStyles';
 
 interface TaskCardProps {
   title: string;
   description: string;
   dueDate: string;
-  onPress?: () => void;
+  onView?: () => void; // ✅ add
 }
 
-export default function ResponsiveTaskCard({ title, description, dueDate, onPress }: TaskCardProps) {
-  const styles = useResponsiveStyle(({ isSm, isMd, isLg }) => ({
-    cardContainer: {
-      width: isSm ? 130 : isMd ? 150 : 160,
-      height: isSm ? 130 : isMd ? 150 : 170,
-      marginRight: 16,
-      borderRadius: 16,
-      borderWidth: 2,
-      borderColor: '#AFC8AD',
-      backgroundColor: 'white',
-    },
-    contentContainer: {
-      padding: isSm ? 12 : 16,
-    },
-    titleText: {
-      fontSize: isSm ? useResponsiveFontSize('xs') : useResponsiveFontSize('sm'),
-      fontWeight: 'bold',
-      color: '#2E523A',
-      textAlign: 'center',
-      marginBottom: isSm ? 8 : 12,
-    },
-    descriptionText: {
-      fontSize: isSm ? 9 : 10,
-      color: '#2E523A',
-      lineHeight: isSm ? 12 : 14,
-      marginBottom: 6,
-    },
-    dateText: {
-      fontSize: isSm ? 8 : 10,
-      fontWeight: 'bold',
-      color: '#88AB8E',
-      marginBottom: isSm ? 8 : 12,
-    },
-    button: {
-      backgroundColor: '#2E523A',
-      borderRadius: 6,
-      paddingVertical: 4,
-      paddingHorizontal: isSm ? 8 : 16,
-      alignSelf: 'center',
-      marginTop: isSm ? 2 : 4,
-    },
-    buttonText: {
-      color: 'white',
-      fontWeight: '600',
-      fontSize: isSm ? 8 : 10,
-    }
-  }));
-
+export default function ResponsiveTaskCard({ title, description, dueDate, onView }: TaskCardProps) {
   return (
-    <View style={styles.cardContainer}>
-      <View style={styles.contentContainer}>
-        <Text style={styles.titleText}>
-          {title}
-        </Text>
-        <Text style={styles.descriptionText}>
-          {description}
-        </Text>
-        <Text style={styles.dateText}>
-          {dueDate}
-        </Text>
+    <View style={tw`bg-white rounded-xl p-4 mr-3 w-[260px]`}>
+      <View style={tw`flex-row items-center`}>
+        <View style={tw`flex-1`}>
+          <Text style={tw`text-[#2E523A] font-bold text-sm`} numberOfLines={1}>
+            {title}
+          </Text>
+          <Text style={tw`text-gray-600 text-xs mt-1`} numberOfLines={2}>
+            {description}
+          </Text>
+          <Text style={tw`text-gray-500 text-[11px] mt-2`}>
+            {dueDate}
+          </Text>
+        </View>
+      </View>
+      <View style={tw`mt-3 flex-row justify-end`}>
         <TouchableOpacity
-          onPress={onPress}
-          style={styles.button}
+          onPress={onView}
+          disabled={!onView}
+          style={tw`bg-primary px-3 py-1.5 rounded-md ${onView ? '' : 'opacity-50'}`}
         >
-          <Text style={styles.buttonText}>view</Text>
+          <Text style={tw`text-white text-[11px] font-bold`}>View</Text>
         </TouchableOpacity>
       </View>
     </View>

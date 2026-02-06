@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ChangePasswordModal from '../components/ChangePasswordModal';
+import { useMaintenance } from '../hooks/useMaintenance'; // ✅ add
 
 type RootStackParamList = {
   WiFiConnectivity: undefined;
@@ -122,6 +123,14 @@ export default function ODashboard() {
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
+  // ✅ Load real tickets
+  const {
+    tickets,        // assigned tickets for operator
+    loading,
+    error,
+    refresh,
+  } = useMaintenance();
+
   useEffect(() => {
     (async () => {
       try {
@@ -139,7 +148,7 @@ export default function ODashboard() {
 
   const isTallScreen = screenHeight > 800;
   const isTrulySmallDevice = isSm && screenHeight < 700;
-  
+
   const styles = useResponsiveStyle(({ isSm, isMd, isLg }) => ({
     heading: {
       fontSize: isSm ? useResponsiveFontSize('lg') : useResponsiveFontSize('xl'),
@@ -176,35 +185,35 @@ export default function ODashboard() {
       backgroundColor: 'rgba(175,200,173,0.32)',
       padding: isSm ? 16 : isTallScreen ? 24 : 20,
       marginTop: 16,
-      height: isTallScreen ? 'auto' : undefined, 
+      height: isTallScreen ? 'auto' : undefined,
     }
   }));
-  
-  const tasks = [
-    {
-      title: 'Change Filters',
-      description: 'Change the stage 2 filters on SIBOL Machine 2',
-      dueDate: 'Due: August 9, 2025',
-    },
-    {
-      title: 'Change Sensor',
-      description: 'Change the stage 2 filters on SIBOL Machine 2',
-      dueDate: 'Due: August 9, 2025',
-    },
-    {
-      title: 'Change Sensor',
-      description: 'Change the stage 2 filters on SIBOL Machine 2',
-      dueDate: 'Due: August 9, 2025',
-    },
-  ];
 
-  const handleRefresh = useCallback(() => {
+  // ✅ Only show On-going (this is what you call "Pending" in Operator UI)
+  const onGoingTickets = useMemo(() => {
+    return (tickets || []).filter(t => t.Status === 'On-going');
+  }, [tickets]);
+
+  const taskCards = useMemo(() => {
+    return onGoingTickets.map((t) => {
+      const due = t.Due_date ? new Date(t.Due_date).toLocaleDateString() : null;
+      return {
+        key: String(t.Request_Id),
+        title: t.Title || 'Untitled',
+        description: t.Details || '',
+        dueDate: due ? `Due: ${due}` : 'Due: —',
+      };
+    });
+  }, [onGoingTickets]);
+
+  const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    
-    setTimeout(() => {
+    try {
+      await refresh();
+    } finally {
       setIsRefreshing(false);
-    }, 1000);
-  }, []);
+    }
+  }, [refresh]);
 
   return (
     <SafeAreaView style={tw`flex-1 bg-white`}>
@@ -222,9 +231,7 @@ export default function ODashboard() {
         {isRefreshing ? (
           <View style={tw`items-center justify-center py-24 bg-[#8FBB8F]`}>
             <ActivityIndicator size="large" color="#FFF" />
-            <Text style={tw`text-white font-semibold text-base mt-2`}>
-              Refreshing...
-            </Text>
+            <Text style={tw`text-white font-semibold text-base mt-2`}>Refreshing...</Text>
           </View>
         ) : (
           <>
@@ -238,20 +245,39 @@ export default function ODashboard() {
                 </TouchableOpacity>
               </View>
 
+              {!!error && (
+                <Text style={tw`text-white/90 text-xs mb-2`}>
+                  {error}
+                </Text>
+              )}
+
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={tw`mx-[-20px]`} 
+                style={tw`mx-[-20px]`}
                 contentContainerStyle={tw`pl-5 pr-0`}
               >
-                {tasks.map((task, index) => (
-                  <ResponsiveTaskCard
-                    key={index}
-                    title={task.title}
-                    description={task.description}
-                    dueDate={task.dueDate}
-                  />
-                ))}
+                {loading ? (
+                  <View style={tw`py-6 pr-6`}>
+                    <ActivityIndicator color="#FFF" />
+                    <Text style={tw`text-white text-xs mt-2`}>Loading tasks...</Text>
+                  </View>
+                ) : taskCards.length === 0 ? (
+                  <View style={tw`py-6 pr-6`}>
+                    <Text style={tw`text-white text-xs`}>
+                      No on-going tasks right now
+                    </Text>
+                  </View>
+                ) : (
+                  taskCards.map((task) => (
+                    <ResponsiveTaskCard
+                      key={task.key}
+                      title={task.title}
+                      description={task.description}
+                      dueDate={task.dueDate}
+                    />
+                  ))
+                )}
               </ScrollView>
             </View>
 
