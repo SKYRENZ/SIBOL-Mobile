@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios from 'axios';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -35,120 +35,100 @@ export const API_BASE = normalizeUrl(
 
 console.log('[mobile api] Platform:', Platform.OS);
 console.log('[mobile api] API_BASE =', API_BASE);
+const CLIENT_TYPE = Platform.OS === 'web' ? 'web' : 'mobile';
 
-const CLIENT_TYPE = Platform.OS === 'web' ? 'web' : 'mobile'; // ✅ ADD
-
-// ✅ Create Axios instance
-const apiClient: AxiosInstance = axios.create({
+// Use concrete runtime type from axios.create to avoid importing axios types
+const apiClient: ReturnType<typeof axios.create> = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
-    'x-client-type': CLIENT_TYPE, // ✅ ADD
+    'x-client-type': CLIENT_TYPE,
   },
 });
 
-// ✅ Request Interceptor - Attach auth token
-apiClient.interceptors.request.use(
-  async (config) => {
-    // ✅ ensure header is always present
-    config.headers = config.headers ?? {};
-    (config.headers as any)['x-client-type'] =
-      (config.headers as any)['x-client-type'] ?? CLIENT_TYPE;
+// local axios error type-guard (include message so TS allows error.message)
+function isAxiosError(err: any): err is { isAxiosError?: boolean; response?: any; request?: any; message?: string } {
+  return !!err && err.isAxiosError === true;
+}
 
+apiClient.interceptors.request.use(
+  async (config: any) => {
+    config.headers = config.headers ?? {};
+    (config.headers as any)['x-client-type'] = (config.headers as any)['x-client-type'] ?? CLIENT_TYPE;
     try {
       const token = await AsyncStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-        // removed debug token decode/logging
-      }
-    } catch (err) {
-      console.error('[Axios] Failed to get token:', err);
+      if (token) config.headers.Authorization = `Bearer ${token}`;
+    } catch (e) {
+      console.debug('[apiClient] token read failed', e);
     }
 
-    // ✅ If sending FormData, remove JSON content-type so axios can set multipart boundary
-    const isFormData =
-      typeof FormData !== 'undefined' && config.data instanceof FormData;
-
+    const isFormData = typeof FormData !== 'undefined' && config.data instanceof FormData;
     if (isFormData) {
-      // axios will set the correct multipart/form-data; boundary=...
       delete (config.headers as any)['Content-Type'];
       delete (config.headers as any)['content-type'];
     }
-
-    // removed debug request auth header log
-
     return config;
   },
-  (error) => {
-    console.error('[Axios] Request error:', error);
+  (error: any) => Promise.reject(error)
+);
+
+apiClient.interceptors.response.use(
+  (response: any) => response,
+  (error: any) => {
+    if (isAxiosError(error)) {
+      if (error.response) {
+        const msg = error.response?.data?.message ?? error.response?.data ?? error.message;
+        const e: any = new Error(String(msg));
+        e.status = error.response.status;
+        e.payload = error.response.data;
+        return Promise.reject(e);
+      }
+      if (error.request) {
+        return Promise.reject(new Error('Cannot connect to server. Please check your network.'));
+      }
+    }
     return Promise.reject(error);
   }
 );
 
-// ✅ Response Interceptor - Handle errors
-apiClient.interceptors.response.use(
-  (response) => {
-    // removed success debug log
-    return response;
-  },
-  (error: AxiosError) => {
-    if (error.response) {
-      // Server responded with error status
-      const message = (error.response.data as any)?.message || 
-                     (error.response.data as any)?.error || 
-                     error.message;
-      console.error(`[Axios Error] ${error.response.status}:`, message);
-      
-      const err: any = new Error(message);
-      err.status = error.response.status;
-      err.payload = error.response.data;
-      return Promise.reject(err);
-    } else if (error.request) {
-      // Request made but no response
-      console.error('[Axios] Network error - no response from server');
-      return Promise.reject(new Error('Cannot connect to server. Please check your network.'));
-    } else {
-      // Something else happened
-      console.error('[Axios] Error:', error.message);
-      return Promise.reject(error);
-    }
-  }
-);
-
-// ✅ Export convenience methods (same signature as before!)
+// typed wrapper functions (use any where axios types previously caused issues)
 export const get = async <T = any>(path: string, config?: any): Promise<T> => {
-  const response = await apiClient.get<T>(path, config); // ✅ Now accepts config
-  return response.data;
+  const res = await apiClient.get<T>(path, config);
+  return res.data;
 };
-
 export const post = async <T = any>(path: string, body?: any): Promise<T> => {
-  const response = await apiClient.post<T>(path, body);
-  return response.data;
+  const res = await apiClient.post<T>(path, body);
+  return res.data;
 };
-
 export const put = async <T = any>(path: string, body?: any): Promise<T> => {
-  const response = await apiClient.put<T>(path, body);
-  return response.data;
+  const res = await apiClient.put<T>(path, body);
+  return res.data;
 };
-
 export const patch = async <T = any>(path: string, body?: any): Promise<T> => {
-  const response = await apiClient.patch<T>(path, body);
-  return response.data;
+  const res = await apiClient.patch<T>(path, body);
+  return res.data;
 };
-
 export const del = async <T = any>(path: string): Promise<T> => {
-  const response = await apiClient.delete<T>(path);
-  return response.data;
+  const res = await apiClient.delete<T>(path);
+  return res.data;
 };
 
-// ✅ Token management (unchanged)
 export async function setToken(token: string | null) {
   if (token) await AsyncStorage.setItem('token', token);
   else await AsyncStorage.removeItem('token');
 }
 
-// ✅ Convenience helpers (unchanged logic)
+const handleError = (error: any) => {
+  if (isAxiosError(error)) {
+    console.error('API Error:', error.response?.status, error.response?.data);
+  } else {
+    console.error('Network Error:', error);
+  }
+};
+
+export default apiClient;
+
 export async function fetchBarangays() {
   try {
     const data = await get('/api/auth/barangays');
@@ -164,7 +144,7 @@ export async function fetchBarangays() {
     console.warn('[mobile api] fetchBarangays - unexpected response shape', data);
     return { barangays: [] };
   } catch (err) {
-    console.error('[mobile api] fetchBarangays error', err);
+    console.log('[mobile api] fetchBarangays error', err);
     return { barangays: [] };
   }
 }
@@ -176,5 +156,3 @@ export async function ping() {
 export async function scanQr(qr: string, weight: number) {
   return post('/api/qr/scan', { qr, weight });
 }
-
-export default apiClient;

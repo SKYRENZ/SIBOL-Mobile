@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, Image } from 'react-native';
+import { API_BASE } from '../services/apiClient';
 import type { WasteContainer } from '../services/wasteContainerService';
 
 type Props = {
@@ -65,7 +66,7 @@ export default function OWasteCollectionMap({
 
       map = L.map(hostEl, mapOptions);
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      L.tileLayer(`${API_BASE.replace(/\/$/, '')}/api/map/tiles/{z}/{x}/{y}.png`, {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors',
       }).addTo(map);

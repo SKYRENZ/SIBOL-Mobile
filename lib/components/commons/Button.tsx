@@ -57,16 +57,17 @@ export default function Button({
         v.container,
         isDisabled ? { opacity: 0.6 } : null,
         style as any,
+        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }, // Ensure row layout
       ]}
       onPress={isDisabled ? undefined : onPress}
       disabled={isDisabled}
     >
-      {loading ? (
-        <ActivityIndicator color={v.indicatorColor} />
-      ) : null}
-      <Text style={[v.text, textStyle as any, loading ? tw`ml-2` : null]}>
+      <Text style={[v.text, textStyle as any]}>
         {title}
       </Text>
+      {loading ? (
+        <ActivityIndicator color={v.indicatorColor} style={{ marginLeft: 8 }} />
+      ) : null}
     </TouchableOpacity>
   );
 }

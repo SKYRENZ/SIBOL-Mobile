@@ -429,10 +429,8 @@ export default function RequestCard({
             </TouchableOpacity>
           </View>
 
-          {/* ✅ Divider line between expand row and action buttons */}
-          {(isPending || isForReview) && (
-            <View style={tw`border-t border-green-light mt-3`} />
-          )}
+          {/* Divider line: show only for Pending (hide for For review) */}
+          {isPending && <View style={tw`border-t border-green-light mt-3`} />}
 
           {/* Row 2: Action buttons */}
           {isPending && (
@@ -463,17 +461,7 @@ export default function RequestCard({
             </View>
           )}
 
-          {/* ✅ Follow up ONLY for real For review, not Cancel Requested */}
-          {isForReview && (
-            <View style={tw`mt-3 items-center`}>
-              <TouchableOpacity
-                onPress={handleFollowUp}
-                style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
-              >
-                <Text style={tw`text-white text-[11px] font-bold`}>{followUpLabel}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          {/* Follow-up button removed for For review tab */}
         </View>
       </View>
 

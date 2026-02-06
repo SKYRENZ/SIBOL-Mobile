@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import * as Location from 'expo-location';
 import tw from '../utils/tailwind';
 import { MapPin, Menu, MessageCircle, Home, Bell, ArrowLeft } from 'lucide-react-native';
 import HWasteCollectionMap from '../components/HWasteCollectionMap';
@@ -80,7 +81,7 @@ const HMap = () => {
 
   useEffect(() => {
     let mounted = true;
-    let watchId: number | null = null;
+    let locationSubscription: any = null;
 
     (async () => {
       if (Platform.OS === 'web') {
@@ -106,7 +107,7 @@ const HMap = () => {
           { enableHighAccuracy: true }
         );
 
-        watchId = navigator.geolocation.watchPosition(
+        const watchId = navigator.geolocation.watchPosition(
           (pos) => {
             if (!mounted) return;
             const { latitude, longitude, accuracy } = pos.coords;
@@ -120,35 +121,61 @@ const HMap = () => {
           { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
         );
 
-        return;
+        return () => {
+          mounted = false;
+          if (watchId !== null && navigator?.geolocation?.clearWatch) {
+            navigator.geolocation.clearWatch(watchId);
+          }
+        };
       }
 
-      if (Platform.OS !== 'android' && Platform.OS !== 'ios') return;
+      // Mobile: prefer Expo Location API (works in Expo builds). Fallback to react-native-permissions.
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        const granted = status === 'granted';
+        if (!mounted) return;
+        setLocationGranted(granted);
+        if (!granted) {
+          Alert.alert('Location Permission', 'Location permission is needed to show your distance from the nearest container.');
+          return;
+        }
 
-      const permission =
-        Platform.OS === 'android'
-          ? PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION
-          : PERMISSIONS.IOS.LOCATION_WHEN_IN_USE;
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+        if (!mounted) return;
+        setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        setUserAccuracy(typeof pos.coords.accuracy === 'number' ? pos.coords.accuracy : null);
 
-      const result = await request(permission);
-      if (!mounted) return;
-
-      const granted = result === RESULTS.GRANTED;
-      setLocationGranted(granted);
-
-      if (!granted) {
-        Alert.alert(
-          'Location Permission',
-          'Location permission is needed to show your distance from the nearest container.'
+        locationSubscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Highest, timeInterval: 5000, distanceInterval: 1 },
+          (p: Location.LocationObject) => {
+            if (!mounted) return;
+            setUserLocation({ latitude: p.coords.latitude, longitude: p.coords.longitude });
+            setUserAccuracy(typeof p.coords.accuracy === 'number' ? p.coords.accuracy : null);
+          }
         );
+      } catch (err) {
+        // Fallback to react-native-permissions
+        try {
+          const permission =
+            Platform.OS === 'android'
+              ? PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION
+              : PERMISSIONS.IOS.LOCATION_WHEN_IN_USE;
+          const result = await request(permission);
+          if (!mounted) return;
+          const granted = result === RESULTS.GRANTED;
+          setLocationGranted(granted);
+          if (!granted) {
+            Alert.alert('Location Permission', 'Location permission is needed to show your distance from the nearest container.');
+          }
+        } catch {
+          // ignore
+        }
       }
     })();
 
     return () => {
       mounted = false;
-      if (watchId !== null && navigator?.geolocation?.clearWatch) {
-        navigator.geolocation.clearWatch(watchId);
-      }
+      try { locationSubscription?.remove?.(); } catch {}
     };
   }, []);
 
@@ -252,148 +279,121 @@ const HMap = () => {
               showsUserLocation={locationGranted}
               onUserLocationChange={(coords) => {
                 setUserLocation({ latitude: coords.latitude, longitude: coords.longitude });
-                if (typeof coords.accuracy === 'number') {
-                  setUserAccuracy(coords.accuracy);
+                if (userAccuracy !== null) {
+                  setUserAccuracy(userAccuracy);
                 }
               }}
               userLocation={userLocation}
               recenterKey={recenterKey}
             />
 
-            <TouchableOpacity
-              style={tw`absolute right-4 top-4 bg-white rounded-full px-4 py-2 flex-row items-center border border-gray-200 shadow`}
-              onPress={handleRecenter}
-              activeOpacity={0.85}
-            >
-              <MapPin size={16} color="#2E523A" style={tw`mr-2`} />
-              <Text style={tw`text-xs text-primary font-semibold`}>Recenter</Text>
-            </TouchableOpacity>
-
+            {/* Nearest Container Info */}
             {nearestContainer && (
-              <View style={tw`absolute left-4 right-4 bottom-8 bg-white rounded-2xl border border-gray-100 p-4`}>
-                <View style={tw`flex-row items-center mb-3`}>
-                  <View style={tw`bg-blue-100 p-2 rounded-lg mr-3`}>
-                    <Image
-                      source={require('../../assets/waste-truck.png')}
-                      style={tw`w-6 h-6`}
-                      resizeMode="contain"
-                    />
-                  </View>
-                  <View style={tw`flex-1`}>
-                    <Text style={tw`text-xs text-gray-500`}>Nearest waste container is in</Text>
-                    <Text style={tw`text-base font-bold text-primary`}>
-                      {nearestContainer.areaName || nearestContainer.name}
+              <View
+                style={tw`absolute bottom-10 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-md p-4 w-11/12`}
+              >
+                <View style={tw`flex-row items-center justify-between`}>
+                  <View style={tw`flex-1 mr-3`}>
+                    <Text style={tw`text-sm text-gray-500`}>Nearest Container</Text>
+                    <Text style={tw`text-lg font-semibold text-primary`} numberOfLines={1}>
+                      {nearestContainer.name}
                     </Text>
+                  </View>
+                  <View
+                    style={tw`w-12 h-12 rounded-full bg-cover bg-center`}
+                    testID="nearest-container-image"
+                    accessibilityLabel="Nearest container image"
+                  >
+                    {nearestContainer.raw?.imageUrl ? (
+                      <Image
+                        source={{ uri: nearestContainer.raw.imageUrl }}
+                        style={tw`w-full h-full rounded-full`}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={tw`w-full h-full rounded-full bg-gray-200`} />
+                    )}
                   </View>
                 </View>
 
-                <View style={tw`flex-row justify-between mt-1`}>
-                  <View style={tw`items-center flex-1`}>
-                    <Text style={tw`text-[11px] text-gray-500`}>Distance</Text>
-                    <Text style={tw`text-xs font-semibold`}>
-                      {nearestDistanceKm === null ? '—' : `${nearestDistanceKm.toFixed(1)} km away`}
+                <View style={tw`mt-2`}>
+                  <Text style={tw`text-sm text-gray-500`}>
+                    Status:{' '}
+                    <Text style={{ color: statusColor, fontWeight: '500' }}>{statusText}</Text>
+                  </Text>
+                  <Text style={tw`text-sm text-gray-500`}>
+                    Next Pickup:{' '}
+                    <Text style={tw`font-semibold text-gray-800`}>{nextPickupLabel}</Text>
+                  </Text>
+                  {nearestDistanceKm !== null && (
+                    <Text style={tw`text-sm text-gray-500`}>
+                      Distance: <Text style={tw`font-semibold text-gray-800`}>{nearestDistanceKm.toFixed(2)} km</Text>
                     </Text>
-                  </View>
-                  <View style={tw`items-center flex-1`}>
-                    <Text style={tw`text-[11px] text-gray-500`}>Status</Text>
-                    <Text style={[tw`text-xs font-bold`, { color: statusColor }]}>{statusText}</Text>
-                  </View>
-                  <View style={tw`items-center flex-1`}>
-                    <Text style={tw`text-[11px] text-gray-500`}>Next Pickup</Text>
-                    <Text style={tw`text-xs font-semibold`}>{nextPickupLabel}</Text>
-                  </View>
+                  )}
                 </View>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    // ChatSupport has no route params in the navigator type — navigate without params
+                    navigation.navigate('ChatSupport');
+                  }}
+                  style={tw`mt-3 bg-primary rounded-lg px-4 py-2 flex-row items-center justify-center`}
+                  activeOpacity={0.8}
+                >
+                  <MessageCircle size={18} color="#fff" style={tw`mr-2`} />
+                  <Text style={tw`text-white font-semibold text-center`}>Request Pickup</Text>
+                </TouchableOpacity>
               </View>
             )}
           </>
         )}
       </View>
 
-      {/* Bottom Navigation */}
-      <BottomNavbar currentPage="Home" />
+      {/* Bottom Navbar */}
+      <BottomNavbar />
     </SafeAreaView>
   );
 };
 
-function distanceKm(a: LatLng, b: LatLng) {
-  const R = 6371;
+export default HMap;
+
+// helper: haversine distance (km)
+function toRad(v: number) {
+  return (v * Math.PI) / 180;
+}
+function distanceKm(a: LatLng, b: LatLng): number {
+  const R = 6371; // km
   const dLat = toRad(b.latitude - a.latitude);
   const dLon = toRad(b.longitude - a.longitude);
   const lat1 = toRad(a.latitude);
   const lat2 = toRad(b.latitude);
 
-  const h =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-  return 2 * R * Math.asin(Math.sqrt(h));
+  const sinDLat = Math.sin(dLat / 2);
+  const sinDLon = Math.sin(dLon / 2);
+  const A = sinDLat * sinDLat + sinDLon * sinDLon * Math.cos(lat1) * Math.cos(lat2);
+  const C = 2 * Math.atan2(Math.sqrt(A), Math.sqrt(1 - A));
+  return R * C;
 }
 
-function toRad(v: number) {
-  return (v * Math.PI) / 180;
-}
-
-function findNextPickupLabel(container: WasteContainer, schedules: Schedule[]) {
-  if (!schedules?.length) return 'No schedule';
-
-  const areaKey = (container.areaName ?? '').toLowerCase();
-  const addressKey = (container.fullAddress ?? '').toLowerCase();
-
-  const matches = schedules.filter((s) => {
-    const areas = normalizeAreaValues(s.Area);
-    return (
-      areas.some((a) => a.includes(areaKey) || areaKey.includes(a)) ||
-      (addressKey && areas.some((a) => a.includes(addressKey)))
+// minimal fallback for schedule label (safe when Schedule shape is unknown)
+function findNextPickupLabel(container: WasteContainer, schedules: Schedule[]): string {
+  if (!schedules || schedules.length === 0) return 'No schedule';
+  // try to find schedule matching container area/name (best-effort)
+  const match = schedules.find((s: any) => {
+    const areaVals: string[] = [];
+    if (s?.area) areaVals.push(String(s.area));
+    if (s?.Area) areaVals.push(String(s.Area));
+    if (s?.area_name) areaVals.push(String(s.area_name));
+    if (container.areaName) areaVals.push(String(container.areaName));
+    return areaVals.some((v: string) =>
+      String(container.areaName || container.name || '').toLowerCase().includes(v.toLowerCase())
     );
   });
-
-  const now = new Date();
-  const upcoming = matches
-    .map((s) => parseScheduleDate(s.Date_of_collection))
-    .filter((d): d is Date => !!d && d.getTime() >= now.getTime())
-    .sort((a, b) => a.getTime() - b.getTime());
-
-  if (!upcoming.length) return 'No schedule';
-
-  return formatScheduleDate(upcoming[0]);
+  if (!match) {
+    // If schedule objects have a date or label, try to show it; otherwise generic text
+    const maybeLabel = (schedules[0] as any)?.label ?? (schedules[0] as any)?.nextPickup ?? (schedules[0] as any)?.date;
+    return maybeLabel ? String(maybeLabel) : 'See schedule';
+  }
+  const mLabel = (match as any)?.label ?? (match as any)?.nextPickup ?? (match as any)?.date;
+  return mLabel ? String(mLabel) : 'See schedule';
 }
-
-function normalizeAreaValues(area: Schedule['Area']): string[] {
-  if (Array.isArray(area)) return area.map((a) => String(a).toLowerCase());
-  if (area === null || area === undefined) return [];
-  return [String(area).toLowerCase()];
-}
-
-function parseScheduleDate(value?: string) {
-  if (!value) return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-function formatScheduleDate(d: Date) {
-  const now = new Date();
-  const isSameDay =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate();
-
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
-  const isTomorrow =
-    d.getFullYear() === tomorrow.getFullYear() &&
-    d.getMonth() === tomorrow.getMonth() &&
-    d.getDate() === tomorrow.getDate();
-
-  const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0;
-  const timePart = hasTime
-    ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-    : '';
-
-  if (isSameDay) return timePart ? `Today, ${timePart}` : 'Today';
-  if (isTomorrow) return timePart ? `Tomorrow, ${timePart}` : 'Tomorrow';
-
-  const datePart = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  return timePart ? `${datePart}, ${timePart}` : datePart;
-}
-
-export default HMap;

@@ -3,7 +3,7 @@ import 'dotenv/config'; // This loads your .env file
 export default {
   expo: {
     name: "SIBOL",
-    slug: "SIBOL",
+    slug: "SIBOL-mobile",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
@@ -29,7 +29,15 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.sprout.SIBOLmobile"
+      package: "com.sprout.SIBOLmobile",
+
+      // Add Google Maps API key here so it's written to AndroidManifest on build
+      config: {
+        googleMaps: {
+          apiKey: process.env.EXPO_PUBLIC_ANDROID_GOOGLE_MAPS_API_KEY
+        }
+      },
+      softwareKeyboardLayoutMode: "resize"
     },
     web: {
       favicon: "./assets/favicon.png"
@@ -40,10 +48,11 @@ export default {
       },
 
       // ✅ New split base URLs
-      EXPO_PUBLIC_API_BASE_WEB: process.env.EXPO_PUBLIC_API_BASE_WEB,
       EXPO_PUBLIC_API_BASE_MOBILE: process.env.EXPO_PUBLIC_API_BASE_MOBILE,
+      EXPO_PUBLIC_API_BASE_WEB: process.env.EXPO_PUBLIC_API_BASE_WEB,
       GOOGLE_ANDROID_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-      GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+      GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      ANDROID_GOOGLE_MAPS_API_KEY: process.env.EXPO_PUBLIC_ANDROID_GOOGLE_MAPS_API_KEY
     },
     scheme: "sibol",
     plugins: [

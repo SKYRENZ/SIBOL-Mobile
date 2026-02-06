@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   Text,
@@ -24,7 +24,9 @@ import { CameraWrapper } from '../components/CameraWrapper';
 import { decodeQrFromImage } from '../utils/qrDecoder';
 import { scanQr } from '../services/apiClient';
 import { getMyPoints } from '../services/profileService';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Snackbar from '../components/commons/Snackbar'; // adjust path if needed
 
 export default function HDashboard(props: any) {
   const [showScanner, setShowScanner] = useState(false);
@@ -38,9 +40,12 @@ export default function HDashboard(props: any) {
   const [qrMessageType, setQRMessageType] = useState<'success' | 'error'>('success');
   const [qrMessageData, setQRMessageData] = useState<{ points?: number; total?: number; message?: string }>({});
 
-  const [userPoints, setUserPoints] = useState<number>(0);
+  const [rewardPoints, setRewardPoints] = useState<number>(0);
+  const [totalKg, setTotalKg] = useState<number>(0);
   const [pointsLoading, setPointsLoading] = useState<boolean>(true);
   const [displayName, setDisplayName] = useState<string>('User');
+
+  const cameraRef = useRef<any>(null);
 
   const handleOpenScanner = async () => {
     // Request camera permission on Android
@@ -59,7 +64,8 @@ export default function HDashboard(props: any) {
     setIsRefreshing(true);
     try {
       const data = await getMyPoints();
-      setUserPoints(data.points);
+      setRewardPoints(Number(data.points ?? 0));
+      setTotalKg(Number(data.totalContributions ?? 0));
     } catch (err) {
       console.error('[hDashboard] Failed to refresh points', err);
     } finally {
@@ -72,17 +78,21 @@ export default function HDashboard(props: any) {
     setIsProcessingScan(false);
   };
 
+  const [snackbar, setSnackbar] = useState({
+    visible: false,
+    message: '',
+    type: 'error' as 'error' | 'success' | 'info',
+  });
+
   const handleCapture = useCallback(async (captured: string) => {
+    setSnackbar(s => ({ ...s, visible: false })); // Hide snackbar before processing
     setIsProcessingScan(true);
     try {
-      // If we ever receive an image dataURL (web legacy), decode it.
-      // On native (expo camera) CameraWrapper already passes the decoded QR string.
       const qrString =
         Platform.OS === 'web' && typeof captured === 'string' && captured.startsWith('data:')
           ? await decodeQrFromImage(captured)
           : captured;
 
-      // Parse QR payload (your QR contains weight "6")
       const weight = parseFloat(String(qrString));
       if (!Number.isFinite(weight) || weight <= 0) throw new Error('Invalid QR payload');
 
@@ -93,17 +103,23 @@ export default function HDashboard(props: any) {
       setQRMessageType('success');
       setQRMessageData({ points: result?.awarded, total: result?.totalPoints });
       setShowQRMessage(true);
-      if (typeof result?.totalPoints === 'number') setUserPoints(result.totalPoints);
+      if (typeof result?.totalPoints === 'number') setRewardPoints(result.totalPoints);
+      if (typeof result?.totalContributions === 'number') setTotalKg(result.totalContributions);
+
+      // ✅ Only close scanner on success
+      setShowScanner(false);
     } catch (err: any) {
-      console.error('QR scan failed', err);
-      setQRMessageType('error');
-      setQRMessageData({ message: err?.message || 'Scan failed' });
-      setShowQRMessage(true);
+      console.log('QR scan failed', err);
+      setSnackbar({
+        visible: true,
+        message: err?.message || 'Scan failed',
+        type: 'error',
+      });
+      // ✅ Do NOT close the scanner here
     } finally {
       setIsProcessingScan(false);
-      setShowScanner(false);
     }
-  }, [setIsProcessingScan, setShowScanner, setQRMessageType, setQRMessageData, setShowQRMessage, setUserPoints]);
+  }, [setIsProcessingScan, setShowScanner, setQRMessageType, setQRMessageData, setShowQRMessage, setRewardPoints, setTotalKg]);
 
   // ✅ Fetch points on mount
   useFocusEffect(
@@ -112,8 +128,10 @@ export default function HDashboard(props: any) {
       const loadPoints = async () => {
         try {
           const data = await getMyPoints();
-          // removed debug logs
-          if (mounted) setUserPoints(Number(data.points ?? 0));
+          if (mounted) {
+            setRewardPoints(Number(data.points ?? 0));
+            setTotalKg(Number(data.totalContributions ?? 0));
+          }
         } catch (err) {
           console.error('[hDashboard] Failed to load points', err);
         } finally {
@@ -143,6 +161,13 @@ export default function HDashboard(props: any) {
       }
     })();
   }, []);
+
+  const handleErrorDismiss = () => {
+    setSnackbar(s => ({ ...s, visible: false }));
+    if (cameraRef.current?.resetScan) {
+      cameraRef.current.resetScan();
+    }
+  };
 
   const styles = useResponsiveStyle(({ isSm, isMd, isLg }) => ({
     safeArea: {
@@ -327,6 +352,24 @@ export default function HDashboard(props: any) {
 
 
 
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('user');
+        if (!raw) return;
+        const u = JSON.parse(raw);
+        const first = u?.IsFirstLogin ?? u?.isFirstLogin ?? 0;
+        if (first === 1 || first === '1' || first === true) {
+          setIsFirstLogin(true);
+          setShowChangePassword(true);
+        }
+      } catch (e) {}
+    })();
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={[tw`flex-1`]}>
@@ -379,11 +422,11 @@ export default function HDashboard(props: any) {
                     />
                   </View>
                 </View>
-                {/* ✅ Show live points or loading */}
+                {/* ✅ Show total kg or loading */}
                 {pointsLoading ? (
                   <ActivityIndicator size="small" color="#2E523A" />
                 ) : (
-                  <Text style={styles.statNumber}>{userPoints.toFixed(2)}</Text>
+                  <Text style={styles.statNumber}>{formatKg(totalKg)}</Text>
                 )}
               </View>
               <Text style={styles.statLabel}>Your total contribution</Text>
@@ -398,7 +441,7 @@ export default function HDashboard(props: any) {
                     />
                   </View>
                 </View>
-                <Text style={styles.statNumber}>20</Text>
+                <Text style={styles.statNumber}>{rewardPoints}</Text>
               </View>
               <Text style={styles.statLabel}>Your reward points</Text>
             </View>
@@ -424,8 +467,22 @@ export default function HDashboard(props: any) {
           onRequestClose={handleCloseScanner}
         >
           <View style={tw`flex-1 bg-black`}>
-            <CameraWrapper onCapture={handleCapture} />
+            <CameraWrapper
+              ref={cameraRef}
+              onCapture={handleCapture}
+              setSnackbar={setSnackbar}
+              isProcessingScan={isProcessingScan}
+              active={showScanner}
+            />
             
+            {/* Snackbar should be here */}
+            <Snackbar
+              visible={snackbar.visible}
+              message={snackbar.message}
+              type={snackbar.type}
+              onDismiss={handleErrorDismiss}
+            />
+
             {/* ✅ Processing overlay */}
             {isProcessingScan && (
               <View style={tw`absolute inset-0 bg-black bg-opacity-75 items-center justify-center`}>
@@ -474,6 +531,21 @@ export default function HDashboard(props: any) {
       <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
         <BottomNavbar onScan={handleOpenScanner} currentPage="Home" onRefresh={handleRefresh} />
       </View>
+
+      <ChangePasswordModal
+        visible={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+        requireChange={isFirstLogin}
+      />
      </SafeAreaView>
    );
  }
+
+// format kg: show no decimals for integers, otherwise show up to 2 decimals without trailing zeros
+const formatKg = (value?: number) => {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return "0kg";
+  if (Number.isInteger(n)) return `${n}kg`;
+  const rounded = Math.round(n * 100) / 100;
+  return `${rounded.toFixed(2).replace(/\.?0+$/, "")} kg`;
+};

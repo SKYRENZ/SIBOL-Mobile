@@ -41,7 +41,7 @@ export default function QRMessage({ visible, type, points, total, message, onClo
             tw`text-2xl font-bold mb-2`,
             isSuccess ? tw`text-green-600` : tw`text-red-600`
           ]}>
-            {isSuccess ? 'Success!' : 'Error'}
+            {isSuccess ? 'Success!' : 'Failed'}
           </Text>
 
           {/* Content */}
