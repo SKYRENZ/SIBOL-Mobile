@@ -202,14 +202,17 @@ export default function ForCompletion({
                 )}
               </ScrollView>
 
-              <View style={tw`mt-4 self-center w-full px-6`}>
-                <Button
-                  title={isCancel ? 'Cancel Request' : 'Mark as Done'}
-                  onPress={handleSubmit}
-                  disabled={isCancel ? remarks.trim().length === 0 : attachments.length === 0}
-                  style={tw`w-full`}
-                />
-              </View>
+                <View style={tw`mt-4 self-center w-full px-6`}>
+                  <Button
+                    title={isCancel ? 'Cancel Request' : 'Mark as Done'}
+                    onPress={handleSubmit}
+                    disabled={isCancel ? remarks.trim().length === 0 : attachments.length === 0}
+                    style={[
+                      tw`w-full border-0`,
+                      ...(isCancel ? [tw`bg-red-600`] : [])
+                    ]}
+                  />
+                </View>
             </View>
           </TouchableWithoutFeedback>
         </View>
