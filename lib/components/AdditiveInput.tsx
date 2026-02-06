@@ -15,77 +15,51 @@ import {
 import { ChevronDown } from 'lucide-react-native';
 import tw from '../utils/tailwind';
 import Button from './commons/Button';
+import { fetchAdditiveTypes, AdditiveType } from '../services/additivesService';
 
 interface AdditiveInputProps {
   visible: boolean;
   onClose: () => void;
   onSave?: (payload: {
-    additive: string;
+    additiveId: number;
     unit: string;
     value: string;
-    date: Date;
-    time: string;
   }) => void;
 }
 
-const ADDITIVE_OPTIONS = [
-  'Ferric Chloride',
-  'Alum',
-  'Sodium Hydroxide',
-  'Lime',
-  'Chlorine',
-  'Hydrogen Peroxide',
-];
-
-const UNIT_OPTIONS = [
-  'liters',
-  'milliliters',
-  'kilos',
-  'grams',
-  'kilograms',
-  'milligrams',
-];
-
-export default function AdditiveInput({
-  visible,
-  onClose,
-  onSave,
-}: AdditiveInputProps) {
-  const getCurrentTime = () => {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-  };
-
+export default function AdditiveInput({ visible, onClose, onSave }: AdditiveInputProps) {
+  const [additiveOptions, setAdditiveOptions] = useState<AdditiveType[]>([]);
   const [additive, setAdditive] = useState('');
+  const [additiveId, setAdditiveId] = useState<number | null>(null);
   const [additiveDropdownOpen, setAdditiveDropdownOpen] = useState(false);
   const [unit, setUnit] = useState('');
   const [value, setValue] = useState('');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [time, setTime] = useState('');
-  const [timeInput, setTimeInput] = useState(getCurrentTime());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!visible) {
-      resetForm();
+    if (visible) {
+      fetchAdditiveTypes()
+        .then(setAdditiveOptions)
+        .catch(() => setAdditiveOptions([]));
     }
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) resetForm();
   }, [visible]);
 
   const resetForm = () => {
     setAdditive('');
+    setAdditiveId(null);
     setUnit('');
     setValue('');
-    setSelectedDate(new Date());
-    setTime('');
-    setTimeInput(getCurrentTime());
     setError(null);
     setAdditiveDropdownOpen(false);
   };
 
-  const handleSelectAdditive = (selected: string) => {
-    setAdditive(selected);
+  const handleSelectAdditive = (selected: AdditiveType) => {
+    setAdditive(selected.name);
+    setAdditiveId(selected.id);
     setAdditiveDropdownOpen(false);
     if (error) setError(null);
   };
@@ -96,7 +70,6 @@ export default function AdditiveInput({
   };
 
   const handleChangeValue = (text: string) => {
-    // Allow only numbers and decimals
     let cleaned = text.replace(/[^0-9.]/g, '');
     const parts = cleaned.split('.');
     if (parts.length > 2) cleaned = parts[0] + '.' + parts.slice(1).join('');
@@ -108,37 +81,10 @@ export default function AdditiveInput({
     if (error) setError(null);
   };
 
-  const handleChangeTime = (text: string) => {
-    let cleaned = text.replace(/[^0-9:]/g, '');
-    if (cleaned.length <= 2) {
-      setTimeInput(cleaned);
-    } else if (cleaned.length === 3) {
-      const hour = cleaned.substring(0, 2);
-      const min = cleaned.substring(2, 3);
-      const h = parseInt(hour);
-      if (!isNaN(h) && h <= 23) {
-        setTimeInput(`${hour}:${min}`);
-      } else {
-        setTimeInput(hour);
-      }
-    } else {
-      const hour = cleaned.substring(0, 2);
-      const min = cleaned.substring(3, 5);
-      const h = parseInt(hour);
-      const m = parseInt(min);
-      if (!isNaN(h) && h <= 23 && !isNaN(m) && m <= 59) {
-        setTimeInput(`${hour}:${min}`);
-      } else {
-        setTimeInput(hour + ':' + (cleaned.length > 2 ? cleaned.substring(3, 5) : ''));
-      }
-    }
-    if (error) setError(null);
-  };
-
   const validateAndSave = () => {
     setError(null);
 
-    if (!additive || !additive.trim()) {
+    if (!additiveId) {
       setError('Please select an additive');
       return;
     }
@@ -153,40 +99,9 @@ export default function AdditiveInput({
       return;
     }
 
-    if (!timeInput || !timeInput.includes(':')) {
-      setError('Please enter a valid time (HH:MM)');
-      return;
-    }
-
-    const [hourStr, minStr] = timeInput.split(':');
-    const hour = parseInt(hourStr);
-    const min = parseInt(minStr);
-
-    if (isNaN(hour) || hour < 0 || hour > 23 || isNaN(min) || min < 0 || min > 59) {
-      setError('Please enter a valid time (00:00 - 23:59)');
-      return;
-    }
-
-    if (onSave) {
-      onSave({
-        additive,
-        unit,
-        value,
-        date: selectedDate,
-        time: timeInput,
-      });
-    }
-
+    onSave?.({ additiveId, unit, value });
     resetForm();
     onClose();
-  };
-
-  const formatDateDisplay = () => {
-    return selectedDate.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
   };
 
   return (
@@ -198,10 +113,7 @@ export default function AdditiveInput({
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
               style={styles.centered}
             >
-              <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
-              >
+              <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
                 <View style={styles.card}>
                   <Text style={styles.heading}>Input an Additive</Text>
 
@@ -211,118 +123,75 @@ export default function AdditiveInput({
                       style={styles.dropdownButton}
                       onPress={() => setAdditiveDropdownOpen(!additiveDropdownOpen)}
                     >
-                      <Text
-                        style={[
-                          styles.dropdownButtonText,
-                          !additive && styles.placeholderText,
-                        ]}
-                      >
+                      <Text style={[styles.dropdownButtonText, !additive && styles.placeholderText]}>
                         {additive || 'Select additive'}
                       </Text>
-                      <ChevronDown
-                        color="#88AB8E"
-                        size={16}
-                        strokeWidth={2}
-                      />
+                      <ChevronDown color="#6C8770" size={14} />
                     </TouchableOpacity>
-                  </View>
-
-                  {/* Additive Dropdown Overlay */}
-                  {additiveDropdownOpen && (
-                    <View style={styles.overlayContainer}>
-                      <View style={styles.dropdownMenuOverlay}>
+                    {additiveDropdownOpen && (
+                      <View style={styles.dropdownMenu}>
                         <FlatList
-                          data={ADDITIVE_OPTIONS}
-                          keyExtractor={(item) => item}
+                          data={additiveOptions}
+                          keyExtractor={(item) => String(item.id)}
                           renderItem={({ item }) => (
                             <TouchableOpacity
                               style={styles.dropdownItem}
                               onPress={() => handleSelectAdditive(item)}
                             >
-                              <Text
-                                style={[
-                                  styles.dropdownItemText,
-                                  item === additive &&
-                                    styles.dropdownItemTextSelected,
-                                ]}
-                              >
-                                {item}
-                              </Text>
+                              <Text style={styles.dropdownItemText}>{item.name}</Text>
                             </TouchableOpacity>
                           )}
-                          scrollEnabled={false}
                         />
                       </View>
-                    </View>
-                  )}
+                    )}
+                  </View>
 
-                  {/* Unit and Value */}
                   <View style={styles.rowContainer}>
-                    <View style={[styles.fieldContainer, { flex: 1, marginRight: 8 }]}>
+                    <View style={styles.halfField}>
                       <Text style={styles.label}>Unit:</Text>
                       <TextInput
+                        style={styles.input}
+                        placeholder="e.g. liters"
                         value={unit}
                         onChangeText={handleChangeUnit}
-                        placeholder="e.g. liters"
-                        placeholderTextColor="#B0C4B0"
-                        style={styles.input}
-                        maxLength={20}
                       />
                     </View>
 
-                    <View style={[styles.fieldContainer, { flex: 1, marginLeft: 8 }]}>
+                    <View style={styles.halfField}>
                       <Text style={styles.label}>Value:</Text>
                       <TextInput
-                        value={value}
-                        onChangeText={handleChangeValue}
+                        style={styles.input}
                         placeholder="0.00"
-                        placeholderTextColor="#B0C4B0"
-                        keyboardType="decimal-pad"
-                        style={styles.input}
-                        maxLength={10}
+                        value={value}
+                        keyboardType="numeric"
+                        onChangeText={handleChangeValue}
                       />
                     </View>
                   </View>
 
-                  {/* Date and Time */}
                   <View style={styles.rowContainer}>
-                    <View style={[styles.fieldContainer, { flex: 1, marginRight: 8 }]}>
+                    <View style={styles.halfField}>
                       <Text style={styles.label}>Date:</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={formatDateDisplay()}
-                        editable={false}
-                        placeholder="MM/DD/YYYY"
-                        placeholderTextColor="#B0C4B0"
-                      />
+                      <Text style={styles.readonlyText}>
+                        {new Date().toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </Text>
                     </View>
 
-                    <View style={[styles.fieldContainer, { flex: 1, marginLeft: 8 }]}>
+                    <View style={styles.halfField}>
                       <Text style={styles.label}>Time:</Text>
-                      <TextInput
-                        value={timeInput}
-                        onChangeText={handleChangeTime}
-                        placeholder="HH:MM"
-                        placeholderTextColor="#B0C4B0"
-                        keyboardType="number-pad"
-                        style={styles.input}
-                        maxLength={5}
-                      />
+                      <Text style={styles.readonlyText}>
+                        {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
                     </View>
                   </View>
 
-                  {/* Error Message */}
-                  {error && <Text style={styles.error}>{error}</Text>}
+                  {error ? <Text style={styles.error}>{error}</Text> : null}
 
-                  {/* Add Button */}
-                  <View style={styles.buttonContainer}>
-                    <Button
-                      title="Add"
-                      onPress={validateAndSave}
-                      variant="primary"
-                      style={styles.button}
-                    />
-                  </View>
+                  <Button title="Add" onPress={validateAndSave} variant="primary" />
                 </View>
               </ScrollView>
             </KeyboardAvoidingView>
@@ -384,8 +253,11 @@ const styles = StyleSheet.create({
   },
   rowContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
     marginBottom: 16,
+  },
+  halfField: {
+    flex: 1,
   },
   dropdownButton: {
     flexDirection: 'row',
@@ -478,5 +350,17 @@ const styles = StyleSheet.create({
   },
   button: {
     minHeight: 44,
+  },
+  readonlyText: {
+    backgroundColor: '#F6FBF7',
+    borderWidth: 1,
+    borderColor: '#88AB8E',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 12,
+    color: '#2E523A',
+    fontWeight: '500',
+    minHeight: 40,
   },
 });

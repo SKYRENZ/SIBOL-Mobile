@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,8 @@ import { useResponsiveStyle, useResponsiveFontSize } from '../utils/responsiveSt
 import { useResponsiveContext } from '../utils/ResponsiveContext';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 
 type RootStackParamList = {
   WiFiConnectivity: undefined;
@@ -119,7 +121,24 @@ export default function ODashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showActivatePopup, setShowActivatePopup] = useState(false);
   const [showCreateFeedstockModal, setShowCreateFeedstockModal] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('user');
+        if (!raw) return;
+        const u = JSON.parse(raw);
+        const first = u?.IsFirstLogin ?? u?.isFirstLogin ?? 0;
+        if (first === 1 || first === '1' || first === true) {
+          setIsFirstLogin(true);
+          setShowChangePassword(true);
+        }
+      } catch (e) {}
+    })();
+  }, []);
 
   const isTallScreen = screenHeight > 800;
   const isTrulySmallDevice = isSm && screenHeight < 700;
@@ -347,6 +366,12 @@ export default function ODashboard() {
           console.log('Creating feedstock with weight:', weightKg);
           // Add your feedstock creation logic here
         }}
+      />
+
+      <ChangePasswordModal
+        visible={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+        requireChange={isFirstLogin}
       />
     </SafeAreaView>
   );

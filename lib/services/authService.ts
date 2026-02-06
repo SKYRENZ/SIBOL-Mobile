@@ -115,3 +115,8 @@ export async function logout() {
     throw err;
   }
 }
+
+export async function changePassword(currentPassword: string, newPassword: string) {
+  // uses apiClient.post helper which attaches auth headers already configured
+  return post('/api/auth/change-password', { currentPassword, newPassword });
+}
