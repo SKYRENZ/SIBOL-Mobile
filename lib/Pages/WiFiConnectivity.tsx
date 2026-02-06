@@ -1,8 +1,20 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, Platform, PermissionsAndroid } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  SafeAreaView,
+  Platform,
+  PermissionsAndroid,
+  Modal,
+  TextInput,
+} from 'react-native';
 import WifiManager from 'react-native-wifi-reborn';
+import { connectToESP32 } from '../config/esp32Connection';
 // use the React Native version of Lucide (renders native SVGs)
-import { Wifi, ArrowLeft, Check } from 'lucide-react-native';
+import { Wifi, ArrowLeft, Check, Eye, EyeOff } from 'lucide-react-native';
+import { useRoute } from '@react-navigation/native';
 import tw from '../utils/tailwind';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,19 +29,37 @@ type WiFiConnectivityScreenNavigationProp = NativeStackNavigationProp<RootStackP
 export default function WiFiConnectivity() {
   const navigation = useNavigation<WiFiConnectivityScreenNavigationProp>();
   const [isConnected, setIsConnected] = React.useState(false);
+  const [connecting, setConnecting] = React.useState(false);
   const [selectedNetwork, setSelectedNetwork] = React.useState('');
-  const [wifiNetworks, setWifiNetworks] = React.useState<{ name: string; strength: number }[]>([]);
+  const [selectedNetworkSecured, setSelectedNetworkSecured] = React.useState(false);
+  const [passwordModalVisible, setPasswordModalVisible] = React.useState(false);
+  const [passwordInput, setPasswordInput] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
+  const route = useRoute<any>();
+  const [wifiNetworks, setWifiNetworks] = React.useState<{ name: string; strength: number; secured: boolean }[]>([]);
   const [scanning, setScanning] = React.useState(false);
   const [scanError, setScanError] = React.useState<string | null>(null);
   const [permissionGranted, setPermissionGranted] = React.useState<boolean | null>(null);
   
-  const handleConnect = () => {
-    // Show the success popup immediately
-    setIsConnected(true);
+  const connectToNetwork = async (pwd?: string) => {
+    if (!selectedNetwork) return;
+    setScanError(null);
+    setConnecting(true);
+    try {
+      await connectToESP32(selectedNetwork, pwd);
+      setIsConnected(true);
+      navigation.navigate('OMaintenance' as any, { connectedNetwork: selectedNetwork });
+    } catch (e: any) {
+      setScanError(e?.message ?? String(e));
+    } finally {
+      setConnecting(false);
+    }
   };
 
-  const handleNetworkSelect = (networkName: string) => {
+  const handleNetworkSelect = (networkName: string, secured: boolean) => {
     setSelectedNetwork(networkName);
+    setSelectedNetworkSecured(secured);
+    setPasswordInput('');
   };
 
   const handleDone = () => {
@@ -64,17 +94,15 @@ export default function WiFiConnectivity() {
       }
       try {
         setScanning(true);
-        // reScanAndLoadWifiList triggers a fresh scan then returns list
         const list: any[] = await WifiManager.reScanAndLoadWifiList();
-        // normalize list into {name, strength} — strength 1..3
         const networks = (Array.isArray(list) ? list : []).map((n: any) => {
           const ssid = n.SSID ?? n.ssid ?? n.Ssid ?? '';
-          // `level` / `signal_level` / `rssi` may differ; fallback handling:
           const raw = n.level ?? n.signal_level ?? n.RSSI ?? n.rssi ?? n.signalStrength ?? 0;
           const level = typeof raw === 'number' ? raw : parseInt(String(raw || '0'), 10);
-          // convert RSSI (~ -100..0) to 1..3 buckets
           const strength = level <= -80 ? 1 : level <= -50 ? 2 : 3;
-          return { name: ssid, strength };
+          const caps = (n.capabilities ?? n.capability ?? n.capabilitiesStr ?? '') as string;
+          const secured = typeof caps === 'string' && /WEP|WPA|WPA2|WPA3/i.test(caps);
+          return { name: ssid, strength, secured };
         }).filter((nw: any) => nw.name);
         setWifiNetworks(networks);
       } catch (e: any) {
@@ -84,15 +112,27 @@ export default function WiFiConnectivity() {
         setScanning(false);
       }
     } else {
-      // iOS scanning is limited and typically requires entitlements / native support
       setScanError('Wi‑Fi scanning is not available on iOS in this app.');
     }
   };
 
   React.useEffect(() => {
     scanForWifi();
-    // optionally re-scan when returning to this screen — keep minimal for now
   }, []);
+
+  const onPrimaryConnectPress = () => {
+    if (!selectedNetwork) return;
+    if (selectedNetworkSecured) {
+      setPasswordModalVisible(true);
+      return;
+    }
+    connectToNetwork('');
+  };
+
+  const onModalConnect = () => {
+    setPasswordModalVisible(false);
+    connectToNetwork(passwordInput);
+  };
 
   return (
     <SafeAreaView style={tw`flex-1 bg-white`}>
@@ -110,25 +150,15 @@ export default function WiFiConnectivity() {
               <Wifi size={40} color="#4F6853" />
             </View>
             <Text style={tw`text-2xl font-bold text-[#2E523A] text-center mb-2`}>
-              Add your Wi-Fi
+              Add Device
             </Text>
             <Text style={tw`text-center text-gray-600 mb-6 px-4`}>
-              Select your Wi-Fi network to connect your SIBOL Machine
+              Select your device network to connect your SIBOL Machine
             </Text>
-            
-            <View style={tw`w-full bg-gray-100 rounded-lg p-4 mb-6`}>
-              <View style={tw`flex-row items-center`}>
-                <Wifi size={20} color="#4F6853" />
-                <View style={tw`ml-3`}>
-                  <Text style={tw`text-sm text-gray-500`}>Network Name</Text>
-                  <Text style={tw`font-medium text-[#2E523A]`}>SIBOL_Rack_1002</Text>
-                </View>
-              </View>
-            </View>
             
             <View style={tw`w-full`}>
               <View style={tw`flex-row justify-between items-center mb-3`}>
-                <Text style={tw`text-sm font-medium text-gray-500`}>AVAILABLE NETWORKS</Text>
+                <Text style={tw`text-sm font-medium text-gray-500`}>AVAILABLE DEVICES</Text>
                 <View style={tw`flex-row items-center`}>
                   <TouchableOpacity
                     onPress={scanForWifi}
@@ -145,7 +175,7 @@ export default function WiFiConnectivity() {
               {wifiNetworks.map((network, index) => (
                 <TouchableOpacity
                   key={index}
-                  onPress={() => handleNetworkSelect(network.name)}
+                  onPress={() => handleNetworkSelect(network.name, network.secured)}
                   style={[
                     tw`flex-row items-center justify-between py-3 border-b border-gray-100`,
                     selectedNetwork === network.name && tw`bg-gray-50`
@@ -156,7 +186,10 @@ export default function WiFiConnectivity() {
                       size={20}
                       color={network.strength > 2 ? '#4F6853' : '#A0A0A0'}
                     />
-                    <Text style={tw`ml-3 text-[#2E523A]`}>{network.name}</Text>
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={tw`text-[#2E523A]`}>{network.name}</Text>
+                      {network.secured ? <Text style={tw`text-xs text-gray-400`}>Secured</Text> : null}
+                    </View>
                   </View>
                   <View style={tw`flex-row`}>
                     {[1, 2, 3].map((bar) => (
@@ -180,16 +213,53 @@ export default function WiFiConnectivity() {
       
       <View style={tw`px-5 py-4 border-t border-gray-200`}>
         <TouchableOpacity
-          onPress={handleConnect}
-          disabled={!selectedNetwork}
+          onPress={onPrimaryConnectPress}
+          disabled={!selectedNetwork || connecting}
           style={[
             tw`bg-[#4F6853] py-3 rounded-lg items-center`,
-            !selectedNetwork && tw`opacity-50`
+            (!selectedNetwork || connecting) && tw`opacity-50`
           ]}
         >
-          <Text style={tw`text-white font-semibold text-base`}>Connect</Text>
+          <Text style={tw`text-white font-semibold text-base`}>
+            {connecting ? 'Connecting…' : 'Connect'}
+          </Text>
         </TouchableOpacity>
       </View>
+
+      {/* password modal */}
+      <Modal visible={passwordModalVisible} transparent animationType="slide">
+        <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-40 px-6`}>
+          <View style={tw`bg-white rounded-xl p-5 w-full`}>
+            <Text style={tw`text-lg text-gray-600 font-bold mb-3`}>Enter network password</Text>
+            <Text style={tw`text-sm text-gray-600 mb-3`}>{selectedNetwork}</Text>
+            <View style={tw`flex-row items-center mb-4`}>
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor="#4B5563"
+                secureTextEntry={!showPassword}
+                value={passwordInput}
+                onChangeText={setPasswordInput}
+                style={[tw`text-gray-600 border border-gray-200 rounded-md px-3 py-2`, { flex: 1 }]}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword((s) => !s)}
+                style={tw`ml-3`}
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={20} color="#6B7280" /> : <Eye size={20} color="#6B7280" />}
+              </TouchableOpacity>
+            </View>
+            <View style={tw`flex-row justify-end`}>
+              <TouchableOpacity onPress={() => setPasswordModalVisible(false)} style={tw`px-3 py-2 mr-3`}>
+                <Text style={tw`text-[#4F6853]`}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onModalConnect} style={tw`px-3 py-2 bg-[#4F6853] rounded-md`}>
+                <Text style={tw`text-white`}>Connect</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Connection Success Popup */}
       {isConnected && (
