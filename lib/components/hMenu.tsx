@@ -69,12 +69,6 @@ const menuItems = [
       icon: MessageSquare,
       route: 'ChatSupport' // Update this if you have a specific settings route
     },
-    { 
-      id: 'settings', 
-      label: 'Settings', 
-      icon: Settings,
-      route: 'Settings' // Update this if you have a specific chat route
-    },
 ];
 
 export default function HMenu({ visible, onClose, onNavigate }: Props) {
