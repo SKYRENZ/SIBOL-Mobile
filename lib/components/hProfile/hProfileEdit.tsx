@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'; // ✅ add
 import tw from '../../utils/tailwind';
 import Button from '../commons/Button';
 import ChangePasswordModal from '../ChangePasswordModal';
@@ -21,9 +21,19 @@ type FormProps = {
   loading?: boolean;
   error?: string | null;
   success?: string | null;
+
+  // ✅ NEW: notify parent when edit mode toggles
+  onEditingChange?: (editing: boolean) => void;
 };
 
-export function HProfileEditForm({ initialData, onSave, loading = false, error, success }: FormProps) {
+export function HProfileEditForm({
+  initialData,
+  onSave,
+  loading = false,
+  error,
+  success,
+  onEditingChange, // ✅ NEW
+}: FormProps) {
   const [username, setUsername] = useState(initialData.username ?? '');
 
   const [isChangeUsernameOpen, setIsChangeUsernameOpen] = useState(false);
@@ -60,21 +70,23 @@ export function HProfileEditForm({ initialData, onSave, loading = false, error, 
     if (loading) return;
 
     if (!editingProfile) {
-      // lock other buttons/modals
       setIsChangePasswordOpen(false);
       setIsChangeUsernameOpen(false);
       setEditingProfile(true);
+      onEditingChange?.(true); // ✅ notify parent
       return;
     }
 
     resetToInitial();
     setEditingProfile(false);
+    onEditingChange?.(false); // ✅ notify parent
   };
 
   const handleSubmit = async () => {
     if (!hasChanges || loading) return;
     await onSave({ username, firstName, lastName, contact, email, barangay });
     setEditingProfile(false);
+    onEditingChange?.(false); // ✅ notify parent
   };
 
   const fieldBox = (

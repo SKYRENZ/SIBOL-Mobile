@@ -273,6 +273,7 @@ export default function HProfile() {
             error={profileSaveError}
             success={profileSaveSuccess}
             onSave={handleSaveProfile}
+            onEditingChange={setProfileEditing} // ✅ add
           />
         </View>
       );
@@ -288,6 +289,8 @@ export default function HProfile() {
       />
     );
   };
+
+  const [profileEditing, setProfileEditing] = useState(false); // ✅ add
 
   return (
     <SafeAreaView style={styles.container}>
@@ -316,11 +319,13 @@ export default function HProfile() {
                 marginTop: -12,
               },
             ]}
+            pointerEvents={profileEditing ? 'none' : 'auto'} // ✅ disable tab touches entirely
           >
             <TouchableOpacity
               style={[styles.tab, activeTab === 'contributions' && styles.activeTab]}
               onPress={() => setActiveTab('contributions')}
               activeOpacity={0.7}
+              disabled={profileEditing} // ✅ add
             >
               <Award
                 size={20}
@@ -336,6 +341,7 @@ export default function HProfile() {
               style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
               onPress={() => setActiveTab('profile')}
               activeOpacity={0.7}
+              disabled={profileEditing} // ✅ add
             >
               <Edit size={20} color={activeTab === 'profile' ? '#2E523A' : '#9E9E9E'} />
               <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>
@@ -349,8 +355,11 @@ export default function HProfile() {
         </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
 
-      {/* ✅ Bottom nav stays fixed */}
-      <View style={styles.bottomNav}>
+      {/* ✅ Bottom nav stays fixed, but disabled during edit */}
+      <View
+        style={styles.bottomNav}
+        pointerEvents={profileEditing ? 'none' : 'auto'} // ✅ disables clicks
+      >
         <BottomNavbar currentPage="Back" onRefresh={handleRefresh} />
         {refreshing ? (
           <View style={{ position: 'absolute', right: 12, bottom: 72 }}>

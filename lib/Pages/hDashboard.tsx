@@ -27,6 +27,7 @@ import ChangePasswordModal from '../components/ChangePasswordModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snackbar from '../components/commons/Snackbar'; // adjust path if needed
 import { useResponsiveContext } from '../utils/ResponsiveContext';
+import { DeviceEventEmitter } from 'react-native';
 
 export default function HDashboard(props: any) {
   const navigation = useNavigation<any>();
@@ -190,6 +191,14 @@ export default function HDashboard(props: any) {
         }
       } catch (e) {}
     })();
+  }, []);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('sibol:scanSuccess', (result: any) => {
+      if (typeof result?.totalPoints === 'number') setRewardPoints(result.totalPoints);
+      if (typeof result?.totalContributions === 'number') setTotalKg(result.totalContributions);
+    });
+    return () => sub.remove();
   }, []);
 
   return (
