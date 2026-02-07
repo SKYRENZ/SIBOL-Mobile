@@ -125,6 +125,7 @@ export default function ODashboard() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
+  const [displayName, setDisplayName] = useState<string>('User');
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   useEffect(() => {
@@ -139,6 +140,25 @@ export default function ODashboard() {
           setShowChangePassword(true);
         }
       } catch (e) {}
+    })();
+  }, []);
+
+  // Fetch display name on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('user');
+        if (!raw) return;
+        const u = JSON.parse(raw);
+        const first = u?.FirstName ?? u?.firstName ?? '';
+        const last = u?.LastName ?? u?.lastName ?? '';
+        const username = u?.Username ?? u?.username ?? '';
+        const email = u?.Email ?? u?.email ?? '';
+        const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
+        setDisplayName(name);
+      } catch (e) {
+        // ignore
+      }
     })();
   }, []);
 
@@ -240,7 +260,7 @@ export default function ODashboard() {
           <View style={tw`flex-row justify-between items-start`}>
             <View style={tw`flex-1`}>
               <Text style={[tw`text-left text-white`, { fontSize: styles.heading.fontSize, fontWeight: 'bold' }]}>
-                Hello, User#436262!
+                Hello, {displayName}!
               </Text>
               <Text style={[tw`text-left mt-1 text-white`, { fontSize: styles.subHeading.fontSize, fontWeight: '600' }]}>
                 Welcome to SIBOL maintenance app!
