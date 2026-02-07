@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Modal, TouchableWithoutFeedback } from 'react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import { ChevronDown } from 'lucide-react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { Plus } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
 import AdditiveInput from '../components/AdditiveInput';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -31,14 +33,31 @@ const formatDate = (isoDate: string) => {
 
 export default function OAdditive() {
   const [selectedTab, setSelectedTab] = useState<TabType>('Additive');
-  const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 1');
+  const [selectedMachine, setSelectedMachine] = useState('');
   const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ x: number; y: number; width: number; height: number }>({ x: 0, y: 0, width: 0, height: 0 });
+  const buttonRef = useRef<View>(null);
   const [additiveModalVisible, setAdditiveModalVisible] = useState(false);
   const navigation = useNavigation<any>();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [selectedMachineId, setSelectedMachineId] = useState<number | null>(null);
   const [additives, setAdditives] = useState<AdditiveRow[]>([]);
   const [dateFilter, setDateFilter] = useState<DateFilter>('All');
+
+  const handleMachineSelect = (machine: Machine) => {
+    setSelectedMachine(machine.Name);
+    setSelectedMachineId(machine.machine_id);
+    setMachineDropdownOpen(false);
+  };
+
+  const openDropdown = () => {
+    if (buttonRef.current) {
+      buttonRef.current.measureInWindow((x, y, width, height) => {
+        setDropdownPos({ x, y, width, height });
+        setMachineDropdownOpen(true);
+      });
+    }
+  };
 
   const loadMachines = async () => {
     try {
@@ -250,6 +269,44 @@ export default function OAdditive() {
       <View style={tw`absolute bottom-0 left-0 right-0`}>
         <BottomNavbar currentPage="Home" />
       </View>
+
+      {/* Machine Dropdown Modal */}
+      {machineDropdownOpen && (
+        <Modal transparent animationType="none" visible={machineDropdownOpen} onRequestClose={() => setMachineDropdownOpen(false)}>
+          <TouchableWithoutFeedback onPress={() => setMachineDropdownOpen(false)}>
+            <View style={{ flex: 1 }}>
+              <View
+                style={{
+                  position: 'absolute',
+                  top: dropdownPos.y + dropdownPos.height + 4,
+                  left: dropdownPos.x,
+                  width: 180,
+                  zIndex: 100,
+                }}
+              >
+                <View style={tw`bg-white rounded-md shadow-lg border border-gray-200`}>
+                  {machines.map((machine, index) => (
+                    <TouchableOpacity
+                      key={machine.machine_id}
+                      onPress={() => handleMachineSelect(machine)}
+                      style={tw`px-4 py-2.5 ${index === machines.length - 1 ? '' : 'border-b border-gray-200'}`}
+                    >
+                      <Text
+                        style={[
+                          tw`text-[11px] font-medium`,
+                          selectedMachine === machine.Name ? tw`text-primary font-semibold` : tw`text-gray-700`,
+                        ]}
+                      >
+                        {machine.Name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
     </View>
   );
 }

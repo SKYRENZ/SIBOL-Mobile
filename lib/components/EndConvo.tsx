@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Modal, Image } from 'react-native';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import tw from '../utils/tailwind';
 
 interface EndConvoProps {
@@ -8,22 +8,18 @@ interface EndConvoProps {
   onClose: () => void;
 }
 
-type RootStackParamList = {
-  ChatIntro: undefined;
-};
-
 export default function EndConvo({ visible, onClose }: EndConvoProps) {
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const navigation = useNavigation();
 
   const handleEndConversation = () => {
     onClose();
-    navigation.navigate('ChatIntro');
+    navigation.goBack();
   };
 
   return (
     <Modal visible={visible} transparent animationType="fade">
       {/* Overlay with reduced opacity */}
-      <View style={[tw`flex-1 bg-black/50 flex items-center justify-center`, { justifyContent: 'center' }]}>
+      <View style={[tw`flex-1 bg-black/50`, { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' }]}>
         {/* Modal Container */}
         <View style={[tw`bg-white rounded-[15px] w-[85%] px-6 py-6 gap-3 shadow-lg`, { maxWidth: 320 }]}>
           {/* Content Container */}

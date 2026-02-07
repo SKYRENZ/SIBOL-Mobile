@@ -356,9 +356,9 @@ export default function RequestCard({
                   onPress={() => {
                     setCompletionModalMode('cancel');
                     setForCompletionModalVisible(true);
-                  }}
-                  style={tw`bg-[#2E523A] rounded-md py-2 px-4`}
-                >
+                    }}
+                    style={tw`bg-red-600 rounded-md py-2 px-4`}
+                    >
                   <Text style={tw`text-white text-[11px] font-bold`}>Cancel Request</Text>
                 </TouchableOpacity>
               </View>
