@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Modal, TouchableWithoutFeedback } from 'react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
-import { ChevronDown } from 'lucide-react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import Tabs from '../components/commons/Tabs';
 import { useNavigation } from '@react-navigation/native';
 
@@ -20,9 +20,27 @@ interface MaintenanceRequest {
 
 export default function OMaintenance() {
   const [selectedTab, setSelectedTab] = useState<TabType>('Maintenance');
-  const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 1');
+  const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 2');
   const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ x: number; y: number; width: number; height: number }>({ x: 0, y: 0, width: 0, height: 0 });
+  const buttonRef = useRef<View>(null);
   const navigation = useNavigation<any>();
+
+  const machineOptions = ['SIBOL Machine 2', 'SIBOL Machine 3', 'SIBOL Machine 4', 'SIBOL Machine 5'];
+
+  const handleMachineSelect = (machine: string) => {
+    setSelectedMachine(machine);
+    setMachineDropdownOpen(false);
+  };
+
+  const openDropdown = () => {
+    if (buttonRef.current) {
+      buttonRef.current.measureInWindow((x, y, width, height) => {
+        setDropdownPos({ x, y, width, height });
+        setMachineDropdownOpen(true);
+      });
+    }
+  };
 
   const maintenanceRequests: MaintenanceRequest[] = [
     {
@@ -60,24 +78,26 @@ export default function OMaintenance() {
             />
           </View>
 
-          <View style={tw`flex-row items-center justify-between mb-6`}>
-            {/* machine dropdown - do not stretch */}
-            <TouchableOpacity
-              style={tw`bg-primary rounded-md px-4 py-2 flex-row items-center justify-between`}
-              onPress={() => setMachineDropdownOpen(!machineDropdownOpen)}
-            >
-              <Text style={tw`text-white font-bold text-[10px] mr-2`}>
-                {selectedMachine}
-              </Text>
-              <ChevronDown color="white" size={12} strokeWidth={2} />
-            </TouchableOpacity>
+          <View style={tw`flex-row items-center justify-between gap-2 mb-6`}>
+            {/* machine dropdown - uniform style matching home page */}
+            <View ref={buttonRef}>
+              <TouchableOpacity
+                style={tw`bg-primary rounded-md px-2 py-1 flex-row items-center`}
+                onPress={openDropdown}
+              >
+                <Text style={tw`text-white font-semibold text-[11px] mr-1`}>
+                  {selectedMachine}
+                </Text>
+                <MaterialIcons name="arrow-drop-down" size={14} color="white" />
+              </TouchableOpacity>
+            </View>
 
-            {/* Add Device - same style as dropdown, placed at far right */}
+            {/* Add Device - uniform style matching home page */}
             <TouchableOpacity
-              style={tw`bg-primary rounded-md px-4 py-2 flex-row items-center justify-between`}
+              style={tw`bg-primary rounded-md px-2 py-1 flex-row items-center`}
               onPress={() => navigation.navigate('WiFiConnectivity' as any)}
             >
-              <Text style={tw`text-white font-bold text-[10px]`}>
+              <Text style={tw`text-white font-semibold text-[11px]`}>
                 Add Device
               </Text>
             </TouchableOpacity>
@@ -152,6 +172,44 @@ export default function OMaintenance() {
       <View style={tw`absolute bottom-0 left-0 right-0`}>
         <BottomNavbar currentPage="Home" />
       </View>
+
+      {/* Machine Dropdown Modal */}
+      {machineDropdownOpen && (
+        <Modal transparent animationType="none" visible={machineDropdownOpen} onRequestClose={() => setMachineDropdownOpen(false)}>
+          <TouchableWithoutFeedback onPress={() => setMachineDropdownOpen(false)}>
+            <View style={{ flex: 1 }}>
+              <View
+                style={{
+                  position: 'absolute',
+                  top: dropdownPos.y + dropdownPos.height + 4,
+                  left: dropdownPos.x,
+                  width: 140,
+                  zIndex: 100,
+                }}
+              >
+                <View style={tw`bg-white rounded-md shadow-lg border border-gray-200`}>
+                  {machineOptions.map((machine, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => handleMachineSelect(machine)}
+                      style={tw`px-4 py-2.5 ${index === machineOptions.length - 1 ? '' : 'border-b border-gray-200'}`}
+                    >
+                      <Text
+                        style={[
+                          tw`text-[11px] font-medium`,
+                          selectedMachine === machine ? tw`text-primary font-semibold` : tw`text-gray-700`,
+                        ]}
+                      >
+                        {machine}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
     </View>
   );
 }
