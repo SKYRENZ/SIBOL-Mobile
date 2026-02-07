@@ -1,15 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ActivityIndicator, Platform, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ActivityIndicator, Platform, Alert, Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import * as Location from 'expo-location';
 import tw from '../utils/tailwind';
-import { MapPin, Menu, MessageCircle, Home, Bell, ArrowLeft } from 'lucide-react-native';
+import { MapPin, Menu, MessageCircle, Home, Bell, ArrowLeft, RefreshCcw } from 'lucide-react-native';
 import HWasteCollectionMap from '../components/HWasteCollectionMap';
 import { listWasteContainers, WasteContainer } from '../services/wasteContainerService';
-import { listSchedules, Schedule } from '../services/scheduleService';
 import BottomNavbar from '../components/hBotNav';
 
 type RootStackParamList = {
@@ -29,11 +28,14 @@ const HMap = () => {
   const [containers, setContainers] = useState<WasteContainer[]>([]);
   const [loadingContainers, setLoadingContainers] = useState<boolean>(true);
   const [errorText, setErrorText] = useState<string>('');
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [userLocation, setUserLocation] = useState<LatLng | null>(null);
   const [locationGranted, setLocationGranted] = useState<boolean>(false);
   const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
   const [recenterKey, setRecenterKey] = useState(0);
+  const [routePath, setRoutePath] = useState<LatLng[] | null>(null);
+  const [focusedContainerId, setFocusedContainerId] = useState<string | number | null>(null);
+  const [showContainerModal, setShowContainerModal] = useState(false);
+  const [focusCoords, setFocusCoords] = useState<LatLng | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -52,25 +54,6 @@ const HMap = () => {
       } finally {
         if (!mounted) return;
         setLoadingContainers(false);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      try {
-        const rows = await listSchedules();
-        if (!mounted) return;
-        setSchedules(rows);
-      } catch {
-        if (!mounted) return;
-        setSchedules([]);
       }
     })();
 
@@ -197,26 +180,22 @@ const HMap = () => {
     return best;
   }, [containers, userLocation]);
 
+  const focusedContainer = useMemo(() => {
+    if (!focusedContainerId) return null;
+    return containers.find((c) => String(c.id ?? c.container_id) === String(focusedContainerId)) ?? null;
+  }, [containers, focusedContainerId]);
+
+  const activeContainer = focusedContainer ?? nearestContainer;
+
   const nearestDistanceKm = useMemo(() => {
-    if (!nearestContainer || !userLocation) return null;
+    if (!activeContainer || !userLocation) return null;
     return distanceKm(userLocation, {
-      latitude: nearestContainer.latitude,
-      longitude: nearestContainer.longitude,
+      latitude: activeContainer.latitude,
+      longitude: activeContainer.longitude,
     });
-  }, [nearestContainer, userLocation]);
+  }, [activeContainer, userLocation]);
 
-  const nextPickupLabel = useMemo(() => {
-    if (!nearestContainer) return 'No schedule';
-    return findNextPickupLabel(nearestContainer, schedules);
-  }, [nearestContainer, schedules]);
-
-  const statusText = nearestContainer?.status ?? 'Unknown';
-  const statusColor =
-    statusText.toLowerCase().includes('available')
-      ? '#10B981'
-      : statusText.toLowerCase().includes('full')
-      ? '#F59E0B'
-      : '#6B7280';
+  const pathStatus = routePath && routePath.length >= 2 ? 'On' : 'Off';
 
   const accuracyLabel = userAccuracy !== null ? Math.round(userAccuracy) : null;
   const accuracyLow = userAccuracy !== null && userAccuracy > 200;
@@ -227,6 +206,34 @@ const HMap = () => {
       return;
     }
     setRecenterKey((v) => v + 1);
+  };
+
+  const handleRouteToggle = () => {
+    if (routePath && routePath.length >= 2) {
+      setRoutePath(null);
+      return;
+    }
+    if (!userLocation || !activeContainer) {
+      Alert.alert('Route', 'Unable to build route. Check your location and nearest container.');
+      return;
+    }
+    const dest = { latitude: Number(activeContainer.latitude), longitude: Number(activeContainer.longitude) };
+    if (!Number.isFinite(dest.latitude) || !Number.isFinite(dest.longitude)) {
+      Alert.alert('Route', 'Nearest container location is invalid.');
+      return;
+    }
+    setRoutePath([userLocation, dest]);
+  };
+
+  const handleFocusContainer = (c: WasteContainer) => {
+    const id = c.id ?? c.container_id ?? `${c.latitude}-${c.longitude}`;
+    setFocusedContainerId(id);
+    setRoutePath(null);
+    const lat = Number(c.latitude);
+    const lon = Number(c.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      setFocusCoords({ latitude: lat, longitude: lon });
+    }
   };
 
   return (
@@ -285,10 +292,12 @@ const HMap = () => {
               }}
               userLocation={userLocation}
               recenterKey={recenterKey}
+              routePath={routePath}
+              focusCoords={focusCoords}
             />
 
             {/* Nearest Container Info */}
-            {nearestContainer && (
+            {activeContainer && (
               <View
                 style={tw`absolute bottom-10 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-md p-4 w-11/12`}
               >
@@ -296,34 +305,45 @@ const HMap = () => {
                   <View style={tw`flex-1 mr-3`}>
                     <Text style={tw`text-sm text-gray-500`}>Nearest Container</Text>
                     <Text style={tw`text-lg font-semibold text-primary`} numberOfLines={1}>
-                      {nearestContainer.name}
+                      {activeContainer.name}
                     </Text>
                   </View>
-                  <View
-                    style={tw`w-12 h-12 rounded-full bg-cover bg-center`}
-                    testID="nearest-container-image"
-                    accessibilityLabel="Nearest container image"
-                  >
-                    {nearestContainer.raw?.imageUrl ? (
-                      <Image
-                        source={{ uri: nearestContainer.raw.imageUrl }}
-                        style={tw`w-full h-full rounded-full`}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={tw`w-full h-full rounded-full bg-gray-200`} />
-                    )}
+                  <View style={tw`flex-row items-center gap-2`}>
+                    <TouchableOpacity
+                      onPress={() => setShowContainerModal(true)}
+                      style={tw`p-2 rounded-lg bg-gray-100 border border-gray-200`}
+                      activeOpacity={0.8}
+                    >
+                      <RefreshCcw size={16} color="#2E523A" />
+                    </TouchableOpacity>
+                    <View
+                      style={tw`w-12 h-12 rounded-full bg-cover bg-center`}
+                      testID="nearest-container-image"
+                      accessibilityLabel="Nearest container image"
+                    >
+                      {activeContainer.raw?.imageUrl ? (
+                        <Image
+                          source={{ uri: activeContainer.raw.imageUrl }}
+                          style={tw`w-full h-full rounded-full`}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={tw`w-full h-full rounded-full bg-gray-200`} />
+                      )}
+                    </View>
                   </View>
                 </View>
 
                 <View style={tw`mt-2`}>
                   <Text style={tw`text-sm text-gray-500`}>
-                    Status:{' '}
-                    <Text style={{ color: statusColor, fontWeight: '500' }}>{statusText}</Text>
-                  </Text>
-                  <Text style={tw`text-sm text-gray-500`}>
-                    Next Pickup:{' '}
-                    <Text style={tw`font-semibold text-gray-800`}>{nextPickupLabel}</Text>
+                    Path:{' '}
+                    <TouchableOpacity
+                      onPress={handleRouteToggle}
+                      activeOpacity={0.85}
+                      style={tw`${pathStatus === 'On' ? 'bg-green-500' : 'bg-red-500'} px-2 py-0.5 rounded-md`}
+                    >
+                      <Text style={tw`text-white text-xs font-semibold`}>{pathStatus}</Text>
+                    </TouchableOpacity>
                   </Text>
                   {nearestDistanceKm !== null && (
                     <Text style={tw`text-sm text-gray-500`}>
@@ -332,22 +352,69 @@ const HMap = () => {
                   )}
                 </View>
 
-                <TouchableOpacity
-                  onPress={() => {
-                    // ChatSupport has no route params in the navigator type — navigate without params
-                    navigation.navigate('ChatSupport');
-                  }}
-                  style={tw`mt-3 bg-primary rounded-lg px-4 py-2 flex-row items-center justify-center`}
-                  activeOpacity={0.8}
-                >
-                  <MessageCircle size={18} color="#fff" style={tw`mr-2`} />
-                  <Text style={tw`text-white font-semibold text-center`}>Request Pickup</Text>
-                </TouchableOpacity>
               </View>
             )}
           </>
         )}
       </View>
+
+      <Modal transparent visible={showContainerModal} animationType="fade" onRequestClose={() => setShowContainerModal(false)}>
+        <View style={tw`flex-1 bg-black/30 justify-center p-5`}>
+          <View style={tw`bg-white rounded-2xl p-4 max-h-[75%]`}>
+            <View style={tw`flex-row items-center justify-between mb-3`}>
+              <Text style={tw`text-base font-bold text-primary`}>Select container</Text>
+              <TouchableOpacity onPress={() => setShowContainerModal(false)}>
+                <Text style={tw`text-primary font-semibold`}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {containers.map((c, idx) => {
+                const label = c.name || `Container ${idx + 1}`;
+                return (
+                  <View key={String(c.id ?? c.container_id ?? idx)} style={tw`flex-row items-center py-3 border-b border-gray-100`}> 
+                    <View style={tw`flex-1 pr-2`}>
+                      <Text style={tw`text-sm font-semibold text-primary`}>{label}</Text>
+                      {!!c.fullAddress && <Text style={tw`text-[11px] text-gray-500 mt-1`}>{c.fullAddress}</Text>}
+                    </View>
+                    <TouchableOpacity
+                      style={tw`px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50`}
+                      onPress={() => {
+                        handleFocusContainer(c);
+                        setShowContainerModal(false);
+                      }}
+                    >
+                      <Text style={tw`text-xs font-semibold text-primary`}>Focus</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={tw`ml-2 px-3 py-1.5 rounded-lg bg-primary`}
+                      onPress={() => {
+                        const lat = Number(c.latitude);
+                        const lon = Number(c.longitude);
+                        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+                          Alert.alert('Redirect', 'Container location is invalid.');
+                          return;
+                        }
+                        handleFocusContainer(c);
+                        setShowContainerModal(false);
+                        if (!userLocation) {
+                          Alert.alert('Redirect', 'Location not available. Focusing on container only.');
+                          return;
+                        }
+                        setRoutePath([
+                          userLocation,
+                          { latitude: lat, longitude: lon },
+                        ]);
+                      }}
+                    >
+                      <Text style={tw`text-xs font-semibold text-white`}>Redirect</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Bottom Navbar */}
       <BottomNavbar />
@@ -373,27 +440,4 @@ function distanceKm(a: LatLng, b: LatLng): number {
   const A = sinDLat * sinDLat + sinDLon * sinDLon * Math.cos(lat1) * Math.cos(lat2);
   const C = 2 * Math.atan2(Math.sqrt(A), Math.sqrt(1 - A));
   return R * C;
-}
-
-// minimal fallback for schedule label (safe when Schedule shape is unknown)
-function findNextPickupLabel(container: WasteContainer, schedules: Schedule[]): string {
-  if (!schedules || schedules.length === 0) return 'No schedule';
-  // try to find schedule matching container area/name (best-effort)
-  const match = schedules.find((s: any) => {
-    const areaVals: string[] = [];
-    if (s?.area) areaVals.push(String(s.area));
-    if (s?.Area) areaVals.push(String(s.Area));
-    if (s?.area_name) areaVals.push(String(s.area_name));
-    if (container.areaName) areaVals.push(String(container.areaName));
-    return areaVals.some((v: string) =>
-      String(container.areaName || container.name || '').toLowerCase().includes(v.toLowerCase())
-    );
-  });
-  if (!match) {
-    // If schedule objects have a date or label, try to show it; otherwise generic text
-    const maybeLabel = (schedules[0] as any)?.label ?? (schedules[0] as any)?.nextPickup ?? (schedules[0] as any)?.date;
-    return maybeLabel ? String(maybeLabel) : 'See schedule';
-  }
-  const mLabel = (match as any)?.label ?? (match as any)?.nextPickup ?? (match as any)?.date;
-  return mLabel ? String(mLabel) : 'See schedule';
 }
