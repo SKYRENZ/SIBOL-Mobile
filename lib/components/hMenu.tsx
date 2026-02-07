@@ -21,7 +21,7 @@ type RootStackParamList = {
   HMap: undefined;
   HProfile: undefined;
   HRewards: undefined;
-  History: undefined;
+  HHistory: undefined;
   ChatSupport: undefined;
   Settings: undefined;
   SignIn: undefined;
@@ -55,7 +55,7 @@ const menuItems = [
       id: 'history', 
       label: 'History', 
       icon: History,
-      route: 'History' // Update this if you have a specific history route
+      route: 'HHistory'
     },
     { 
       id: 'map', 
