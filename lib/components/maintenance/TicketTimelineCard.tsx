@@ -11,7 +11,13 @@ import {
   addRemark,
 } from '../../services/maintenanceService';
 
-type TicketStatus = 'Pending' | 'Done' | 'For review' | 'Canceled' | 'Cancel Requested';
+type TicketStatus =
+  | 'Requested' // ✅ add
+  | 'Pending'
+  | 'Done'
+  | 'For review'
+  | 'Canceled'
+  | 'Cancel Requested';
 
 type TimelineItem =
   | {

@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Modal, TouchableWithoutFeedback } from 'react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
-import { ChevronDown, Plus } from 'lucide-react-native';
+import { ChevronDown } from 'lucide-react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { Plus } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
-import Button from '../components/commons/Button';
 import AdditiveInput from '../components/AdditiveInput';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { createAdditive, fetchAdditives, AdditiveRow } from '../services/additivesService';
@@ -32,14 +33,31 @@ const formatDate = (isoDate: string) => {
 
 export default function OAdditive() {
   const [selectedTab, setSelectedTab] = useState<TabType>('Additive');
-  const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 1');
+  const [selectedMachine, setSelectedMachine] = useState('');
   const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ x: number; y: number; width: number; height: number }>({ x: 0, y: 0, width: 0, height: 0 });
+  const buttonRef = useRef<View>(null);
   const [additiveModalVisible, setAdditiveModalVisible] = useState(false);
   const navigation = useNavigation<any>();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [selectedMachineId, setSelectedMachineId] = useState<number | null>(null);
   const [additives, setAdditives] = useState<AdditiveRow[]>([]);
   const [dateFilter, setDateFilter] = useState<DateFilter>('All');
+
+  const handleMachineSelect = (machine: Machine) => {
+    setSelectedMachine(machine.Name);
+    setSelectedMachineId(machine.machine_id);
+    setMachineDropdownOpen(false);
+  };
+
+  const openDropdown = () => {
+    if (buttonRef.current) {
+      buttonRef.current.measureInWindow((x, y, width, height) => {
+        setDropdownPos({ x, y, width, height });
+        setMachineDropdownOpen(true);
+      });
+    }
+  };
 
   const loadMachines = async () => {
     try {
@@ -61,7 +79,12 @@ export default function OAdditive() {
   useFocusEffect(
     React.useCallback(() => {
       loadMachines();
-    }, [])
+
+      // ✅ also refresh additive list when returning to this page
+      if (selectedMachineId) {
+        refreshAdditives(selectedMachineId);
+      }
+    }, [selectedMachineId])
   );
 
   useEffect(() => {
@@ -135,6 +158,7 @@ export default function OAdditive() {
             <TouchableOpacity
               style={tw`bg-primary rounded-md px-4 py-2 flex-row items-center justify-between self-start`}
               onPress={() => setMachineDropdownOpen(!machineDropdownOpen)}
+              activeOpacity={0.85}
             >
               <Text style={tw`text-white font-bold text-[10px] mr-2`}>
                 {selectedMachine}
@@ -142,12 +166,14 @@ export default function OAdditive() {
               <ChevronDown color="white" size={12} strokeWidth={2} />
             </TouchableOpacity>
 
-            <Button
-              title="Add"
+            {/* ✅ Add button: same sizing as dropdown (tailwind only) */}
+            <TouchableOpacity
+              style={tw`bg-primary rounded-md px-4 py-2 self-start items-center justify-center`}
               onPress={() => setAdditiveModalVisible(true)}
-              variant="primary"
-              style={tw`px-6 py-2`}
-            />
+              activeOpacity={0.85}
+            >
+              <Text style={tw`text-white font-bold text-[10px] mx-4`}>Add</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={tw`flex-row items-center gap-2 mb-4`}>
@@ -224,19 +250,63 @@ export default function OAdditive() {
         onClose={() => setAdditiveModalVisible(false)}
         onSave={async (payload) => {
           if (!selectedMachineId) return;
+
           await createAdditive({
             machine_id: selectedMachineId,
             additive_type_id: payload.additiveId,
             value: Number(payload.value),
             units: payload.unit,
           });
-          // await refreshAdditives(selectedMachineId); // refresh immediately
+
+          // ✅ refresh immediately so UI reflects the newly added row
+          await refreshAdditives(selectedMachineId);
+
+          // (optional safety) ensure modal closes even if AdditiveInput doesn't
+          setAdditiveModalVisible(false);
         }}
       />
 
       <View style={tw`absolute bottom-0 left-0 right-0`}>
         <BottomNavbar currentPage="Home" />
       </View>
+
+      {/* Machine Dropdown Modal */}
+      {machineDropdownOpen && (
+        <Modal transparent animationType="none" visible={machineDropdownOpen} onRequestClose={() => setMachineDropdownOpen(false)}>
+          <TouchableWithoutFeedback onPress={() => setMachineDropdownOpen(false)}>
+            <View style={{ flex: 1 }}>
+              <View
+                style={{
+                  position: 'absolute',
+                  top: dropdownPos.y + dropdownPos.height + 4,
+                  left: dropdownPos.x,
+                  width: 180,
+                  zIndex: 100,
+                }}
+              >
+                <View style={tw`bg-white rounded-md shadow-lg border border-gray-200`}>
+                  {machines.map((machine, index) => (
+                    <TouchableOpacity
+                      key={machine.machine_id}
+                      onPress={() => handleMachineSelect(machine)}
+                      style={tw`px-4 py-2.5 ${index === machines.length - 1 ? '' : 'border-b border-gray-200'}`}
+                    >
+                      <Text
+                        style={[
+                          tw`text-[11px] font-medium`,
+                          selectedMachine === machine.Name ? tw`text-primary font-semibold` : tw`text-gray-700`,
+                        ]}
+                      >
+                        {machine.Name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
     </View>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
 import { Plus } from 'lucide-react-native';
 import tw from '../utils/tailwind';
@@ -8,14 +8,29 @@ import Tabs from '../components/commons/Tabs';
 import RequestForm from '../components/maintenance/RequestForm';
 import { useMaintenance } from '../hooks/useMaintenance';
 import type { MaintenanceTicket } from '../types/maintenance.types';
+import { useRoute } from '@react-navigation/native'; // ✅ add
 
 type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
+
+type ORequestRouteParams = {
+  initialTab?: FilterTab;
+  openRequestId?: string;
+  navAt?: number;
+};
 
 export default function ORequest() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Pending');
   const scrollViewRef = useRef<ScrollView>(null);
   const [requestFormVisible, setRequestFormVisible] = useState(false);
-  
+
+  const route = useRoute<any>(); // ✅ keep loose to avoid navigator typing mismatch
+  const lastNavAtRef = useRef<number | null>(null); // ✅ prevents re-applying params repeatedly
+
+  // ✅ NEW: store each rendered card Y position inside the ScrollView content
+  const itemYRef = useRef<Record<string, number>>({});
+  // ✅ NEW: when Dashboard requests "open this ticket", remember it until layout is ready
+  const pendingScrollToIdRef = useRef<string | null>(null);
+
   const {
     pendingTickets,
     forReviewTickets,
@@ -25,15 +40,56 @@ export default function ORequest() {
     error,
     refresh,
     submitForVerification,
-    submitCancelRequest, // ✅ add
+    submitCancelRequest,
   } = useMaintenance();
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+
+  // ✅ NEW: try scroll when we have layout info
+  const tryScrollToPendingId = useCallback(() => {
+    const id = pendingScrollToIdRef.current;
+    if (!id) return;
+
+    const y = itemYRef.current[id];
+    if (typeof y !== 'number') return;
+
+    // small offset so it doesn't stick to the very top edge
+    const targetY = Math.max(0, y - 12);
+
+    // wait a tick so the expansion layout settles
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ x: 0, y: targetY, animated: true });
+      pendingScrollToIdRef.current = null; // ✅ consume it (scroll only once)
+    }, 50);
+  }, []);
+
+  // ✅ Apply navigation intent from Dashboard:
+  // - force tab (Pending)
+  // - optionally auto-expand a specific ticket
+  useEffect(() => {
+    const params = (route.params || {}) as ORequestRouteParams;
+    if (!params?.navAt) return;
+    if (lastNavAtRef.current === params.navAt) return;
+
+    lastNavAtRef.current = params.navAt;
+
+    if (params.initialTab) {
+      setActiveFilter(params.initialTab);
+    }
+
+    if (params.openRequestId) {
+      const id = String(params.openRequestId);
+
+      setExpandedIds(new Set([id]));
+      pendingScrollToIdRef.current = id;
+
+      // ✅ DON'T force scroll to top; we'll scroll to the ticket once layout is measured
+      // setTimeout(() => scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true }), 0);
+    }
+  }, [route.params]);
 
   const filters: FilterTab[] = ['Pending', 'For review', 'Done', 'Canceled'];
 
-  // ✅ NEW: Web-like request number format (YYYYMMREQID, no dashes)
   const formatRequestNumber = (ticket: MaintenanceTicket) => {
     const baseDate = ticket.Request_date ? new Date(ticket.Request_date) : new Date();
     const yyyy = String(baseDate.getFullYear());
@@ -41,32 +97,34 @@ export default function ORequest() {
     return `${yyyy}${mm}${ticket.Request_Id}`;
   };
 
-  // Convert MaintenanceTicket to RequestItem format
-  const convertToRequestItem = useCallback((ticket: MaintenanceTicket): RequestItem => {
-    const statusMap: { [key: string]: RequestItem['status'] } = {
-      'On-going': 'Pending',
-      'For Verification': 'For review',
-      'Completed': 'Done',
-      'Cancelled': 'Canceled',
-      'Cancel Requested': 'Cancel Requested',
-    };
+  const convertToRequestItem = useCallback(
+    (ticket: MaintenanceTicket): RequestItem => {
+      const statusMap: { [key: string]: RequestItem['status'] } = {
+        'Requested': 'Requested', // ✅ add
+        'On-going': 'Pending',
+        'For Verification': 'For review',
+        'Completed': 'Done',
+        'Cancelled': 'Canceled',
+        'Cancel Requested': 'Cancel Requested',
+      };
 
-    return {
-      id: String(ticket.Request_Id),
-      title: ticket.Title || 'Untitled',
-      description: ticket.Details || '',
-      requestNumber: formatRequestNumber(ticket),
-      dateAssigned: ticket.Request_date ? new Date(ticket.Request_date).toLocaleDateString() : '',
-      dueDate: ticket.Due_date ? new Date(ticket.Due_date).toLocaleDateString() : '',
-      remarksBrgy: ticket.Remarks || 'No remarks',
-      remarksMaintenance: 'No remarks from operator yet',
-      status: statusMap[ticket.Status || ''] || 'Pending',
-      priority: ticket.Priority ?? null,
-      isChecked: checkedIds.has(String(ticket.Request_Id)),
-      isExpanded: expandedIds.has(String(ticket.Request_Id)),
-      hasAttachment: !!ticket.Attachment,
-    };
-  }, [expandedIds, checkedIds]);
+      return {
+        id: String(ticket.Request_Id),
+        title: ticket.Title || 'Untitled',
+        description: ticket.Details || '',
+        requestNumber: formatRequestNumber(ticket),
+        dateAssigned: ticket.Request_date ? new Date(ticket.Request_date).toLocaleDateString() : '',
+        dueDate: ticket.Due_date ? new Date(ticket.Due_date).toLocaleDateString() : '',
+        remarksBrgy: ticket.Remarks || 'No remarks',
+        remarksMaintenance: 'No remarks from operator yet',
+        status: statusMap[ticket.Status || ''] || 'Pending',
+        priority: ticket.Priority ?? null,
+        isExpanded: expandedIds.has(String(ticket.Request_Id)),
+        hasAttachment: !!ticket.Attachment,
+      };
+    },
+    [expandedIds]
+  );
 
   const getFilteredTickets = useCallback((): RequestItem[] => {
     switch (activeFilter) {
@@ -80,14 +138,9 @@ export default function ORequest() {
         return doneTickets.map(convertToRequestItem);
 
       case 'Canceled':
-        // ✅ IMPORTANT: history tab must stay "Canceled" even if current status becomes On-going again
         return canceledTickets.map((t): RequestItem => ({
           ...convertToRequestItem(t),
           status: 'Canceled' as const,
-
-          // ✅ cutoff should be AFTER approval (not request time)
-          // listOperatorCancelledHistory guarantees ApprovedAt is NOT NULL,
-          // but keep a safe fallback to null to avoid bad query params.
           cancelCutoffAt: t.CancelApprovedAt ?? null,
         }));
 
@@ -99,57 +152,42 @@ export default function ORequest() {
   const toggleRequestExpanded = (id: string) => {
     setExpandedIds(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
-
-  const toggleRequestChecked = (id: string) => {
-    setCheckedIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
       return newSet;
     });
   };
 
   const handleFilterChange = (filter: FilterTab) => {
-    // Collapse all expanded items when changing filter
     setExpandedIds(new Set());
     setActiveFilter(filter);
-    
+
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollTo({ x: 0, y: 0, animated: true });
     }
   };
 
   const handleRefresh = useCallback(() => {
-    // Collapse all items on refresh
     setExpandedIds(new Set());
-    
+
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollTo({ x: 0, y: 0, animated: true });
     }
-    
+
     refresh();
   }, [refresh]);
 
-  const handleMarkDone = useCallback(async (requestId: string, remarks: string, attachments: any[]) => {
-    try {
-      await submitForVerification(Number(requestId));
-      // You can add remarks and attachments handling here later
-    } catch (error: any) {
-      console.error('Error marking done:', error);
-      throw error;
-    }
-  }, [submitForVerification]);
+  const handleMarkDone = useCallback(
+    async (requestId: string, remarks: string, attachments: any[]) => {
+      try {
+        await submitForVerification(Number(requestId));
+      } catch (error: any) {
+        console.error('Error marking done:', error);
+        throw error;
+      }
+    },
+    [submitForVerification]
+  );
 
   const handleCancelRequest = useCallback(
     async (requestId: string, reason: string) => {
@@ -169,23 +207,19 @@ export default function ORequest() {
 
   const filteredRequests = getFilteredTickets();
 
+  // ✅ NEW: whenever list renders / expands, attempt the scroll
+  useEffect(() => {
+    tryScrollToPendingId();
+  }, [activeFilter, filteredRequests.length, expandedIds, tryScrollToPendingId]);
+
   return (
     <View style={tw`flex-1 bg-white`}>
-      <ScrollView 
-        ref={scrollViewRef}
-        style={tw`flex-1`}
-      >
+      <ScrollView ref={scrollViewRef} style={tw`flex-1`}>
         <View style={tw`px-6 pt-12 pb-24`}>
-          <Text style={tw`text-text-gray text-center text-xl font-bold mb-6`}>
-            Request
-          </Text>
+          <Text style={tw`text-text-gray text-center text-xl font-bold mb-6`}>Request</Text>
 
           <View style={tw`mb-8`}>
-            <Tabs
-              tabs={filters}
-              activeTab={activeFilter}
-              onTabChange={(value) => handleFilterChange(value as FilterTab)}
-            />
+            <Tabs tabs={filters} activeTab={activeFilter} onTabChange={(value) => handleFilterChange(value as FilterTab)} />
           </View>
 
           {error && (
@@ -197,51 +231,45 @@ export default function ORequest() {
           {loading ? (
             <View style={tw`items-center justify-center py-12`}>
               <ActivityIndicator size="large" color="#2E523A" />
-              <Text style={tw`text-[#2E523A] font-semibold text-base mt-2`}>
-                Loading requests...
-              </Text>
+              <Text style={tw`text-[#2E523A] font-semibold text-base mt-2`}>Loading requests...</Text>
             </View>
           ) : filteredRequests.length === 0 ? (
             <View style={tw`items-center justify-center py-12`}>
-              <Text style={tw`text-text-gray font-semibold text-base`}>
-                No {activeFilter.toLowerCase()} requests found
-              </Text>
+              <Text style={tw`text-text-gray font-semibold text-base`}>No {activeFilter.toLowerCase()} requests found</Text>
             </View>
           ) : (
             filteredRequests.map((request) => (
-              <RequestCard
+              // ✅ Wrap each card so we can measure its Y position
+              <View
                 key={request.id}
-                request={request}
-                onToggleExpand={toggleRequestExpanded}
-                onToggleCheck={toggleRequestChecked}
-                onMarkDone={handleMarkDone}
-                onCancelRequest={handleCancelRequest} // ✅ add
-              />
+                onLayout={(e) => {
+                  itemYRef.current[request.id] = e.nativeEvent.layout.y;
+
+                  // ✅ if this is the one we need, scroll as soon as we learn its position
+                  if (pendingScrollToIdRef.current === request.id) {
+                    tryScrollToPendingId();
+                  }
+                }}
+              >
+                <RequestCard
+                  request={request}
+                  onToggleExpand={toggleRequestExpanded}
+                  onMarkDone={handleMarkDone}
+                  onCancelRequest={handleCancelRequest}
+                />
+              </View>
             ))
           )}
         </View>
       </ScrollView>
 
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setRequestFormVisible(true)}
-        activeOpacity={0.8}
-      >
+      <TouchableOpacity style={styles.fab} onPress={() => setRequestFormVisible(true)} activeOpacity={0.8}>
         <Plus color="#fff" size={28} strokeWidth={3} />
       </TouchableOpacity>
 
-      <BottomNavbar
-        currentPage="Request"
-        onRefresh={handleRefresh}
-      />
+      <BottomNavbar currentPage="Request" onRefresh={handleRefresh} />
 
-      <RequestForm
-        visible={requestFormVisible}
-        onClose={handleRequestFormClose}
-        onSave={handleRequestFormSave}
-      />
-
-      {/* Menu rendered globally by MenuProvider */}
+      <RequestForm visible={requestFormVisible} onClose={handleRequestFormClose} onSave={handleRequestFormSave} />
     </View>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   listAssignedTickets,
+  listMyTickets, // ✅ add
   listOperatorCancelledHistoryTickets,
   markForVerification,
   cancelTicket,
@@ -9,13 +10,13 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export function useMaintenance() {
-  const [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
+  const [tickets, setTickets] = useState<MaintenanceTicket[]>([]); // assigned tickets
+  const [myTickets, setMyTickets] = useState<MaintenanceTicket[]>([]); // ✅ created-by-me tickets
   const [cancelledHistory, setCancelledHistory] = useState<MaintenanceTicket[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
-  // Get current user
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -43,12 +44,14 @@ export function useMaintenance() {
     setLoading(true);
     setError(null);
     try {
-      const [assigned, cancelled] = await Promise.all([
+      const [assigned, mine, cancelled] = await Promise.all([
         listAssignedTickets(currentUserId),
+        listMyTickets(currentUserId), // ✅ NEW
         listOperatorCancelledHistoryTickets(currentUserId),
       ]);
 
       setTickets(uniqByRequestId(assigned || []));
+      setMyTickets(uniqByRequestId(mine || [])); // ✅ NEW
       setCancelledHistory(uniqByRequestId(cancelled || []));
     } catch (err: any) {
       setError(err?.message || 'Failed to load maintenance tickets');
@@ -58,12 +61,10 @@ export function useMaintenance() {
     }
   }, [currentUserId]);
 
-  // ✅ IMPORTANT: actually load data once user is known
   useEffect(() => {
     if (currentUserId) fetchTickets();
   }, [currentUserId, fetchTickets]);
 
-  // ✅ Define actions (these were missing -> crash)
   const submitForVerification = useCallback(
     async (requestId: number) => {
       if (!currentUserId) throw new Error('User not found. Please sign in again.');
@@ -88,7 +89,19 @@ export function useMaintenance() {
     return tickets.filter(t => !cancelledIdSet.has(t.Request_Id));
   }, [tickets, cancelledIdSet]);
 
-  const pendingTickets = assignedWithoutCancelled.filter(t => t.Status === 'On-going');
+  // ✅ Requested tickets created by operator (typically not assigned yet)
+  const requestedTickets = useMemo(() => {
+    return (myTickets || []).filter(t => t.Status === 'Requested' && !cancelledIdSet.has(t.Request_Id));
+  }, [myTickets, cancelledIdSet]);
+
+  // ✅ Pending tab now includes: On-going (assigned) + Requested (created)
+  const pendingTickets = useMemo(() => {
+    return uniqByRequestId([
+      ...assignedWithoutCancelled.filter(t => t.Status === 'On-going'),
+      ...requestedTickets,
+    ]);
+  }, [assignedWithoutCancelled, requestedTickets]);
+
   const forReviewTickets = assignedWithoutCancelled.filter(
     t => t.Status === 'For Verification' || t.Status === 'Cancel Requested'
   );
