@@ -1,80 +1,59 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import tw from '../../utils/tailwind';
-import { useResponsiveStyle, useResponsiveFontSize } from '../../utils/responsiveStyles';
 
-interface TaskCardProps {
+export interface TaskCardProps {
   title: string;
   description: string;
   dueDate: string;
-  onPress?: () => void;
+  onViewPress?: () => void;
 }
 
-export default function ResponsiveTaskCard({ title, description, dueDate, onPress }: TaskCardProps) {
-  const styles = useResponsiveStyle(({ isSm, isMd, isLg }) => ({
-    cardContainer: {
-      width: isSm ? 130 : isMd ? 150 : 160,
-      height: isSm ? 130 : isMd ? 150 : 170,
-      marginRight: 16,
-      borderRadius: 16,
-      borderWidth: 2,
-      borderColor: '#AFC8AD',
-      backgroundColor: 'white',
-    },
-    contentContainer: {
-      padding: isSm ? 12 : 16,
-    },
-    titleText: {
-      fontSize: isSm ? useResponsiveFontSize('xs') : useResponsiveFontSize('sm'),
-      fontWeight: 'bold',
-      color: '#2E523A',
-      textAlign: 'center',
-      marginBottom: isSm ? 8 : 12,
-    },
-    descriptionText: {
-      fontSize: isSm ? 9 : 10,
-      color: '#2E523A',
-      lineHeight: isSm ? 12 : 14,
-      marginBottom: 6,
-    },
-    dateText: {
-      fontSize: isSm ? 8 : 10,
-      fontWeight: 'bold',
-      color: '#88AB8E',
-      marginBottom: isSm ? 8 : 12,
-    },
-    button: {
-      backgroundColor: '#2E523A',
-      borderRadius: 6,
-      paddingVertical: 4,
-      paddingHorizontal: isSm ? 8 : 16,
-      alignSelf: 'center',
-      marginTop: isSm ? 2 : 4,
-    },
-    buttonText: {
-      color: 'white',
-      fontWeight: '600',
-      fontSize: isSm ? 8 : 10,
-    }
-  }));
+export default function ResponsiveTaskCard({
+  title,
+  description,
+  dueDate,
+  onViewPress,
+}: TaskCardProps) {
+  const viewDisabled = !onViewPress;
+
+  const Row = ({ label, value }: { label: string; value: string }) => (
+    <View style={tw`flex-row items-start mt-1`}>
+      <Text style={tw`text-gray-600 text-xs font-semibold w-20`}>{label}:</Text>
+      <Text style={tw`text-[#2E523A] text-xs flex-1`} numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
+  );
 
   return (
-    <View style={styles.cardContainer}>
-      <View style={styles.contentContainer}>
-        <Text style={styles.titleText}>
-          {title}
-        </Text>
-        <Text style={styles.descriptionText}>
-          {description}
-        </Text>
-        <Text style={styles.dateText}>
+    <View style={tw`bg-white rounded-xl p-4 mr-4 w-72`}>
+      <Row label="Title" value={title} />
+      <Row label="Description" value={description} />
+
+      <View style={tw`flex-row items-start mt-1`}>
+        <Text style={tw`text-gray-600 text-xs font-semibold w-20`}>Due Date:</Text>
+        <Text style={tw`text-gray-600 text-xs flex-1`} numberOfLines={1}>
           {dueDate}
         </Text>
+      </View>
+
+      {/* ✅ Stretch button full width and center text */}
+      <View style={tw`mt-3`}>
         <TouchableOpacity
-          onPress={onPress}
-          style={styles.button}
+          onPress={onViewPress}
+          disabled={viewDisabled}
+          activeOpacity={0.85}
+          style={[
+            tw`w-full py-2 rounded-md items-center justify-center`,
+            viewDisabled ? tw`bg-gray-300` : tw`bg-[#2f6b3f]`,
+          ]}
         >
-          <Text style={styles.buttonText}>view</Text>
+          <Text
+            style={viewDisabled ? tw`text-gray-600 text-xs font-semibold` : tw`text-white text-xs font-semibold`}
+          >
+            View Details
+          </Text>
         </TouchableOpacity>
       </View>
     </View>

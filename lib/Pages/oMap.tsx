@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Image, Modal, ScrollView } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
@@ -27,6 +27,9 @@ function OMapContent({ navigation }: any) {
   const [locationGranted, setLocationGranted] = useState<boolean>(false);
   const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
   const [recenterKey, setRecenterKey] = useState(0);
+  const [routePath, setRoutePath] = useState<LatLng[] | null>(null);
+  const [focusedContainerId, setFocusedContainerId] = useState<string | number | null>(null);
+  const [showContainerModal, setShowContainerModal] = useState(false);
 
   const handleTabChange = (value: string) => {
     setSelectedTab(value);
@@ -205,26 +208,27 @@ function OMapContent({ navigation }: any) {
     return best;
   }, [containers, userLocation]);
 
+  const focusedContainer = useMemo(() => {
+    if (!focusedContainerId) return null;
+    return containers.find((c) => String(c.id ?? c.container_id) === String(focusedContainerId)) ?? null;
+  }, [containers, focusedContainerId]);
+
+  const activeContainer = focusedContainer ?? nearestContainer;
+
   const nearestDistanceKm = useMemo(() => {
-    if (!nearestContainer || !userLocation) return null;
+    if (!activeContainer || !userLocation) return null;
     return distanceKm(userLocation, {
-      latitude: nearestContainer.latitude,
-      longitude: nearestContainer.longitude,
+      latitude: activeContainer.latitude,
+      longitude: activeContainer.longitude,
     });
-  }, [nearestContainer, userLocation]);
+  }, [activeContainer, userLocation]);
 
   const nextPickupLabel = useMemo(() => {
-    if (!nearestContainer) return 'No schedule';
-    return findNextPickupLabel(nearestContainer, schedules);
-  }, [nearestContainer, schedules]);
+    if (!activeContainer) return 'No schedule';
+    return findNextPickupLabel(activeContainer, schedules);
+  }, [activeContainer, schedules]);
 
-  const statusText = nearestContainer?.status ?? 'Unknown';
-  const statusColor =
-    statusText.toLowerCase().includes('available')
-      ? '#10B981'
-      : statusText.toLowerCase().includes('full')
-      ? '#F59E0B'
-      : '#6B7280';
+  const pathStatus = routePath && routePath.length >= 2 ? 'On' : 'Off';
 
   const accuracyLabel = userAccuracy !== null ? Math.round(userAccuracy) : null;
   const accuracyLow = userAccuracy !== null && userAccuracy > 200;
@@ -235,6 +239,29 @@ function OMapContent({ navigation }: any) {
       return;
     }
     setRecenterKey((v) => v + 1);
+  };
+
+  const handleRouteToNearest = () => {
+    if (routePath && routePath.length >= 2) {
+      setRoutePath(null);
+      return;
+    }
+    if (!userLocation || !activeContainer) {
+      Alert.alert('Route', 'Unable to build route. Check your location and nearest container.');
+      return;
+    }
+    const dest = { latitude: Number(activeContainer.latitude), longitude: Number(activeContainer.longitude) };
+    if (!Number.isFinite(dest.latitude) || !Number.isFinite(dest.longitude)) {
+      Alert.alert('Route', 'Nearest container location is invalid.');
+      return;
+    }
+    setRoutePath([userLocation, dest]);
+  };
+
+  const handleFocusContainer = (c: WasteContainer) => {
+    const id = c.id ?? c.container_id ?? `${c.latitude}-${c.longitude}`;
+    setFocusedContainerId(id);
+    setRoutePath(null);
   };
 
   return (
@@ -285,6 +312,7 @@ function OMapContent({ navigation }: any) {
               }}
               userLocation={userLocation}
               recenterKey={recenterKey}
+              routePath={routePath}
             />
 
             <TouchableOpacity style={styles.recenterBtn} onPress={handleRecenter} activeOpacity={0.85}>
@@ -292,7 +320,7 @@ function OMapContent({ navigation }: any) {
               <Text style={styles.recenterText}>Recenter</Text>
             </TouchableOpacity>
 
-            {nearestContainer && (
+            {activeContainer && (
               <View style={styles.nearestCard}>
                 <View style={styles.nearestHeader}>
                   <View style={styles.nearestIconWrap}>
@@ -301,9 +329,12 @@ function OMapContent({ navigation }: any) {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.nearestSub}>Nearest waste container is in</Text>
                     <Text style={styles.nearestTitle}>
-                      {nearestContainer.areaName || nearestContainer.name}
+                      {activeContainer.areaName || activeContainer.name}
                     </Text>
                   </View>
+                  <TouchableOpacity style={styles.changeBtn} onPress={() => setShowContainerModal(true)} activeOpacity={0.8}>
+                    <Ionicons name="swap-horizontal" size={18} color="#2E523A" />
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.nearestRow}>
@@ -314,14 +345,24 @@ function OMapContent({ navigation }: any) {
                     </Text>
                   </View>
                   <View style={styles.nearestCol}>
-                    <Text style={styles.nearestLabel}>Status</Text>
-                    <Text style={[styles.nearestValueBold, { color: statusColor }]}>{statusText}</Text>
+                    <Text style={styles.nearestLabel}>Path</Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.pathToggle,
+                        pathStatus === 'On' ? styles.pathOn : styles.pathOff,
+                      ]}
+                      onPress={handleRouteToNearest}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.pathToggleText}>{pathStatus}</Text>
+                    </TouchableOpacity>
                   </View>
                   <View style={styles.nearestCol}>
                     <Text style={styles.nearestLabel}>Next Pickup</Text>
                     <Text style={styles.nearestValue}>{nextPickupLabel}</Text>
                   </View>
                 </View>
+
               </View>
             )}
           </>
@@ -341,6 +382,57 @@ function OMapContent({ navigation }: any) {
       </View>
 
       <OWasteInput visible={showWasteModal} onClose={() => setShowWasteModal(false)} />
+
+      <Modal transparent visible={showContainerModal} animationType="fade" onRequestClose={() => setShowContainerModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select container</Text>
+              <TouchableOpacity onPress={() => setShowContainerModal(false)}>
+                <Ionicons name="close" size={20} color="#2E523A" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalList} showsVerticalScrollIndicator={false}>
+              {containers.map((c, idx) => {
+                const label = c.areaName || c.name || `Container ${idx + 1}`;
+                return (
+                  <View key={String(c.id ?? c.container_id ?? idx)} style={styles.modalRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.modalRowTitle}>{label}</Text>
+                      {!!c.fullAddress && <Text style={styles.modalRowSub}>{c.fullAddress}</Text>}
+                    </View>
+                    <TouchableOpacity
+                      style={styles.modalAction}
+                      onPress={() => {
+                        handleFocusContainer(c);
+                        setShowContainerModal(false);
+                      }}
+                    >
+                      <Text style={styles.modalActionText}>Focus</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalAction, styles.modalPrimaryAction]}
+                      onPress={() => {
+                        handleFocusContainer(c);
+                        setShowContainerModal(false);
+                        if (userLocation) {
+                          setRoutePath([
+                            userLocation,
+                            { latitude: Number(c.latitude), longitude: Number(c.longitude) },
+                          ]);
+                        }
+                      }}
+                    >
+                      <Text style={[styles.modalActionText, styles.modalPrimaryActionText]}>Redirect</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -372,7 +464,7 @@ function toRad(v: number) {
 }
 
 function findNextPickupLabel(container: WasteContainer, schedules: Schedule[]) {
-  if (!schedules?.length) return 'No schedule';
+  if (!schedules?.length) return formatScheduleDate(nextEveryTwoDays(new Date()));
 
   const areaKey = (container.areaName ?? '').toLowerCase();
   const addressKey = (container.fullAddress ?? '').toLowerCase();
@@ -391,7 +483,7 @@ function findNextPickupLabel(container: WasteContainer, schedules: Schedule[]) {
     .filter((d): d is Date => !!d && d.getTime() >= now.getTime())
     .sort((a, b) => a.getTime() - b.getTime());
 
-  if (!upcoming.length) return 'No schedule';
+  if (!upcoming.length) return formatScheduleDate(nextEveryTwoDays(new Date()));
 
   return formatScheduleDate(upcoming[0]);
 }
@@ -414,6 +506,12 @@ function formatScheduleDate(d: Date): string {
   const month = months[d.getMonth()];
   const year = d.getFullYear();
   return `${month} ${day}, ${year}`;
+}
+
+function nextEveryTwoDays(from: Date): Date {
+  const base = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  base.setDate(base.getDate() + 2);
+  return base;
 }
 
 const styles = StyleSheet.create({
@@ -512,6 +610,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  changeBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
   nearestIconWrap: {
     width: 48,
     height: 48,
@@ -538,6 +643,88 @@ const styles = StyleSheet.create({
   nearestRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  pathToggle: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  pathOn: {
+    backgroundColor: '#16a34a',
+  },
+  pathOff: {
+    backgroundColor: '#ef4444',
+  },
+  pathToggleText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+    maxHeight: '75%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2E523A',
+  },
+  modalList: {
+    paddingRight: 4,
+  },
+  modalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eef2f7',
+    gap: 8,
+  },
+  modalRowTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2E523A',
+  },
+  modalRowSub: {
+    fontSize: 11,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  modalAction: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  modalPrimaryAction: {
+    backgroundColor: '#2E523A',
+    borderColor: '#2E523A',
+  },
+  modalActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2E523A',
+  },
+  modalPrimaryActionText: {
+    color: '#fff',
   },
   nearestCol: {
     flex: 1,

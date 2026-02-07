@@ -5,6 +5,7 @@ import { Menu, MessageSquare, Home as HomeIcon, ArrowLeft, QrCode } from 'lucide
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMenu } from './MenuProvider';
+import { useScan } from './ScanProvider'; // ✅ add
 
 interface BottomNavbarProps {
 	onScan?: () => void;
@@ -15,6 +16,7 @@ interface BottomNavbarProps {
 export default function BottomNavbar({ onScan, currentPage, onRefresh }: BottomNavbarProps) {
 	const navigation = useNavigation<any>();
 	const { openMenu } = useMenu();
+	const { openScanner } = useScan(); // ✅ add
 
 	const handleNavigation = async (page: string) => {
 		if (page === currentPage) {
@@ -62,6 +64,11 @@ export default function BottomNavbar({ onScan, currentPage, onRefresh }: BottomN
 		}
 	};
 
+	const handleScanPress = async () => {
+		// Always open global scanner immediately
+		await openScanner();
+	};
+
 	return (
 		<>
 			<View style={tw.style(`h-22 flex-row justify-around items-end bg-primary relative`, Platform.OS === 'android' ? 'pb-8' : 'pb-4')}>
@@ -86,7 +93,7 @@ export default function BottomNavbar({ onScan, currentPage, onRefresh }: BottomN
 					</View>
 				</View>
 
-				<TouchableOpacity style={tw`items-center min-w-[60px]`} onPress={() => handleNavigation('Scan')}>
+				<TouchableOpacity style={tw`items-center min-w-[60px]`} onPress={handleScanPress}>
 					<QrCode color="white" size={22} />
 					<Text style={tw`text-[11px] font-semibold text-white mt-1 font-inter`}>Scan QR</Text>
 				</TouchableOpacity>

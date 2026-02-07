@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Modal, TouchableWithoutFeedback } from 'react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
+import { ChevronDown } from 'lucide-react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Plus } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
-import Button from '../components/commons/Button';
 import AdditiveInput from '../components/AdditiveInput';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { createAdditive, fetchAdditives, AdditiveRow } from '../services/additivesService';
@@ -79,7 +79,12 @@ export default function OAdditive() {
   useFocusEffect(
     React.useCallback(() => {
       loadMachines();
-    }, [])
+
+      // ✅ also refresh additive list when returning to this page
+      if (selectedMachineId) {
+        refreshAdditives(selectedMachineId);
+      }
+    }, [selectedMachineId])
   );
 
   useEffect(() => {
@@ -150,25 +155,25 @@ export default function OAdditive() {
           </View>
 
           <View style={tw`flex-row items-center justify-between gap-2 mb-6`}>
-            <View ref={buttonRef}>
-              <TouchableOpacity
-                style={tw`bg-primary rounded-md px-2 py-1 flex-row items-center`}
-                onPress={openDropdown}
-                disabled={machines.length === 0}
-              >
-                <Text style={tw`text-white font-semibold text-[11px] mr-1`}>
-                  {selectedMachine || 'Loading...'}
-                </Text>
-                <MaterialIcons name="arrow-drop-down" size={14} color="white" />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={tw`bg-primary rounded-md px-4 py-2 flex-row items-center justify-between self-start`}
+              onPress={() => setMachineDropdownOpen(!machineDropdownOpen)}
+              activeOpacity={0.85}
+            >
+              <Text style={tw`text-white font-bold text-[10px] mr-2`}>
+                {selectedMachine}
+              </Text>
+              <ChevronDown color="white" size={12} strokeWidth={2} />
+            </TouchableOpacity>
 
-            <Button
-              title="Add"
+            {/* ✅ Add button: same sizing as dropdown (tailwind only) */}
+            <TouchableOpacity
+              style={tw`bg-primary rounded-md px-4 py-2 self-start items-center justify-center`}
               onPress={() => setAdditiveModalVisible(true)}
-              variant="primary"
-              style={tw`px-6 py-2`}
-            />
+              activeOpacity={0.85}
+            >
+              <Text style={tw`text-white font-bold text-[10px] mx-4`}>Add</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={tw`flex-row items-center gap-2 mb-4`}>
@@ -245,13 +250,19 @@ export default function OAdditive() {
         onClose={() => setAdditiveModalVisible(false)}
         onSave={async (payload) => {
           if (!selectedMachineId) return;
+
           await createAdditive({
             machine_id: selectedMachineId,
             additive_type_id: payload.additiveId,
             value: Number(payload.value),
             units: payload.unit,
           });
-          // await refreshAdditives(selectedMachineId); // refresh immediately
+
+          // ✅ refresh immediately so UI reflects the newly added row
+          await refreshAdditives(selectedMachineId);
+
+          // (optional safety) ensure modal closes even if AdditiveInput doesn't
+          setAdditiveModalVisible(false);
         }}
       />
 

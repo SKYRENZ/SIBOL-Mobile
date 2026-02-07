@@ -71,28 +71,21 @@ export async function registerWithAttachment(payload: RegisterWithAttachmentPayl
   const type = guessMimeType(payload.attachmentUri);
 
   if (Platform.OS === 'web') {
-    // ✅ Web needs a real Blob/File
     const resp = await fetch(payload.attachmentUri);
     const blob = await resp.blob();
     const file = new File([blob], name, { type: blob.type || type });
     form.append('attachment', file);
   } else {
-    // ✅ Native (Expo/React Native) supports { uri, name, type }
-    form.append(
-      'attachment',
-      {
-        uri: payload.attachmentUri,
-        name,
-        type,
-      } as any
-    );
+    form.append('attachment', { uri: payload.attachmentUri, name, type } as any);
   }
 
-  // ✅ IMPORTANT: do NOT set Content-Type manually; axios must set boundary
   const res = await apiClient.post('/api/auth/register', form, {
     headers: {
       'x-client-type': 'mobile',
     },
+    timeout: 60000, // ✅ was 15000 globally; uploads + cloudinary/email can exceed 15s in prod
+    maxBodyLength: Infinity, // ✅ helps in Node/axios envs; harmless in RN
+    maxContentLength: Infinity,
   });
 
   return res.data;

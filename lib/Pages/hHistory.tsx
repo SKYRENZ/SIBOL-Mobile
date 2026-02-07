@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigation } from '@react-navigation/native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -10,27 +10,30 @@ import {
   Modal,
   Platform,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { ArrowLeft, ChevronDown, X } from 'lucide-react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import HistoryCard from '../components/HistoryCard';
 import BottomNavbar from '../components/hBotNav';
+import { fetchMyHistory, type HistoryApiItem } from '../services/historyService';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ add
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type FilterOption = 'All' | 'This Week' | 'This Month' | 'Custom';
 
-interface HistoryItem {
-  id: number;
-  date: string;
+type UiHistoryItem = HistoryApiItem & {
   dateObj: Date;
-  pointsEarned: number;
-  totalContribution: string;
-  area: string;
-}
+  dateLabel: string;
+};
 
 export default function HHistory() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets(); // ✅ add
+
+  const NAV_HEIGHT = 72; // adjust to match your BottomNavbar height
+
   const [selectedFilter, setSelectedFilter] = useState<FilterOption>('All');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -38,99 +41,82 @@ export default function HHistory() {
   const [customEndDate, setCustomEndDate] = useState<Date>(new Date());
   const [selectingDateType, setSelectingDateType] = useState<'start' | 'end'>('start');
 
+  const [items, setItems] = useState<UiHistoryItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [codeModalVisible, setCodeModalVisible] = useState(false);
+  const [selectedCode, setSelectedCode] = useState<string>('');
+
   const filterOptions: FilterOption[] = ['All', 'This Week', 'This Month', 'Custom'];
 
-  // Mock history data
-  const historyData: HistoryItem[] = [
-    {
-      id: 1,
-      date: 'December 15, 2024',
-      dateObj: new Date(2024, 11, 15),
-      pointsEarned: 25,
-      totalContribution: '5.2 kg',
-      area: 'Barangay San Antonio',
-    },
-    {
-      id: 2,
-      date: 'December 10, 2024',
-      dateObj: new Date(2024, 11, 10),
-      pointsEarned: 18,
-      totalContribution: '3.8 kg',
-      area: 'Barangay Poblacion',
-    },
-    {
-      id: 3,
-      date: 'December 5, 2024',
-      dateObj: new Date(2024, 11, 5),
-      pointsEarned: 32,
-      totalContribution: '7.1 kg',
-      area: 'Barangay San Antonio',
-    },
-    {
-      id: 4,
-      date: 'November 28, 2024',
-      dateObj: new Date(2024, 10, 28),
-      pointsEarned: 15,
-      totalContribution: '3.0 kg',
-      area: 'Barangay Poblacion',
-    },
-    {
-      id: 5,
-      date: 'November 15, 2024',
-      dateObj: new Date(2024, 10, 15),
-      pointsEarned: 22,
-      totalContribution: '4.5 kg',
-      area: 'Barangay San Antonio',
-    },
-  ];
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await fetchMyHistory({ limit: 100 });
 
-  // Filter logic 
+      const mapped: UiHistoryItem[] = rows.map((r) => {
+        const d = new Date(r.createdAt);
+        const label = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        return { ...r, dateObj: d, dateLabel: label };
+      });
+
+      setItems(mapped);
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load history');
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      load();
+    }, [])
+  );
+
   const filteredData = useMemo(() => {
     const now = new Date();
-    
+
     switch (selectedFilter) {
       case 'All':
-        return historyData;
-      
+        return items;
+
       case 'This Week': {
         const startOfWeek = new Date(now);
         startOfWeek.setDate(now.getDate() - now.getDay());
         startOfWeek.setHours(0, 0, 0, 0);
-        
+
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 6);
         endOfWeek.setHours(23, 59, 59, 999);
-        
-        return historyData.filter(item => 
-          item.dateObj >= startOfWeek && item.dateObj <= endOfWeek
-        );
+
+        return items.filter((item) => item.dateObj >= startOfWeek && item.dateObj <= endOfWeek);
       }
-      
+
       case 'This Month': {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-        
-        return historyData.filter(item => 
-          item.dateObj >= startOfMonth && item.dateObj <= endOfMonth
-        );
+
+        return items.filter((item) => item.dateObj >= startOfMonth && item.dateObj <= endOfMonth);
       }
-      
+
       case 'Custom': {
         const start = new Date(customStartDate);
         start.setHours(0, 0, 0, 0);
-        
+
         const end = new Date(customEndDate);
         end.setHours(23, 59, 59, 999);
-        
-        return historyData.filter(item => 
-          item.dateObj >= start && item.dateObj <= end
-        );
+
+        return items.filter((item) => item.dateObj >= start && item.dateObj <= end);
       }
-      
+
       default:
-        return historyData;
+        return items;
     }
-  }, [selectedFilter, customStartDate, customEndDate]);
+  }, [selectedFilter, customStartDate, customEndDate, items]);
 
   const handleFilterSelect = (filter: FilterOption) => {
     if (filter === 'Custom') {
@@ -177,10 +163,7 @@ export default function HHistory() {
   };
 
   const styles = StyleSheet.create({
-    safeArea: {
-      flex: 1,
-      backgroundColor: '#FFFFFF',
-    },
+    safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -189,10 +172,7 @@ export default function HHistory() {
       paddingBottom: 12,
       backgroundColor: '#FFFFFF',
     },
-    backButton: {
-      padding: 4,
-      marginRight: 12,
-    },
+    backButton: { padding: 4, marginRight: 12 },
     headerTitle: {
       flex: 1,
       fontSize: 18,
@@ -209,11 +189,7 @@ export default function HHistory() {
       zIndex: 1000,
       elevation: 1000,
     },
-    filterContainer: {
-      position: 'relative',
-      zIndex: 1000,
-      elevation: 1000,
-    },
+    filterContainer: { position: 'relative', zIndex: 1000, elevation: 1000 },
     filterButton: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -224,12 +200,7 @@ export default function HHistory() {
       paddingVertical: 10,
       minWidth: 100,
     },
-    filterButtonText: {
-      color: '#FFFFFF',
-      fontSize: 13,
-      fontWeight: '500',
-      marginRight: 6,
-    },
+    filterButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '500', marginRight: 6 },
     dropdownContainer: {
       position: 'absolute',
       top: '100%',
@@ -253,122 +224,33 @@ export default function HHistory() {
       borderBottomWidth: 1,
       borderBottomColor: '#F3F4F6',
     },
-    dropdownItemLast: {
-      borderBottomWidth: 0,
-    },
-    dropdownItemText: {
-      fontSize: 14,
-      color: '#374151',
-    },
-    dropdownItemTextSelected: {
-      color: '#2E523A',
-      fontWeight: '600',
-    },
-    scrollView: {
-      flex: 1,
-      zIndex: 1,
-    },
+    dropdownItemLast: { borderBottomWidth: 0 },
+    dropdownItemText: { fontSize: 14, color: '#374151' },
+    dropdownItemTextSelected: { color: '#2E523A', fontWeight: '600' },
+    scrollView: { flex: 1 },
     scrollViewContent: {
-      paddingBottom: 120,
       paddingTop: 8,
+      paddingBottom: NAV_HEIGHT + insets.bottom + 16,
     },
-    emptyState: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 60,
-      paddingHorizontal: 40,
-    },
-    emptyText: {
-      fontSize: 16,
-      color: '#6B7280',
-      textAlign: 'center',
-    },
-    calendarModalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    calendarContainer: {
-      backgroundColor: '#FFFFFF',
-      borderRadius: 16,
-      padding: 20,
-      width: SCREEN_WIDTH * 0.9,
-      maxWidth: 360,
-    },
-    calendarHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 16,
-    },
-    calendarTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: '#111827',
-    },
-    calendarCloseButton: {
-      padding: 4,
-    },
-    calendarLabel: {
-      fontSize: 14,
-      color: '#6B7280',
-      marginBottom: 8,
-      textAlign: 'center',
-    },
-    calendarDateDisplay: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      marginBottom: 16,
-      paddingTop: 8,
-    },
-    dateBox: {
-      alignItems: 'center',
-      padding: 12,
-      backgroundColor: '#F3F4F6',
-      borderRadius: 8,
-      minWidth: 120,
-    },
-    dateBoxActive: {
-      backgroundColor: '#2E523A',
-    },
-    dateBoxLabel: {
-      fontSize: 12,
-      color: '#6B7280',
-      marginBottom: 4,
-    },
-    dateBoxLabelActive: {
-      color: '#FFFFFF',
-    },
-    dateBoxValue: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: '#111827',
-    },
-    dateBoxValueActive: {
-      color: '#FFFFFF',
-    },
-    datePickerWrapper: {
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    confirmButton: {
-      backgroundColor: '#2E523A',
-      borderRadius: 8,
-      paddingVertical: 14,
-      alignItems: 'center',
-      marginTop: 16,
-    },
-    confirmButtonText: {
-      color: '#FFFFFF',
-      fontSize: 16,
-      fontWeight: '600',
-    },
+    emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 40 },
+    emptyText: { fontSize: 16, color: '#6B7280', textAlign: 'center' },
+
+    calendarModalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center' },
+    calendarContainer: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, width: SCREEN_WIDTH * 0.9, maxWidth: 360 },
+    calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    calendarTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
+    calendarCloseButton: { padding: 4 },
+
+    codeOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    codeBox: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 18, width: '100%', maxWidth: 360 },
+    codeTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 10 },
+    codeValue: { fontSize: 18, fontWeight: '800', color: '#2E523A', letterSpacing: 1.2, textAlign: 'center', paddingVertical: 10, backgroundColor: '#F3F4F6', borderRadius: 10 },
+    codeClose: { marginTop: 12, backgroundColor: '#2E523A', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+    codeCloseText: { color: '#FFFFFF', fontWeight: '700' },
   });
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <ArrowLeft size={24} color="#2E523A" />
@@ -376,7 +258,6 @@ export default function HHistory() {
         <Text style={styles.headerTitle}>History</Text>
       </View>
 
-      {/* Filter Row */}
       <View style={styles.filterRow}>
         <View style={styles.filterContainer}>
           <TouchableOpacity
@@ -392,18 +273,10 @@ export default function HHistory() {
               {filterOptions.map((option, index) => (
                 <TouchableOpacity
                   key={option}
-                  style={[
-                    styles.dropdownItem,
-                    index === filterOptions.length - 1 && styles.dropdownItemLast,
-                  ]}
+                  style={[styles.dropdownItem, index === filterOptions.length - 1 && styles.dropdownItemLast]}
                   onPress={() => handleFilterSelect(option)}
                 >
-                  <Text
-                    style={[
-                      styles.dropdownItemText,
-                      selectedFilter === option && styles.dropdownItemTextSelected,
-                    ]}
-                  >
+                  <Text style={[styles.dropdownItemText, selectedFilter === option && styles.dropdownItemTextSelected]}>
                     {option}
                   </Text>
                 </TouchableOpacity>
@@ -413,20 +286,37 @@ export default function HHistory() {
         </View>
       </View>
 
-      {/* History List */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {filteredData.length > 0 ? (
+        {loading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="large" color="#2E523A" />
+          </View>
+        ) : error ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>{error}</Text>
+            <TouchableOpacity onPress={load} style={{ marginTop: 12 }}>
+              <Text style={{ color: '#2E523A', fontWeight: '700' }}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : filteredData.length > 0 ? (
           filteredData.map((item) => (
             <HistoryCard
               key={item.id}
-              date={item.date}
-              pointsEarned={item.pointsEarned}
-              totalContribution={item.totalContribution}
-              area={item.area}
+              title={item.type === 'QR_SCAN' ? 'QR Scan' : item.title}
+              date={item.dateLabel}
+              type={item.type}
+              pointsDelta={item.pointsDelta}
+              kgDelta={item.kgDelta}
+              code={item.code}
+              onViewCode={(code) => {
+                setSelectedCode(code);
+                setCodeModalVisible(true);
+              }}
             />
           ))
         ) : (
@@ -436,109 +326,40 @@ export default function HHistory() {
         )}
       </ScrollView>
 
-      {/* Calendar Modal */}
+      {/* Calendar Modal (unchanged) */}
       <Modal visible={showCalendar} transparent animationType="fade">
-        <View style={styles.calendarModalOverlay}>
-          <View style={styles.calendarContainer}>
-            <View style={styles.calendarHeader}>
-              <Text style={styles.calendarTitle}>Select Date Range</Text>
-              <TouchableOpacity
-                style={styles.calendarCloseButton}
-                onPress={() => setShowCalendar(false)}
-              >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, width: SCREEN_WIDTH * 0.9, maxWidth: 360 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 18, fontWeight: '600', color: '#111827' }}>Select Date Range</Text>
+              <TouchableOpacity style={{ padding: 4 }} onPress={() => setShowCalendar(false)}>
                 <X size={24} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.calendarLabel}>
-              {selectingDateType === 'start' ? 'Select Start Date' : 'Select End Date'}
-            </Text>
-
-            <View style={styles.calendarDateDisplay}>
-              <TouchableOpacity
-                style={[styles.dateBox, selectingDateType === 'start' && styles.dateBoxActive]}
-                onPress={() => setSelectingDateType('start')}
-              >
-                <Text
-                  style={[
-                    styles.dateBoxLabel,
-                    selectingDateType === 'start' && styles.dateBoxLabelActive,
-                  ]}
-                >
-                  Start Date
-                </Text>
-                <Text
-                  style={[
-                    styles.dateBoxValue,
-                    selectingDateType === 'start' && styles.dateBoxValueActive,
-                  ]}
-                >
-                  {customStartDate.toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.dateBox, selectingDateType === 'end' && styles.dateBoxActive]}
-                onPress={() => setSelectingDateType('end')}
-              >
-                <Text
-                  style={[
-                    styles.dateBoxLabel,
-                    selectingDateType === 'end' && styles.dateBoxLabelActive,
-                  ]}
-                >
-                  End Date
-                </Text>
-                <Text
-                  style={[
-                    styles.dateBoxValue,
-                    selectingDateType === 'end' && styles.dateBoxValueActive,
-                  ]}
-                >
-                  {customEndDate.toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.datePickerWrapper}>
-              <DateTimePicker
-                value={selectingDateType === 'start' ? customStartDate : customEndDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleDateChange}
-              />
-            </View>
-
-            {Platform.OS === 'ios' && (
-              <TouchableOpacity
-                style={styles.confirmButton}
-                onPress={() => {
-                  if (selectingDateType === 'start') {
-                    setSelectingDateType('end');
-                  } else {
-                    setShowCalendar(false);
-                    setSelectedFilter('Custom');
-                  }
-                }}
-              >
-                <Text style={styles.confirmButtonText}>
-                  {selectingDateType === 'start' ? 'Next: Select End Date' : 'Confirm'}
-                </Text>
-              </TouchableOpacity>
-            )}
+            <DateTimePicker
+              value={selectingDateType === 'start' ? customStartDate : customEndDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleDateChange}
+            />
           </View>
         </View>
       </Modal>
 
-      {/* Bottom Navigation */}
+      {/* Code Modal */}
+      <Modal visible={codeModalVisible} transparent animationType="fade" onRequestClose={() => setCodeModalVisible(false)}>
+        <View style={styles.codeOverlay}>
+          <View style={styles.codeBox}>
+            <Text style={styles.codeTitle}>Reward Code</Text>
+            <Text style={styles.codeValue}>{selectedCode}</Text>
+            <TouchableOpacity style={styles.codeClose} onPress={() => setCodeModalVisible(false)}>
+              <Text style={styles.codeCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
         <BottomNavbar />
       </View>

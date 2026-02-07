@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,9 +25,15 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ChangePasswordModal from '../components/ChangePasswordModal';
+import { useMaintenance } from '../hooks/useMaintenance'; // ✅ add
+
+type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
 
 type RootStackParamList = {
   WiFiConnectivity: undefined;
+
+  // ✅ add: make sure this matches your navigator screen name for oRequest
+  ORequest: { initialTab?: FilterTab; openRequestId?: string; navAt?: number };
   // Add other screens here as needed
 };
 
@@ -128,6 +134,14 @@ export default function ODashboard() {
   const [displayName, setDisplayName] = useState<string>('User');
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
+  // ✅ Load real tickets
+  const {
+    tickets,        // assigned tickets for operator
+    loading,
+    error,
+    refresh,
+  } = useMaintenance();
+
   useEffect(() => {
     (async () => {
       try {
@@ -185,7 +199,7 @@ export default function ODashboard() {
 
   const isTallScreen = screenHeight > 800;
   const isTrulySmallDevice = isSm && screenHeight < 700;
-  
+
   const styles = useResponsiveStyle(({ isSm, isMd, isLg }) => ({
     heading: {
       fontSize: isSm ? useResponsiveFontSize('lg') : useResponsiveFontSize('xl'),
@@ -222,35 +236,54 @@ export default function ODashboard() {
       backgroundColor: 'rgba(175,200,173,0.32)',
       padding: isSm ? 16 : isTallScreen ? 24 : 20,
       marginTop: 16,
-      height: isTallScreen ? 'auto' : undefined, 
+      height: isTallScreen ? 'auto' : undefined,
     }
   }));
-  
-  const tasks = [
-    {
-      title: 'Change Filters',
-      description: 'Change the stage 2 filters on SIBOL Machine 2',
-      dueDate: 'Due: August 9, 2025',
-    },
-    {
-      title: 'Change Sensor',
-      description: 'Change the stage 2 filters on SIBOL Machine 2',
-      dueDate: 'Due: August 9, 2025',
-    },
-    {
-      title: 'Change Sensor',
-      description: 'Change the stage 2 filters on SIBOL Machine 2',
-      dueDate: 'Due: August 9, 2025',
-    },
-  ];
 
-  const handleRefresh = useCallback(() => {
+  const handleSeeAll = useCallback(() => {
+    navigation.navigate('ORequest', {
+      initialTab: 'Pending',
+      navAt: Date.now(),
+    });
+  }, [navigation]);
+
+  const handleViewTicket = useCallback(
+    (requestId: number) => {
+      navigation.navigate('ORequest', {
+        initialTab: 'Pending',
+        openRequestId: String(requestId),
+        navAt: Date.now(),
+      });
+    },
+    [navigation]
+  );
+
+  // ✅ Only show On-going (this is what you call "Pending" in Operator UI)
+  const onGoingTickets = useMemo(() => {
+    return (tickets || []).filter(t => t.Status === 'On-going');
+  }, [tickets]);
+
+  const taskCards = useMemo(() => {
+    return onGoingTickets.map((t) => {
+      const due = t.Due_date ? new Date(t.Due_date).toLocaleDateString() : null;
+      return {
+        key: String(t.Request_Id),
+        requestId: Number(t.Request_Id), // ✅ add
+        title: t.Title || 'Untitled',
+        description: t.Details || '',
+        dueDate: due ? `${due}` : '—',
+      };
+    });
+  }, [onGoingTickets]);
+
+  const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    
-    setTimeout(() => {
+    try {
+      await refresh();
+    } finally {
       setIsRefreshing(false);
-    }, 1000);
-  }, []);
+    }
+  }, [refresh]);
 
   return (
     <SafeAreaView style={tw`flex-1 bg-white`}>
@@ -287,9 +320,7 @@ export default function ODashboard() {
         {isRefreshing ? (
           <View style={tw`items-center justify-center py-24 bg-[#8FBB8F]`}>
             <ActivityIndicator size="large" color="#FFF" />
-            <Text style={tw`text-white font-semibold text-base mt-2`}>
-              Refreshing...
-            </Text>
+            <Text style={tw`text-white font-semibold text-base mt-2`}>Refreshing...</Text>
           </View>
         ) : (
           <>
@@ -298,25 +329,45 @@ export default function ODashboard() {
                 <Text style={[tw`text-white`, { fontSize: styles.sectionTitle.fontSize, fontWeight: 'bold' }]}>
                   Tasks and Reminders
                 </Text>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={handleSeeAll}>
                   <Text style={tw`text-white text-sm underline`}>See All</Text>
                 </TouchableOpacity>
               </View>
 
+              {!!error && (
+                <Text style={tw`text-white/90 text-xs mb-2`}>
+                  {error}
+                </Text>
+              )}
+
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={tw`mx-[-20px]`} 
+                style={tw`mx-[-20px]`}
                 contentContainerStyle={tw`pl-5 pr-0`}
               >
-                {tasks.map((task, index) => (
-                  <ResponsiveTaskCard
-                    key={index}
-                    title={task.title}
-                    description={task.description}
-                    dueDate={task.dueDate}
-                  />
-                ))}
+                {loading ? (
+                  <View style={tw`py-6 pr-6`}>
+                    <ActivityIndicator color="#FFF" />
+                    <Text style={tw`text-white text-xs mt-2`}>Loading tasks...</Text>
+                  </View>
+                ) : taskCards.length === 0 ? (
+                  <View style={tw`py-6 pr-6`}>
+                    <Text style={tw`text-white text-xs`}>
+                      No on-going tasks right now
+                    </Text>
+                  </View>
+                ) : (
+                  taskCards.map((task) => (
+                    <ResponsiveTaskCard
+                      key={task.key}                 // ✅ React key (not a prop)
+                      title={task.title}
+                      description={task.description}
+                      dueDate={task.dueDate}
+                      onViewPress={() => handleViewTicket(task.requestId)}  // ✅ clickable
+                    />
+                  ))
+                )}
               </ScrollView>
             </View>
 
