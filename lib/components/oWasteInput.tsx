@@ -13,7 +13,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
-import { createCollection, listAreas, NormalizedArea } from '../services/wasteCollectionService';
+import { createCollection, NormalizedArea } from '../services/wasteCollectionService';
+import { listWasteContainers, WasteContainer } from '../services/wasteContainerService';
 
 interface Props {
   visible: boolean;
@@ -31,6 +32,7 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
   const [areasList, setAreasList] = useState<NormalizedArea[]>([]);
   const [suggestions, setSuggestions] = useState<NormalizedArea[]>([]);
   const [loadingAreas, setLoadingAreas] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const SUGGESTION_LIMIT = 6;
 
   useEffect(() => {
@@ -43,13 +45,14 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
     }
   }, [visible]);
 
-  // load areas list
+  // load areas list from waste containers
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       setLoadingAreas(true);
       try {
-        const list = await listAreas(); // now returns NormalizedArea[]
+        const containers = await listWasteContainers();
+        const list = normalizeContainersToAreas(containers);
         if (!mounted) return;
         setAreasList(list);
         console.debug('[oWasteInput] loaded areas count:', list.length, 'sample:', list.slice(0,10).map(i => ({ id: i.id, label: i.label })));
@@ -61,7 +64,7 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
     };
     load();
     return () => { mounted = false; };
-  }, []);
+  }, [visible]);
 
   const onChangeArea = (text: string) => {
     setArea(text);
@@ -70,7 +73,8 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
 
     const q = text.trim().toLowerCase();
     if (!q) {
-      setSuggestions([]);
+      setSuggestions(areasList.slice(0, SUGGESTION_LIMIT));
+      setShowSuggestions(true);
       return;
     }
 
@@ -83,12 +87,14 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
     }
 
     setSuggestions(matches.slice(0, SUGGESTION_LIMIT));
+    setShowSuggestions(true);
   };
 
   const selectSuggestion = (s: NormalizedArea) => {
     setArea(s.label);
     setSelectedAreaId(Number(s.id));
     setSuggestions([]);
+    setShowSuggestions(false);
     setError(null);
   };
 
@@ -164,11 +170,17 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
                   returnKeyType="done"
                   autoCorrect={false}
                   autoCapitalize="words"
+                  onFocus={() => {
+                    setShowSuggestions(true);
+                    if (!area.trim()) {
+                      setSuggestions(areasList.slice(0, SUGGESTION_LIMIT));
+                    }
+                  }}
                 />
 
                 {loadingAreas ? (
                   <ActivityIndicator size="small" style={{ marginTop: 8 }} />
-                ) : suggestions.length > 0 ? (
+                ) : showSuggestions && suggestions.length > 0 ? (
                   <View style={{ maxHeight: 160, borderWidth: 1, borderColor: '#e6efe6', borderRadius: 8, marginTop: 8 }}>
                     <FlatList
                       data={suggestions}
@@ -213,6 +225,30 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
       </TouchableWithoutFeedback>
     </Modal>
   );
+}
+
+function normalizeContainersToAreas(containers: WasteContainer[]): NormalizedArea[] {
+  const map = new Map<number, NormalizedArea>();
+  containers.forEach((c) => {
+    const areaId = Number(c?.raw?.area_id ?? c?.raw?.Area_id);
+    const label = String(c.areaName || c.name || '').trim();
+    if (!label) return;
+    if (Number.isFinite(areaId)) {
+      if (!map.has(areaId)) {
+        map.set(areaId, { id: areaId, label, raw: c.raw });
+      }
+    }
+  });
+
+  const items = Array.from(map.values());
+  if (items.length) return items;
+
+  return containers
+    .map((c, idx) => ({
+      id: c.id ?? idx,
+      label: String(c.areaName || c.name || `Area ${idx + 1}`),
+      raw: c.raw,
+    }));
 }
 
 const styles = StyleSheet.create({
