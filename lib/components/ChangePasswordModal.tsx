@@ -7,6 +7,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  KeyboardAvoidingView, // ✅ add
+  Platform, // ✅ add
+  Keyboard, // ✅ add
+  TouchableWithoutFeedback, // ✅ add
 } from 'react-native';
 import tw from '../utils/tailwind';
 import { Eye, EyeOff, Check, X } from 'lucide-react-native';
@@ -29,6 +33,8 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [kavKey, setKavKey] = useState(0); // ✅ add
+  const [keyboardVisible, setKeyboardVisible] = useState(false); // ✅ add
 
   useEffect(() => {
     if (!visible) {
@@ -42,6 +48,18 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
       setError(null);
       setSuccess(null);
     }
+
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+      if (Platform.OS === 'android') {
+        setTimeout(() => setKavKey((k) => k + 1), 220);
+      }
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
   }, [visible]);
 
   const hasUpper = /[A-Z]/.test(newPassword);
@@ -100,128 +118,159 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { if (!requireChange) onClose(); }}>
-      <View style={tw`flex-1 bg-black bg-opacity-40 justify-center items-center px-4`}>
-        {/* Card should be white */}
-        <View style={tw`w-full max-w-md bg-white rounded-lg overflow-hidden`}>
-          {/* Header only should be green */}
-          <View style={[tw`px-4 py-3 border-b`, { backgroundColor: '#2E523A', borderBottomColor: 'rgba(255,255,255,0.15)' }]}>
-            <Text style={tw`text-lg font-semibold text-white`}>Change Password</Text>
-          </View>
-
-          <ScrollView contentContainerStyle={tw`p-4`}>
-            {success ? (
-              <View style={tw`mb-3`}>
-                <Text style={tw`text-green-600`}>{success}</Text>
-              </View>
-            ) : null}
-
-            {error ? <Text style={tw`text-red-500 mb-2`}>{error}</Text> : null}
-
-            <Text style={tw`text-sm text-gray-700 mb-1`}>Current Password</Text>
-            <View style={tw`relative mb-3`}>
-              <TextInput
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                secureTextEntry={!showCurrent}
-                placeholder="Enter current password"
-                style={tw`border border-gray-300 rounded-md px-3 py-2`}
-                editable={!loading}
-              />
-              <TouchableOpacity onPress={() => setShowCurrent(!showCurrent)} style={tw`absolute right-2 top-2`}>
-                {showCurrent ? <EyeOff size={18} color="#6C757D" /> : <Eye size={18} color="#6C757D" />}
-              </TouchableOpacity>
-            </View>
-
-            <Text style={tw`text-sm text-gray-700 mb-1`}>New Password</Text>
-            <View style={tw`relative mb-3`}>
-              <TextInput
-                value={newPassword}
-                onChangeText={setNewPassword}
-                secureTextEntry={!showNew}
-                placeholder="New password"
-                style={tw`border border-gray-300 rounded-md px-3 py-2`}
-                editable={!loading}
-              />
-              <TouchableOpacity onPress={() => setShowNew(!showNew)} style={tw`absolute right-2 top-2`}>
-                {showNew ? <EyeOff size={18} color="#6C757D" /> : <Eye size={18} color="#6C757D" />}
-              </TouchableOpacity>
-            </View>
-
-            <Text style={tw`text-sm text-gray-700 mb-1`}>Confirm Password</Text>
-            <View style={tw`relative mb-3`}>
-              <TextInput
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirm}
-                placeholder="Confirm password"
-                style={tw`border border-gray-300 rounded-md px-3 py-2`}
-                editable={!loading}
-              />
-              <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)} style={tw`absolute right-2 top-2`}>
-                {showConfirm ? <EyeOff size={18} color="#6C757D" /> : <Eye size={18} color="#6C757D" />}
-              </TouchableOpacity>
-            </View>
-
-            {/* Strength bar */}
-            <View style={tw`mb-3`}>
-              <View style={tw`flex-row items-center gap-2 mb-2`}>
-                <View style={tw`flex-1 h-2 rounded-full bg-gray-200 overflow-hidden flex-row`}>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <View
-                      key={i}
-                      style={{
-                        flex: 1,
-                        marginRight: i < 4 ? 4 : 0,
-                        backgroundColor: i < score ? strengthColor : '#E5E7EB',
-                        height: 8,
-                        borderRadius: 4,
-                      }}
-                    />
-                  ))}
-                </View>
-                <Text style={tw`text-xs font-medium text-gray-700 ml-2`}>{strengthLabel}</Text>
-              </View>
-
-              {/* Requirements list (matches frontend) */}
-              <View>
-                {requirements.map((r, idx) => (
-                  <View key={idx} style={tw`flex-row items-center mb-1`}>
-                    {r.ok ? <Check size={14} color="#10B981" /> : <X size={14} color="#ef4444" />}
-                    <Text style={[tw`ml-2 text-sm`, r.ok ? tw`text-gray-800` : tw`text-gray-500`]}>{r.label}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Match indicator */}
-            {confirmPassword.length > 0 && (
-              <View style={tw`flex-row items-center mb-3`}>
-                {passwordsMatch ? <Check size={16} color="#10B981" /> : <X size={16} color="#ef4444" />}
-                <Text style={tw`ml-2 text-sm`}>{passwordsMatch ? 'Passwords match' : 'Passwords do not match'}</Text>
-              </View>
-            )}
-
-            <View style={tw`flex-row justify-end gap-2`}>
-              {!requireChange && (
-                <TouchableOpacity onPress={onClose} disabled={loading} style={tw`px-4 py-2 rounded-md bg-gray-100`}>
-                  <Text>Cancel</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                onPress={handleSubmit}
-                disabled={loading || !passwordValid || !passwordsMatch || !currentPassword}
-                style={[
-                  tw`px-4 py-2 rounded-md`,
-                  (loading || !passwordValid || !passwordsMatch || !currentPassword) ? tw`bg-gray-300` : tw`bg-[#2E523A]`,
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={() => {
+        if (!requireChange) onClose();
+      }}
+    >
+      <TouchableWithoutFeedback onPress={() => { if (!requireChange) onClose(); }}>
+        <View style={tw`flex-1 bg-black bg-opacity-40 justify-center items-center px-4`}>
+          <TouchableWithoutFeedback>
+            <KeyboardAvoidingView
+              key={kavKey}
+              style={tw`flex-1 w-full`}
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+            >
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={[
+                  tw`p-0`,
+                  { flexGrow: 1, justifyContent: keyboardVisible ? 'flex-start' : 'center' },
                 ]}
               >
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={tw`text-white`}>Change Password</Text>}
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
+                <View style={tw`w-full max-w-md bg-white rounded-lg overflow-hidden self-center`}>
+                  {/* Header only should be green */}
+                  <View
+                    style={[
+                      tw`px-4 py-3 border-b`,
+                      { backgroundColor: '#2E523A', borderBottomColor: 'rgba(255,255,255,0.15)' },
+                    ]}
+                  >
+                    <Text style={tw`text-lg font-semibold text-white`}>Change Password</Text>
+                  </View>
+
+                  <View style={tw`p-4`}>
+                    {success ? (
+                      <View style={tw`mb-3`}>
+                        <Text style={tw`text-green-600`}>{success}</Text>
+                      </View>
+                    ) : null}
+
+                    {error ? <Text style={tw`text-red-500 mb-2`}>{error}</Text> : null}
+
+                    <Text style={tw`text-sm text-gray-700 mb-1`}>Current Password</Text>
+                    <View style={tw`relative mb-3`}>
+                      <TextInput
+                        value={currentPassword}
+                        onChangeText={setCurrentPassword}
+                        secureTextEntry={!showCurrent}
+                        placeholder="Enter current password"
+                        style={tw`border border-gray-300 rounded-md px-3 py-2`}
+                        editable={!loading}
+                      />
+                      <TouchableOpacity onPress={() => setShowCurrent(!showCurrent)} style={tw`absolute right-2 top-2`}>
+                        {showCurrent ? <EyeOff size={18} color="#6C757D" /> : <Eye size={18} color="#6C757D" />}
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={tw`text-sm text-gray-700 mb-1`}>New Password</Text>
+                    <View style={tw`relative mb-3`}>
+                      <TextInput
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        secureTextEntry={!showNew}
+                        placeholder="New password"
+                        style={tw`border border-gray-300 rounded-md px-3 py-2`}
+                        editable={!loading}
+                      />
+                      <TouchableOpacity onPress={() => setShowNew(!showNew)} style={tw`absolute right-2 top-2`}>
+                        {showNew ? <EyeOff size={18} color="#6C757D" /> : <Eye size={18} color="#6C757D" />}
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={tw`text-sm text-gray-700 mb-1`}>Confirm Password</Text>
+                    <View style={tw`relative mb-3`}>
+                      <TextInput
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        secureTextEntry={!showConfirm}
+                        placeholder="Confirm password"
+                        style={tw`border border-gray-300 rounded-md px-3 py-2`}
+                        editable={!loading}
+                      />
+                      <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)} style={tw`absolute right-2 top-2`}>
+                        {showConfirm ? <EyeOff size={18} color="#6C757D" /> : <Eye size={18} color="#6C757D" />}
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Strength bar */}
+                    <View style={tw`mb-3`}>
+                      <View style={tw`flex-row items-center gap-2 mb-2`}>
+                        <View style={tw`flex-1 h-2 rounded-full bg-gray-200 overflow-hidden flex-row`}>
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <View
+                              key={i}
+                              style={{
+                                flex: 1,
+                                marginRight: i < 4 ? 4 : 0,
+                                backgroundColor: i < score ? strengthColor : '#E5E7EB',
+                                height: 8,
+                                borderRadius: 4,
+                              }}
+                            />
+                          ))}
+                        </View>
+                        <Text style={tw`text-xs font-medium text-gray-700 ml-2`}>{strengthLabel}</Text>
+                      </View>
+
+                      {/* Requirements list (matches frontend) */}
+                      <View>
+                        {requirements.map((r, idx) => (
+                          <View key={idx} style={tw`flex-row items-center mb-1`}>
+                            {r.ok ? <Check size={14} color="#10B981" /> : <X size={14} color="#ef4444" />}
+                            <Text style={[tw`ml-2 text-sm`, r.ok ? tw`text-gray-800` : tw`text-gray-500`]}>{r.label}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+
+                    {/* Match indicator */}
+                    {confirmPassword.length > 0 && (
+                      <View style={tw`flex-row items-center mb-3`}>
+                        {passwordsMatch ? <Check size={16} color="#10B981" /> : <X size={16} color="#ef4444" />}
+                        <Text style={tw`ml-2 text-sm`}>{passwordsMatch ? 'Passwords match' : 'Passwords do not match'}</Text>
+                      </View>
+                    )}
+
+                    <View style={tw`flex-row justify-end gap-2`}>
+                      {!requireChange && (
+                        <TouchableOpacity onPress={onClose} disabled={loading} style={tw`px-4 py-2 rounded-md bg-gray-100`}>
+                          <Text>Cancel</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        onPress={handleSubmit}
+                        disabled={loading || !passwordValid || !passwordsMatch || !currentPassword}
+                        style={[
+                          tw`px-4 py-2 rounded-md`,
+                          (loading || !passwordValid || !passwordsMatch || !currentPassword) ? tw`bg-gray-300` : tw`bg-[#2E523A]`,
+                        ]}
+                      >
+                        {loading ? <ActivityIndicator color="#fff" /> : <Text style={tw`text-white`}>Change Password</Text>}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </TouchableWithoutFeedback>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 }

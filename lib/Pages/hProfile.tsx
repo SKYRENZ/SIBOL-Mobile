@@ -2,19 +2,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
   Animated,
   Easing,
   ActivityIndicator,
   Image,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view'; // ✅ add
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import BottomNavbar from '../components/hBotNav';
 import { Edit, Award } from 'lucide-react-native';
@@ -286,79 +284,81 @@ export default function HProfile() {
         fadeAnim={fadeAnim}
         points={userData.points}
         totalContributions={userData.totalContributions}
-        contributions={userData.contributions}
+        currentUsername={userData.username}
       />
     );
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <SafeAreaView style={styles.container}>
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.container}>
+      {/* ✅ Keyboard behavior like SignIn: affect scroll/content only, NOT bottom nav */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <KeyboardAwareScrollView
+          enableOnAndroid
+          extraScrollHeight={Platform.OS === 'ios' ? 20 : 120}
+          keyboardOpeningTime={0}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {renderHeader()}
+
+          {/* Tabs */}
+          <Animated.View
+            style={[
+              styles.tabsContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+                marginTop: -12,
+              },
+            ]}
           >
-            {renderHeader()}
-
-            {/* Tabs */}
-            <Animated.View
-              style={[
-                styles.tabsContainer,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
-                  marginTop: -12,
-                },
-              ]}
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'contributions' && styles.activeTab]}
+              onPress={() => setActiveTab('contributions')}
+              activeOpacity={0.7}
             >
-              <TouchableOpacity
-                style={[styles.tab, activeTab === 'contributions' && styles.activeTab]}
-                onPress={() => setActiveTab('contributions')}
-                activeOpacity={0.7}
-              >
-                <Award
-                  size={20}
-                  color={activeTab === 'contributions' ? '#2E523A' : '#9E9E9E'}
-                  fill={activeTab === 'contributions' ? '#2E523A' : 'none'}
-                />
-                <Text style={[styles.tabText, activeTab === 'contributions' && styles.activeTabText]}>
-                  Contributions
-                </Text>
-              </TouchableOpacity>
+              <Award
+                size={20}
+                color={activeTab === 'contributions' ? '#2E523A' : '#9E9E9E'}
+                fill={activeTab === 'contributions' ? '#2E523A' : 'none'}
+              />
+              <Text style={[styles.tabText, activeTab === 'contributions' && styles.activeTabText]}>
+                Contributions
+              </Text>
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
-                onPress={() => setActiveTab('profile')}
-                activeOpacity={0.7}
-              >
-                <Edit size={20} color={activeTab === 'profile' ? '#2E523A' : '#9E9E9E'} />
-                <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>
-                  Profile
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
+              onPress={() => setActiveTab('profile')}
+              activeOpacity={0.7}
+            >
+              <Edit size={20} color={activeTab === 'profile' ? '#2E523A' : '#9E9E9E'} />
+              <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>
+                Profile
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
 
-            {/* Content */}
-            <View style={styles.content}>{renderTabContent()}</View>
-          </ScrollView>
+          {/* Content */}
+          <View style={styles.content}>{renderTabContent()}</View>
+        </KeyboardAwareScrollView>
+      </KeyboardAvoidingView>
 
-          <View style={styles.bottomNav}>
-            <BottomNavbar currentPage="Back" onRefresh={handleRefresh} />
-            {refreshing ? (
-              <View style={{ position: 'absolute', right: 12, bottom: 72 }}>
-                <ActivityIndicator />
-              </View>
-            ) : null}
+      {/* ✅ Bottom nav stays fixed */}
+      <View style={styles.bottomNav}>
+        <BottomNavbar currentPage="Back" onRefresh={handleRefresh} />
+        {refreshing ? (
+          <View style={{ position: 'absolute', right: 12, bottom: 72 }}>
+            <ActivityIndicator />
           </View>
-        </SafeAreaView>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+        ) : null}
+      </View>
+    </SafeAreaView>
   );
 }
 

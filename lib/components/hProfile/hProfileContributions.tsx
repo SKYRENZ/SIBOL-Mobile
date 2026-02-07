@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Animated, ActivityIndicator } from 'react-native';
+import { fetchLeaderboard } from '../../services/leaderboardService';
 
 export type HContributionItem = {
   id: string;
@@ -13,137 +14,142 @@ type Props = {
   fadeAnim: Animated.Value;
   points: number;
   totalContributions: number;
-  contributions: HContributionItem[];
+  currentUsername?: string; // ✅ needed for placement
 };
 
 export default function HProfileContributions({
   fadeAnim,
   points,
   totalContributions,
-  contributions,
+  currentUsername,
 }: Props) {
-  return (
-    <Animated.View style={[styles.tabContent, { opacity: fadeAnim }]}>
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{totalContributions}</Text>
-          <Text style={styles.statLabel}>Contributions</Text>
-        </View>
+  const [placementLoading, setPlacementLoading] = useState(false);
+  const [placementText, setPlacementText] = useState<string>('—');
 
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{points}</Text>
-          <Text style={styles.statLabel}>Total Points</Text>
-        </View>
+  const normalizedMe = useMemo(
+    () => String(currentUsername ?? '').trim().toLowerCase(),
+    [currentUsername]
+  );
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadPlacement() {
+      if (!normalizedMe) {
+        setPlacementText('—');
+        return;
+      }
+
+      setPlacementLoading(true);
+      try {
+        const rows = await fetchLeaderboard(200); // adjust if you want wider search
+        if (!mounted) return;
+
+        const found = rows.find((r) => String(r?.Username ?? '').trim().toLowerCase() === normalizedMe);
+
+        if (found?.rank) {
+          setPlacementText(`#${found.rank}`);
+        } else {
+          setPlacementText('Not in top 200');
+        }
+      } catch {
+        if (!mounted) return;
+        setPlacementText('—');
+      } finally {
+        if (mounted) setPlacementLoading(false);
+      }
+    }
+
+    loadPlacement();
+
+    return () => {
+      mounted = false;
+    };
+  }, [normalizedMe]);
+
+  return (
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      {/* Total Points */}
+      <View style={styles.bigCard}>
+        <Text style={styles.cardLabel}>Total Points</Text>
+        <Text style={styles.cardValue}>{points} points</Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Recent Activity</Text>
+      {/* Contributions */}
+      <View style={styles.bigCard}>
+        <Text style={styles.cardLabel}>Contributions</Text>
+        <Text style={styles.cardValue}>{totalContributions} kg</Text>
+      </View>
 
-      {contributions?.length ? (
-        contributions.map((c) => (
-          <View key={c.id} style={styles.contributionCard}>
-            <Text style={styles.contributionDate}>{c.date}</Text>
+      {/* Placement */}
+      <View style={styles.bigCard}>
+        <Text style={styles.cardLabel}>Placement</Text>
 
-            <View style={styles.contributionRow}>
-              <Text style={styles.contributionLabel}>Points Earned</Text>
-              <Text style={styles.contributionValue}>+{c.points} pts</Text>
-            </View>
-
-            <View style={styles.contributionRow}>
-              <Text style={styles.contributionLabel}>Total Contribution</Text>
-              <Text style={styles.contributionValue}>{c.totalContribution} kg</Text>
-            </View>
-
-            <View style={styles.contributionRow}>
-              <Text style={styles.contributionLabel}>Area</Text>
-              <Text style={styles.contributionValue}>{c.area}</Text>
-            </View>
+        {placementLoading ? (
+          <View style={styles.placementRow}>
+            <ActivityIndicator />
+            <Text style={styles.placementHint}>Loading…</Text>
           </View>
-        ))
-      ) : (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>No contributions yet.</Text>
-        </View>
-      )}
+        ) : (
+          <Text style={styles.cardValue}>{placementText}</Text>
+        )}
+
+        <Text style={styles.placementSub}>
+          Based on current leaderboard.
+        </Text>
+      </View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  tabContent: {
+  container: {
     paddingHorizontal: 16,
     paddingTop: 8,
-  },
-  statsRow: {
-    flexDirection: 'row',
     gap: 12,
-    marginBottom: 16,
   },
-  statCard: {
-    flex: 1,
+
+  // Big, full-width card (similar visual weight to the old Recent Activity card)
+  bigCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
+    padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(46,82,58,0.08)',
   },
-  statValue: {
-    fontSize: 22,
-    fontFamily: 'Inter-Bold',
-    color: '#2E523A',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontFamily: 'Inter-Medium',
-    color: '#6C8770',
-  },
-  sectionTitle: {
-    marginTop: 6,
-    marginBottom: 10,
-    fontSize: 14,
-    fontFamily: 'Inter-Bold',
-    color: '#2E523A',
-  },
-  contributionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(46,82,58,0.08)',
-    marginBottom: 12,
-  },
-  contributionDate: {
+
+  cardLabel: {
     fontSize: 12,
     fontFamily: 'Inter-SemiBold',
     color: '#6C8770',
-    marginBottom: 10,
+    marginBottom: 6,
   },
-  contributionRow: {
+
+  cardValue: {
+    fontSize: 26,
+    fontFamily: 'Inter-Bold',
+    color: '#2E523A',
+    letterSpacing: 0.2,
+  },
+
+  placementRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 4,
   },
-  contributionLabel: {
-    fontSize: 12,
+
+  placementHint: {
+    fontSize: 14,
     fontFamily: 'Inter-Medium',
     color: '#6C8770',
   },
-  contributionValue: {
-    fontSize: 12,
-    fontFamily: 'Inter-SemiBold',
-    color: '#2E523A',
-  },
-  emptyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(46,82,58,0.08)',
-  },
-  emptyText: {
-    fontSize: 12,
+
+  placementSub: {
+    marginTop: 8,
+    fontSize: 11,
     fontFamily: 'Inter-Medium',
     color: '#6C8770',
+    opacity: 0.9,
   },
 });
