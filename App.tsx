@@ -29,50 +29,53 @@ import OProfile from './lib/Pages/oProfile';
 import HProfile from './lib/Pages/hProfile';
 import HProfileEdit from './lib/components/hProfile/hProfileEdit';
 import HMap from './lib/Pages/hMap';
+import ScanProvider from './lib/components/ScanProvider';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <ResponsiveProvider>
-      <NavigationContainer>
-        <MenuProvider>
-          <Stack.Navigator 
-          initialRouteName="SignIn"
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="Landing" component={LandingPage} />
-          <Stack.Screen name="SignIn" component={SignIn} />
-          <Stack.Screen name="SignUp" component={SignUp} />
-          <Stack.Screen name="VerifyEmail" component={EmailVerification} />
-          <Stack.Screen name="AdminPending" component={AdminPending} />
-          <Stack.Screen name="HDashboard" component={HDashboard} />
-          <Stack.Screen name="HMap" component={HMap} />
-          <Stack.Screen name="HRewards" component={HRewards} />
-          <Stack.Screen name="HHistory" component={HHistory} />
-          <Stack.Screen name="ODashboard" component={ODashboard} />
-          <Stack.Screen name="ORequest" component={ORequest} />
-          <Stack.Screen name="OMaintenance" component={OMaintenance} />
-          <Stack.Screen name="OAdditive" component={OAdditive} />
-          <Stack.Screen name="OProcess" component={OProcess} />
-          <Stack.Screen name="OMap" component={OMap} />
-          <Stack.Screen name="OWasteRecord" component={OWasteRecord} />
-          <Stack.Screen name="OSchedule" component={OSchedule} />
-          <Stack.Screen name="ChatSupport" component={ChatSupport} />
-          <Stack.Screen name="ChatIntro" component={ChatIntro} />
-          <Stack.Screen name="OProfile" component={OProfile} />
-          <Stack.Screen name="HProfile" component={HProfile} />
-          <Stack.Screen name="HProfileEdit" component={HProfileEdit} />
-          <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
-          <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
-          <Stack.Screen name="WiFiConnectivity" component={WiFiConnectivity} />
-          </Stack.Navigator>
-          <StatusBar style="auto" />
-        </MenuProvider>
-      </NavigationContainer>
-    </ResponsiveProvider>
+    <ScanProvider>
+      <ResponsiveProvider>
+        <NavigationContainer>
+          <MenuProvider>
+            <Stack.Navigator 
+            initialRouteName="SignIn"
+            screenOptions={{
+              headerShown: false,
+            }}
+            >
+              <Stack.Screen name="Landing" component={LandingPage} />
+              <Stack.Screen name="SignIn" component={SignIn} />
+              <Stack.Screen name="SignUp" component={SignUp} />
+              <Stack.Screen name="VerifyEmail" component={EmailVerification} />
+              <Stack.Screen name="AdminPending" component={AdminPending} />
+              <Stack.Screen name="HDashboard" component={HDashboard} />
+              <Stack.Screen name="HMap" component={HMap} />
+              <Stack.Screen name="HRewards" component={HRewards} />
+              <Stack.Screen name="HHistory" component={HHistory} />
+              <Stack.Screen name="ODashboard" component={ODashboard} />
+              <Stack.Screen name="ORequest" component={ORequest} />
+              <Stack.Screen name="OMaintenance" component={OMaintenance} />
+              <Stack.Screen name="OAdditive" component={OAdditive} />
+              <Stack.Screen name="OProcess" component={OProcess} />
+              <Stack.Screen name="OMap" component={OMap} />
+              <Stack.Screen name="OWasteRecord" component={OWasteRecord} />
+              <Stack.Screen name="OSchedule" component={OSchedule} />
+              <Stack.Screen name="ChatSupport" component={ChatSupport} />
+              <Stack.Screen name="ChatIntro" component={ChatIntro} />
+              <Stack.Screen name="OProfile" component={OProfile} />
+              <Stack.Screen name="HProfile" component={HProfile} />
+              <Stack.Screen name="HProfileEdit" component={HProfileEdit} />
+              <Stack.Screen name="ApiConnectiontester" component={ApiConnectiontester} />
+              <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+              <Stack.Screen name="WiFiConnectivity" component={WiFiConnectivity} />
+            </Stack.Navigator>
+            <StatusBar style="auto" />
+          </MenuProvider>
+        </NavigationContainer>
+      </ResponsiveProvider>
+    </ScanProvider>
   );
 }
 
