@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import tw from '../utils/tailwind';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Droplet } from 'lucide-react-native';
+import { Droplet, Bell } from 'lucide-react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import BottomNavbar from '../components/oBotNav';
 import ResponsiveTaskCard from '../components/primitives/ResponsiveTaskCard';
 import ResponsiveImage from '../components/primitives/ResponsiveImage';
@@ -123,6 +124,7 @@ export default function ODashboard() {
   const [showCreateFeedstockModal, setShowCreateFeedstockModal] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   useEffect(() => {
@@ -139,6 +141,27 @@ export default function ODashboard() {
       } catch (e) {}
     })();
   }, []);
+
+  // ✅ Fetch unread notifications count
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      const loadUnreadCount = async () => {
+        try {
+          // TODO: Replace with actual API call to get unread notifications count
+          // For now, using a placeholder that should be connected to your notification service
+          const count = 2; // placeholder
+          if (mounted) {
+            setUnreadNotifications(count);
+          }
+        } catch (err) {
+          console.error('[oDashboard] Failed to load unread count', err);
+        }
+      };
+      loadUnreadCount();
+      return () => { mounted = false; };
+    }, [])
+  );
 
   const isTallScreen = screenHeight > 800;
   const isTrulySmallDevice = isSm && screenHeight < 700;
@@ -214,12 +237,31 @@ export default function ODashboard() {
       <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
         {/* Light green background section for header and tasks */}
         <View style={tw`bg-[#8FBB8F] px-5 pt-12 pb-6`}>
-          <Text style={[tw`text-left text-white`, { fontSize: styles.heading.fontSize, fontWeight: 'bold' }]}>
-            Hello, User#436262!
-          </Text>
-          <Text style={[tw`text-left mt-1 text-white`, { fontSize: styles.subHeading.fontSize, fontWeight: '600' }]}>
-            Welcome to SIBOL maintenance app!
-          </Text>
+          <View style={tw`flex-row justify-between items-start`}>
+            <View style={tw`flex-1`}>
+              <Text style={[tw`text-left text-white`, { fontSize: styles.heading.fontSize, fontWeight: 'bold' }]}>
+                Hello, User#436262!
+              </Text>
+              <Text style={[tw`text-left mt-1 text-white`, { fontSize: styles.subHeading.fontSize, fontWeight: '600' }]}>
+                Welcome to SIBOL maintenance app!
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={tw`p-2 relative`}
+              accessibilityLabel="Notifications"
+              onPress={() => navigation.navigate('ONotifications')}
+            >
+              <Bell color="white" size={22} />
+              {/* Unread notifications badge */}
+              {unreadNotifications > 0 && (
+                <View style={tw`absolute top-0 right-0 bg-[#2E8B57] rounded-full min-w-[20px] h-[20px] items-center justify-center`}>
+                  <Text style={tw`text-white text-[11px] font-bold`}>
+                    {unreadNotifications}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {isRefreshing ? (

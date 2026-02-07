@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { View, TouchableOpacity, Text, Modal, TouchableWithoutFeedback, Dimensions } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { ChevronDown } from 'lucide-react-native';
 import tw from '../utils/tailwind';
 
 type FilterOption = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
@@ -11,11 +11,11 @@ interface Props {
 }
 
 const options: Array<{ key: FilterOption; label: string }> = [
+  { key: 'all', label: 'All' },
   { key: 'today', label: 'Today' },
   { key: 'yesterday', label: 'Yesterday' },
   { key: 'week', label: 'This Week' },
   { key: 'month', label: 'This Month' },
-  { key: 'custom', label: 'Custom Date' },
 ];
 
 export default function HistoryFilter({ value, onChange }: Props) {
@@ -25,7 +25,6 @@ export default function HistoryFilter({ value, onChange }: Props) {
 
   const open = () => {
     if (buttonRef.current) {
-      // measureInWindow sometimes available on ref via //@ts-ignore
       // @ts-ignore
       buttonRef.current.measureInWindow((x: number, y: number, width: number, height: number) => {
         setPos({ x, y, width, height });
@@ -41,12 +40,22 @@ export default function HistoryFilter({ value, onChange }: Props) {
     setVisible(false);
   };
 
+  const getDisplayLabel = () => {
+    if (value === 'all') return 'Filter by';
+    return options.find(o => o.key === value)?.label || 'Filter by';
+  };
+
   return (
-    <View style={{ alignItems: 'center' }}>
+    <View style={{ alignItems: 'flex-end' }}>
       <View ref={buttonRef as any}>
-        <TouchableOpacity onPress={open} style={tw`flex-row items-center bg-white border border-gray-200 rounded-md px-3 py-1`}>
-          <MaterialIcons name="filter-list" size={18} color="#2E523A" />
-          <Text style={{ color: '#2E523A', marginLeft: 6, fontSize: 13 }}>{value === 'all' ? 'Filter' : options.find(o => o.key === value)?.label}</Text>
+        <TouchableOpacity 
+          onPress={open} 
+          style={tw`flex-row items-center bg-[#2E523A] rounded-lg px-3 py-2`}
+        >
+          <Text style={tw`text-white text-[13px] font-medium mr-1`}>
+            {getDisplayLabel()}
+          </Text>
+          <ChevronDown size={18} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -57,20 +66,30 @@ export default function HistoryFilter({ value, onChange }: Props) {
               <View
                 style={{
                   position: 'absolute',
-                  top: pos.y + pos.height,
-                  left: Math.max(8, pos.x - 80),
-                  width: Math.min(Dimensions.get('window').width - 32, 200),
+                  top: pos.y + pos.height + 4,
+                  right: Dimensions.get('window').width - pos.x - pos.width,
+                  minWidth: 140,
                   zIndex: 200,
                 }}
               >
-                <View style={tw`bg-white rounded-md shadow-lg border border-gray-200 p-1`}>
-                  {options.map((opt) => (
+                <View style={tw`bg-white rounded-lg shadow-lg border border-gray-200`}>
+                  {options.map((opt, index) => (
                     <TouchableOpacity
                       key={opt.key}
                       onPress={() => handleSelect(opt.key)}
-                      style={tw`px-3 py-2 ${opt.key !== options[options.length - 1].key ? 'border-b border-gray-100' : ''}`}
+                      style={[
+                        tw`px-4 py-3`,
+                        index !== options.length - 1 && tw`border-b border-gray-100`,
+                      ]}
                     >
-                      <Text style={[{ fontSize: 13 }, value === opt.key ? tw`text-primary` : tw`text-gray-800`]}>{opt.label}</Text>
+                      <Text 
+                        style={[
+                          tw`text-[14px]`, 
+                          value === opt.key ? tw`text-[#2E523A] font-semibold` : tw`text-gray-700`
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>

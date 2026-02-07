@@ -44,6 +44,7 @@ export default function HDashboard(props: any) {
   const [totalKg, setTotalKg] = useState<number>(0);
   const [pointsLoading, setPointsLoading] = useState<boolean>(true);
   const [displayName, setDisplayName] = useState<string>('User');
+  const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
 
   const cameraRef = useRef<any>(null);
 
@@ -380,8 +381,20 @@ export default function HDashboard(props: any) {
                 <Text style={[tw`font-bold text-[#2E523A]`, styles.heading]}>Hi, {displayName}!</Text>
                 <Text style={[tw`font-bold text-[#2E523A]`, styles.subheading]}>Welcome to SIBOL Community.</Text>
               </View>
-              <TouchableOpacity style={tw`p-2`} accessibilityLabel="Notifications">
+              <TouchableOpacity
+                style={tw`p-2 relative`}
+                accessibilityLabel="Notifications"
+                onPress={() => props.navigation.navigate('HNotifications')}
+              >
                 <Bell color="#2E523A" size={22} />
+                {/* Unread notifications badge */}
+                {unreadNotifications > 0 && (
+                  <View style={tw`absolute top-0 right-0 bg-[#2E8B57] rounded-full min-w-[20px] h-[20px] items-center justify-center`}>
+                    <Text style={tw`text-white text-[11px] font-bold`}>
+                      {unreadNotifications}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           </View>
