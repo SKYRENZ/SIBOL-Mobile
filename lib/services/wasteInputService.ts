@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { post } from './apiClient';
+import { get, post } from './apiClient';
 
 export async function createWasteInput(machineId: number | string, weight: number, accountId?: number | string) {
   let resolvedAccountId: number | undefined;
@@ -31,4 +31,13 @@ export async function createWasteInput(machineId: number | string, weight: numbe
 
   const data = await post('/api/waste-inputs', payload);
   return data;
+}
+
+export async function getWasteInputsByMachineId(machineId: number | string) {
+  const id = Number(machineId);
+  if (!Number.isFinite(id)) return [];
+  const data = await get(`/api/waste-inputs/machine/${id}`);
+  if (data && Array.isArray((data as any).data)) return (data as any).data;
+  if (Array.isArray(data)) return data;
+  return [];
 }

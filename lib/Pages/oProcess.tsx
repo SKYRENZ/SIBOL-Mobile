@@ -172,7 +172,7 @@ export default function OProcess() {
         return <OProcessSensors />;
 
       case 'Process Details':
-        return <OProcessDetails machineId={selectedMachine} />;
+        return <OProcessDetails machineId={selectedMachineId} machineName={selectedMachine?.Name} />;
 
       default:
         return null;
