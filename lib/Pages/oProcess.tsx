@@ -1,14 +1,15 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, Modal, TouchableWithoutFeedback } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
-import { MaterialIcons } from '@expo/vector-icons';
-import { Settings, Wifi, FileSearch } from 'lucide-react-native';
+import { ChevronDown, Settings, Wifi, FileSearch } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
 import OProcessSensors from '../components/oProcessSensors';
 import OProcessDetails from '../components/oProcessDetails';
-import OInputWaste from '../components/oInputWaste';
+import OInputWaste from '../components/oInputWastemachine';
 import { useNavigation } from '@react-navigation/native';
+import { createWasteInput } from '../services/wasteInputService';
+import { fetchMachines, Machine } from '../services/machineService';
 
 type MainTabType = 'Maintenance' | 'Additive' | 'Process';
 type ProcessTabType = 'Process Panel' | 'Process Sensors and Alerts' | 'Process Details';
@@ -16,28 +17,43 @@ type ProcessTabType = 'Process Panel' | 'Process Sensors and Alerts' | 'Process 
 export default function OProcess() {
   const [selectedMainTab, setSelectedMainTab] = useState<MainTabType>('Process');
   const [selectedProcessTab, setSelectedProcessTab] = useState<ProcessTabType>('Process Panel');
-  const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 2');
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [machinesLoading, setMachinesLoading] = useState(false);
+  const [selectedMachineId, setSelectedMachineId] = useState<number | null>(null);
+  const selectedMachine = useMemo(() => {
+    if (!selectedMachineId) return null;
+    return machines.find((m) => m.machine_id === selectedMachineId) ?? null;
+  }, [machines, selectedMachineId]);
   const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState<{ x: number; y: number; width: number; height: number }>({ x: 0, y: 0, width: 0, height: 0 });
-  const buttonRef = useRef<View>(null);
   const [inputWasteModalVisible, setInputWasteModalVisible] = useState(false);
+  const [savingWaste, setSavingWaste] = useState(false);
   const navigation = useNavigation<any>();
 
-  const machineOptions = ['SIBOL Machine 2', 'SIBOL Machine 3', 'SIBOL Machine 4', 'SIBOL Machine 5'];
+  useEffect(() => {
+    let mounted = true;
 
-  const handleMachineSelect = (machine: string) => {
-    setSelectedMachine(machine);
-    setMachineDropdownOpen(false);
-  };
+    (async () => {
+      setMachinesLoading(true);
+      try {
+        const rows = await fetchMachines();
+        if (!mounted) return;
+        setMachines(rows || []);
+        if (rows?.length && !selectedMachineId) {
+          setSelectedMachineId(rows[0].machine_id);
+        }
+      } catch {
+        if (!mounted) return;
+        setMachines([]);
+      } finally {
+        if (!mounted) return;
+        setMachinesLoading(false);
+      }
+    })();
 
-  const openDropdown = () => {
-    if (buttonRef.current) {
-      buttonRef.current.measureInWindow((x, y, width, height) => {
-        setDropdownPos({ x, y, width, height });
-        setMachineDropdownOpen(true);
-      });
-    }
-  };
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleMainTabChange = (tab: string) => {
     if (tab === 'Maintenance') {
@@ -66,13 +82,21 @@ export default function OProcess() {
     }
   };
 
-  const handleInputWasteSave = (payload: {
+  const handleInputWasteSave = async (payload: {
     machineId: string;
     weightTotal: string;
     date: Date;
   }) => {
-    console.log('Input Waste Data:', payload);
-    // TODO: Implement save logic here
+    setSavingWaste(true);
+    try {
+      await createWasteInput(payload.machineId, Number(payload.weightTotal));
+    } catch (err: any) {
+      const msg = err?.message ?? 'Failed to save waste input.';
+      Alert.alert('Save failed', String(msg));
+      throw err;
+    } finally {
+      setSavingWaste(false);
+    }
   };
 
   const renderProcessTabContent = () => {
@@ -170,20 +194,38 @@ export default function OProcess() {
           />
         </View>
 
-        <View style={tw`flex-row items-center justify-between gap-2 mb-6`}>
-          <View ref={buttonRef}>
-            <TouchableOpacity
-              style={tw`bg-primary rounded-md px-2 py-1 flex-row items-center`}
-              onPress={openDropdown}
-            >
-              <Text style={tw`text-white font-semibold text-[11px] mr-1`}>
-                {selectedMachine}
-              </Text>
-              <MaterialIcons name="arrow-drop-down" size={14} color="white" />
-            </TouchableOpacity>
+        <TouchableOpacity
+          style={tw`bg-primary rounded-md px-4 py-2 flex-row items-center justify-between self-start mb-6`}
+          onPress={() => setMachineDropdownOpen(!machineDropdownOpen)}
+        >
+          <Text style={tw`text-white font-bold text-[10px] mr-2`}>
+            {selectedMachine?.Name ?? (machinesLoading ? 'Loading machines...' : 'Select machine')}
+          </Text>
+          <ChevronDown color="white" size={12} strokeWidth={2} />
+        </TouchableOpacity>
+
+        {machineDropdownOpen && (
+          <View style={tw`bg-white border border-[#E5E7EB] rounded-lg px-2 py-2 mb-4 shadow`}> 
+            {machinesLoading ? (
+              <Text style={tw`text-xs text-gray-500 px-2 py-1`}>Loading...</Text>
+            ) : machines.length === 0 ? (
+              <Text style={tw`text-xs text-gray-500 px-2 py-1`}>No machines found</Text>
+            ) : (
+              machines.map((m) => (
+                <TouchableOpacity
+                  key={m.machine_id}
+                  style={tw`px-2 py-2 rounded-md`}
+                  onPress={() => {
+                    setSelectedMachineId(m.machine_id);
+                    setMachineDropdownOpen(false);
+                  }}
+                >
+                  <Text style={tw`text-xs text-[#2E523A] font-semibold`}>{m.Name}</Text>
+                </TouchableOpacity>
+              ))
+            )}
           </View>
-          <View style={tw`w-20`} />
-        </View>
+        )}
 
         <View style={tw`flex-row justify-between mb-2`}>
           {(['Process Panel', 'Process Sensors and Alerts', 'Process Details'] as ProcessTabType[]).map(
@@ -235,45 +277,9 @@ export default function OProcess() {
         visible={inputWasteModalVisible}
         onClose={() => setInputWasteModalVisible(false)}
         onSave={handleInputWasteSave}
+        loading={savingWaste}
+        machineId={selectedMachineId ? String(selectedMachineId) : ''}
       />
-
-      {/* Machine Dropdown Modal */}
-      {machineDropdownOpen && (
-        <Modal transparent animationType="none" visible={machineDropdownOpen} onRequestClose={() => setMachineDropdownOpen(false)}>
-          <TouchableWithoutFeedback onPress={() => setMachineDropdownOpen(false)}>
-            <View style={{ flex: 1 }}>
-              <View
-                style={{
-                  position: 'absolute',
-                  top: dropdownPos.y + dropdownPos.height + 4,
-                  left: dropdownPos.x,
-                  width: 140,
-                  zIndex: 100,
-                }}
-              >
-                <View style={tw`bg-white rounded-md shadow-lg border border-gray-200`}>
-                  {machineOptions.map((machine, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => handleMachineSelect(machine)}
-                      style={tw`px-4 py-2.5 ${index === machineOptions.length - 1 ? '' : 'border-b border-gray-200'}`}
-                    >
-                      <Text
-                        style={[
-                          tw`text-[11px] font-medium`,
-                          selectedMachine === machine ? tw`text-primary font-semibold` : tw`text-gray-700`,
-                        ]}
-                      >
-                        {machine}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
-      )}
     </View>
   );
 }
