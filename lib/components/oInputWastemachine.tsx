@@ -21,23 +21,34 @@ interface OInputWasteProps {
     machineId: string;
     weightTotal: string;
     date: Date;
-  }) => void;
+  }) => void | Promise<void>;
+  loading?: boolean;
+  machineId?: string;
 }
 
 export default function OInputWaste({
   visible,
   onClose,
   onSave,
+  loading = false,
+  machineId: machineIdProp,
 }: OInputWasteProps) {
   const [machineId, setMachineId] = useState('');
   const [weightTotal, setWeightTotal] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!visible) {
       resetForm();
     }
   }, [visible]);
+
+  useEffect(() => {
+    if (machineIdProp) {
+      setMachineId(machineIdProp);
+    }
+  }, [machineIdProp]);
 
   const resetForm = () => {
     setMachineId('');
@@ -72,7 +83,7 @@ export default function OInputWaste({
     });
   };
 
-  const validateAndSave = () => {
+  const validateAndSave = async () => {
     setError(null);
 
     if (!machineId || !machineId.trim()) {
@@ -85,16 +96,23 @@ export default function OInputWaste({
       return;
     }
 
-    if (onSave) {
-      onSave({
-        machineId,
-        weightTotal,
-        date: new Date(),
-      });
+    try {
+      setSaving(true);
+      if (onSave) {
+        await onSave({
+          machineId,
+          weightTotal,
+          date: new Date(),
+        });
+      }
+      resetForm();
+      onClose();
+    } catch (err: any) {
+      const msg = err?.message ?? 'Failed to save waste input.';
+      setError(String(msg));
+    } finally {
+      setSaving(false);
     }
-
-    resetForm();
-    onClose();
   };
 
   return (
@@ -133,6 +151,7 @@ export default function OInputWaste({
                       placeholderTextColor="#B0C4B0"
                       style={styles.input}
                       maxLength={50}
+                      editable={!machineIdProp}
                     />
                   </View>
 
@@ -157,6 +176,8 @@ export default function OInputWaste({
                       onPress={validateAndSave}
                       variant="primary"
                       style={styles.button}
+                      loading={loading || saving}
+                      disabled={loading || saving}
                     />
                   </View>
                 </View>

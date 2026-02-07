@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   SafeAreaView, 
   View, 
@@ -13,9 +13,13 @@ import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import Tabs from '../components/commons/Tabs';
 import Calendar from '../components/commons/Calendar';
+import { listWasteContainers, WasteContainer } from '../services/wasteContainerService';
+import { fetchMyCollections } from '../services/wasteCollectionService';
 
 export default function OSchedule({ navigation }: any) {
   const [selectedTab, setSelectedTab] = useState<string>('Schedule');
+  const [containers, setContainers] = useState<WasteContainer[]>([]);
+  const [collections, setCollections] = useState<any[]>([]);
 
   const handleTabChange = (value: string) => {
     setSelectedTab(value);
@@ -26,10 +30,57 @@ export default function OSchedule({ navigation }: any) {
     }
   };
 
-  const scheduleItems = [
-    { location: 'Petunia St.' },
-    { location: 'Petunia St.' },
-  ];
+  const today = new Date();
+  const nextPickup = nextEveryTwoDays(today);
+  const scheduleItems = useMemo(() => {
+    if (!containers.length) return [] as Array<{ location: string; status: string; lastCollected: string }>;
+    const lastCollectedByArea = new Map<number, string>();
+
+    collections.forEach((row) => {
+      const areaId = Number(row?.area_id ?? row?.Area_id);
+      if (!Number.isFinite(areaId)) return;
+      const label = formatCollectedDate(row?.collected_at ?? row?.date);
+      if (!lastCollectedByArea.has(areaId) && label) {
+        lastCollectedByArea.set(areaId, label);
+      }
+    });
+
+    return containers.map((c) => {
+      const areaId = Number(c?.raw?.area_id ?? c?.raw?.Area_id);
+      const lastCollected = Number.isFinite(areaId)
+        ? lastCollectedByArea.get(areaId) ?? 'No record'
+        : 'No record';
+      return {
+        location: c.areaName || c.name,
+        status: c.status ?? 'Unknown',
+        lastCollected,
+      };
+    });
+  }, [containers, collections]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        const [containerRows, collectionRows] = await Promise.all([
+          listWasteContainers(),
+          fetchMyCollections(200, 0),
+        ]);
+        if (!mounted) return;
+        setContainers(containerRows || []);
+        setCollections(collectionRows || []);
+      } catch {
+        if (!mounted) return;
+        setContainers([]);
+        setCollections([]);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <SafeAreaView style={tw`flex-1 bg-white`}>
@@ -56,11 +107,14 @@ export default function OSchedule({ navigation }: any) {
               />
             </View>
             <Text style={styles.alertText}>
-              Your next schedule is on Tuesday, October 17
+              Your next schedule is on {formatScheduleDate(nextPickup)}
             </Text>
           </View>
 
-          <Calendar />
+          <Calendar
+            initialSelectedDate={nextPickup}
+            initialCurrentDate={today}
+          />
 
           <Text style={styles.scheduleLabel}>Schedule today:</Text>
 
@@ -69,8 +123,15 @@ export default function OSchedule({ navigation }: any) {
               <View style={styles.scheduleColorBar} />
               <View style={styles.scheduleCheckbox} />
               <MapPin size={12} color="#000" style={tw`ml-3`} />
-              <Text style={styles.scheduleLocation}>{item.location}</Text>
-              <TouchableOpacity style={styles.viewMapButton}>
+              <View style={styles.scheduleInfo}>
+                <Text style={styles.scheduleLocation}>{item.location}</Text>
+                <Text style={styles.scheduleDate}>Status: {item.status}</Text>
+                <Text style={styles.scheduleDate}>Last collected: {item.lastCollected}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.viewMapButton}
+                onPress={() => navigation.navigate('OMap')}
+              >
                 <Text style={styles.viewMapText}>View map</Text>
               </TouchableOpacity>
             </View>
@@ -84,6 +145,41 @@ export default function OSchedule({ navigation }: any) {
       />
     </SafeAreaView>
   );
+}
+
+function buildEveryTwoDaysSchedule(start: Date, count: number) {
+  const items: { dateLabel: string }[] = [];
+  const base = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  for (let i = 0; i < count; i++) {
+    const d = new Date(base);
+    d.setDate(d.getDate() + i * 2);
+    items.push({
+      dateLabel: formatScheduleDate(d),
+    });
+  }
+  return items;
+}
+
+function nextEveryTwoDays(from: Date): Date {
+  const base = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  base.setDate(base.getDate() + 2);
+  return base;
+}
+
+function formatScheduleDate(d: Date): string {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${month} ${day}, ${year}`;
+}
+
+function formatCollectedDate(input: string | Date | undefined): string {
+  if (!input) return '';
+  if (typeof input === 'string' && input.includes(',')) return input;
+  const d = new Date(input);
+  if (!Number.isFinite(d.getTime())) return '';
+  return formatScheduleDate(d);
 }
 
 const styles = StyleSheet.create({
@@ -181,7 +277,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#2E523A',
     fontWeight: '700',
+  },
+  scheduleInfo: {
+    flex: 1,
     marginLeft: 8,
+  },
+  scheduleDate: {
+    fontSize: 11,
+    color: '#6b7280',
+    fontWeight: '600',
+    marginTop: 2,
   },
   viewMapButton: {
     backgroundColor: '#2E523A',
