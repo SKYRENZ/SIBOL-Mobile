@@ -26,7 +26,7 @@ import ChatIntro from './lib/Pages/ChatIntro';
 import WiFiConnectivity from './lib/Pages/WiFiConnectivity';
 import OProfile from './lib/Pages/oProfile';
 import HProfile from './lib/Pages/hProfile';
-import HProfileEdit from './lib/Pages/hProfileEdit';
+import HProfileEdit from './lib/components/hProfile/hProfileEdit';
 import HMap from './lib/Pages/hMap';
 
 const Stack = createNativeStackNavigator();

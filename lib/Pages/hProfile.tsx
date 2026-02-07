@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,18 +12,21 @@ import {
   Keyboard,
   Animated,
   Easing,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import BottomNavbar from '../components/hBotNav';
-import { User, Edit, Award, Gift } from 'lucide-react-native';
+import { Edit, Award } from 'lucide-react-native';
+import { getMyProfile, getMyPoints, updateMyProfile } from '../services/profileService';
+import { HProfileEditForm, type HProfileEditData } from '../components/hProfile/hProfileEdit';
+import HProfileContributions from '../components/hProfile/hProfileContributions';
 
-type TabType = 'leaderboard' | 'contributions' | 'rewards';
+type TabType = 'contributions' | 'profile';
 
 type HProfileRouteParams = {
   updatedData?: {
     username: string;
-    address: string;
-    areaCovered?: string;
     firstName?: string;
     lastName?: string;
     contact?: string;
@@ -32,12 +35,65 @@ type HProfileRouteParams = {
   };
 };
 
+type UserDataState = {
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  address: string;
+  contact?: string;
+  email?: string;
+  barangay?: string;
+  totalContributions: number;
+  points: number;
+
+  contributions: Array<{
+    id: string;
+    date: string;
+    points: number;
+    totalContribution: number;
+    area: string;
+  }>;
+};
+
+const MOCK_CONTRIBUTIONS: UserDataState['contributions'] = [
+  {
+    id: '1',
+    date: 'November 11, 2025',
+    points: 30,
+    totalContribution: 6,
+    area: 'Waste Bin 12 - Petunia St.',
+  },
+];
+
 export default function HProfile() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<{ HProfile: HProfileRouteParams }, 'HProfile'>>();
-  const [activeTab, setActiveTab] = useState<TabType>('leaderboard');
+
+  const [activeTab, setActiveTab] = useState<TabType>('contributions');
   const fadeAnim = useState(new Animated.Value(0))[0];
   const slideAnim = useState(new Animated.Value(30))[0];
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Profile tab save state
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [profileSaveSuccess, setProfileSaveSuccess] = useState<string | null>(null);
+
+  const [userData, setUserData] = useState<UserDataState>({
+    username: '—',
+    firstName: undefined,
+    lastName: undefined,
+    address: '—',
+    contact: undefined,
+    email: '—',
+    barangay: undefined,
+    totalContributions: 0,
+    points: 0,
+    contributions: MOCK_CONTRIBUTIONS,
+  });
 
   useEffect(() => {
     Animated.parallel([
@@ -51,58 +107,59 @@ export default function HProfile() {
         duration: 300,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
-      })
+      }),
     ]).start();
-  }, []);
-  const [userData, setUserData] = useState({
-    username: 'User#39239',
-    firstName: 'Juan',
-    lastName: 'Dela Cruz',
-    address: '1263 Petunia St. Area A, Camarin, Caloocan City',
-    areaCovered: 'Camarin Area A',
-    contact: '+63 912 345 6789',
-    email: 'juan.delacruz@example.com',
-    barangay: 'Barangay Camarin',
-    totalContributions: 12,
-    points: 112,
-    contributions: [
-      {
-        id: '1',
-        date: 'November 11, 2025',
-        points: 30,
-        totalContribution: 6,
-        area: 'Waste Bin 12 - Petunia St.'
-      }
-    ],
-    leaderboard: [
-      { id: '1', name: 'Joemen Barrios', points: 120, rank: 1 },
-      { id: '2', name: 'Laurenz Listangco', points: 100, rank: 2 },
-      { id: '3', name: 'Karl Miranda', points: 95, rank: 3 },
-    ]
-  });
-  const handleEdit = () => {
-    navigation.navigate('HProfileEdit' as never, {
-      initialData: {
-        username: userData.username,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        address: userData.address,
-        areaCovered: userData.areaCovered,
-        contact: userData.contact,
-        email: userData.email,
-        barangay: userData.barangay,
-      },
-    } as never);
-  };
+  }, [fadeAnim, slideAnim]);
 
+  const loadFromBackend = useCallback(async () => {
+    try {
+      setLoadError(null);
+
+      const [profile, points] = await Promise.all([getMyProfile(), getMyPoints()]);
+
+      setUserData((prev) => ({
+        ...prev,
+        username: profile.username || prev.username,
+        firstName: profile.firstName ?? prev.firstName,
+        lastName: profile.lastName ?? prev.lastName,
+        contact: profile.contact ?? prev.contact,
+        email: profile.email || prev.email,
+        address: profile.fullAddress || profile.areaName || prev.address,
+        barangay: profile.barangayName ?? prev.barangay,
+        points: Number(points.points ?? 0),
+        totalContributions: Number(points.totalContributions ?? 0),
+      }));
+    } catch (e: any) {
+      setLoadError(e?.message ?? 'Failed to load profile');
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+
+      (async () => {
+        setLoading(true);
+        try {
+          await loadFromBackend();
+        } finally {
+          if (mounted) setLoading(false);
+        }
+      })();
+
+      return () => {
+        mounted = false;
+      };
+    }, [loadFromBackend])
+  );
+
+  // keep compatibility if some code still navigates back with updatedData
   useEffect(() => {
     const updated = route.params?.updatedData;
     if (updated) {
-      setUserData(prev => ({
+      setUserData((prev) => ({
         ...prev,
-        username: updated.username,
-        address: updated.address,
-        areaCovered: updated.areaCovered ?? prev.areaCovered,
+        username: updated.username ?? prev.username,
         firstName: updated.firstName ?? prev.firstName,
         lastName: updated.lastName ?? prev.lastName,
         contact: updated.contact ?? prev.contact,
@@ -113,135 +170,129 @@ export default function HProfile() {
     }
   }, [route.params?.updatedData, navigation]);
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadFromBackend();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleSaveProfile = async (data: HProfileEditData) => {
+    setProfileSaveError(null);
+    setProfileSaveSuccess(null);
+    setSavingProfile(true);
+
+    try {
+      // Backend supports: username/firstName/lastName/contact/email/password/area
+      // It does NOT support barangay updates (keep barangay UI local-only for now)
+      await updateMyProfile({
+        username: data.username,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        contact: data.contact,
+        email: data.email,
+      });
+
+      setProfileSaveSuccess('Profile updated successfully.');
+      // Refresh to ensure we show server truth + updated Profile_last_updated restriction timing
+      await loadFromBackend();
+    } catch (e: any) {
+      // apiClient attaches status/payload for axios responses
+      if (e?.status === 429) {
+        const retryAt = e?.payload?.retryAt;
+        setProfileSaveError(
+          retryAt
+            ? `You can update your profile again after: ${new Date(retryAt).toLocaleString()}`
+            : (e?.message ?? 'You can’t update your profile yet.')
+        );
+      } else {
+        setProfileSaveError(e?.message ?? 'Failed to update profile');
+      }
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   const renderHeader = () => (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.header,
         {
           opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }]
-        }
+          transform: [{ translateY: slideAnim }],
+        },
       ]}
     >
       <View style={styles.headerContent}>
-        <Animated.View style={[
-          styles.avatarContainer,
-          {
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            elevation: 3,
-          }
-        ]}>
-          <User size={40} color="#2E523A" />
-        </Animated.View>
-        <View style={styles.userInfo}>
-          <Text style={styles.username}>{userData.username}</Text>
-          <View style={styles.addressContainer}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.address}>{userData.email}</Text>
-              <Text style={[styles.address, { marginTop: 4 }]}>{userData.address}</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={handleEdit}
-              activeOpacity={0.8}
-            >
-              <Edit size={16} color="#2E523A" />
-            </TouchableOpacity>
+        <View style={styles.profileImageWrapper}>
+          <View style={styles.profileImageBox}>
+            <Image
+              source={require('../../assets/profile.png')}
+              style={styles.profileImage}
+              resizeMode="cover"
+            />
           </View>
         </View>
+
+        <View style={styles.userInfo}>
+          <Text style={styles.username}>{userData.username}</Text>
+        </View>
       </View>
+
+      {loadError ? (
+        <View style={{ marginTop: 10 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12 }}>{loadError}</Text>
+        </View>
+      ) : null}
     </Animated.View>
   );
 
   const renderTabContent = () => {
-    switch (activeTab) {
-      case 'leaderboard':
-        return (
-          <Animated.View 
-            style={[
-              styles.tabContent,
-              { opacity: fadeAnim }
-            ]}
-          >
-            <View style={styles.leaderboardContainer}>
-              <Text style={styles.leaderboardTitle}>Leaderboard</Text>
-              <Text style={styles.leaderboardSubtitle}>Top 3 Contributors This Month</Text>
-              {userData.leaderboard.map((item) => (
-                <View key={item.id} style={styles.leaderboardItem}>
-                  <View style={styles.rankBadge}>
-                    <Text style={styles.rankText}>{item.rank}</Text>
-                  </View>
-                  <View style={styles.leaderboardInfo}>
-                    <Text style={styles.leaderboardName}>{item.name}</Text>
-                    <Text style={styles.leaderboardPoints}>{item.points} points</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
-        );
-      case 'contributions':
-        return (
-          <Animated.View 
-            style={[
-              styles.tabContent,
-              { opacity: fadeAnim }
-            ]}
-          >
-            <View style={styles.statsRow}>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{userData.points}</Text>
-                <Text style={styles.statLabel}>Total Points</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{userData.totalContributions}</Text>
-                <Text style={styles.statLabel}>Contributions</Text>
-              </View>
-            </View>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            {userData.contributions.map((contribution) => (
-              <View key={contribution.id} style={styles.contributionCard}>
-                <Text style={styles.contributionDate}>{contribution.date}</Text>
-                <View style={styles.contributionRow}>
-                  <Text style={styles.contributionLabel}>Points Earned</Text>
-                  <Text style={styles.contributionValue}>+{contribution.points} pts</Text>
-                </View>
-                <View style={styles.contributionRow}>
-                  <Text style={styles.contributionLabel}>Total Contribution</Text>
-                  <Text style={styles.contributionValue}>{contribution.totalContribution} kg</Text>
-                </View>
-                <View style={styles.contributionRow}>
-                  <Text style={styles.contributionLabel}>Area</Text>
-                  <Text style={styles.contributionValue}>{contribution.area}</Text>
-                </View>
-              </View>
-            ))}
-          </Animated.View>
-        );
-      case 'rewards':
-        return (
-          <Animated.View 
-            style={[
-              styles.rewardsContainer,
-              { opacity: fadeAnim }
-            ]}
-          >
-            <Text style={styles.sectionTitle}>Your Rewards</Text>
-            <Text style={styles.noRewardsText}>
-              No rewards yet. Keep contributing to earn rewards!
-            </Text>
-          </Animated.View>
-        );
-      default:
-        return null;
+    if (loading) {
+      return (
+        <View style={{ padding: 18, alignItems: 'center' }}>
+          <ActivityIndicator />
+          <Text style={{ marginTop: 10, color: '#6C8770' }}>Loading profile…</Text>
+        </View>
+      );
     }
+
+    if (activeTab === 'profile') {
+      return (
+        <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+          <HProfileEditForm
+            initialData={{
+              username: userData.username,
+              firstName: userData.firstName ?? '',
+              lastName: userData.lastName ?? '',
+              contact: userData.contact ?? '',
+              email: userData.email ?? '',
+              barangay: userData.barangay ?? '',
+            }}
+            loading={savingProfile}
+            error={profileSaveError}
+            success={profileSaveSuccess}
+            onSave={handleSaveProfile}
+          />
+        </View>
+      );
+    }
+
+    // ✅ Contributions tab extracted to component
+    return (
+      <HProfileContributions
+        fadeAnim={fadeAnim}
+        points={userData.points}
+        totalContributions={userData.totalContributions}
+        contributions={userData.contributions}
+      />
+    );
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
@@ -254,6 +305,7 @@ export default function HProfile() {
             showsVerticalScrollIndicator={false}
           >
             {renderHeader()}
+
             {/* Tabs */}
             <Animated.View
               style={[
@@ -261,25 +313,10 @@ export default function HProfile() {
                 {
                   opacity: fadeAnim,
                   transform: [{ translateY: slideAnim }],
-                  marginTop: -12
-                }
+                  marginTop: -12,
+                },
               ]}
             >
-              <TouchableOpacity
-                style={[styles.tab, activeTab === 'leaderboard' && styles.activeTab]}
-                onPress={() => setActiveTab('leaderboard')}
-                activeOpacity={0.7}
-              >
-                <Award
-                  size={20}
-                  color={activeTab === 'leaderboard' ? '#2E523A' : '#9E9E9E'}
-                  fill={activeTab === 'leaderboard' ? '#2E523A' : 'none'}
-                />
-                <Text style={[styles.tabText, activeTab === 'leaderboard' && styles.activeTabText]}>
-                  Leaderboard
-                </Text>
-              </TouchableOpacity>
-
               <TouchableOpacity
                 style={[styles.tab, activeTab === 'contributions' && styles.activeTab]}
                 onPress={() => setActiveTab('contributions')}
@@ -296,30 +333,28 @@ export default function HProfile() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.tab, activeTab === 'rewards' && styles.activeTab]}
-                onPress={() => setActiveTab('rewards')}
+                style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
+                onPress={() => setActiveTab('profile')}
                 activeOpacity={0.7}
               >
-                <Gift
-                  size={20}
-                  color={activeTab === 'rewards' ? '#2E523A' : '#9E9E9E'}
-                  fill={activeTab === 'rewards' ? '#2E523A' : 'none'}
-                />
-                <Text style={[styles.tabText, activeTab === 'rewards' && styles.activeTabText]}>
-                  Rewards
+                <Edit size={20} color={activeTab === 'profile' ? '#2E523A' : '#9E9E9E'} />
+                <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>
+                  Profile
                 </Text>
               </TouchableOpacity>
             </Animated.View>
 
-          {/* Content */}
-          <View style={styles.content}>
-            {renderTabContent()}
-          </View>
+            {/* Content */}
+            <View style={styles.content}>{renderTabContent()}</View>
           </ScrollView>
 
-          {/* Bottom Navigation */}
           <View style={styles.bottomNav}>
-            <BottomNavbar currentPage="Back" onRefresh={() => {}} />
+            <BottomNavbar currentPage="Back" onRefresh={handleRefresh} />
+            {refreshing ? (
+              <View style={{ position: 'absolute', right: 12, bottom: 72 }}>
+                <ActivityIndicator />
+              </View>
+            ) : null}
           </View>
         </SafeAreaView>
       </TouchableWithoutFeedback>
@@ -353,21 +388,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  avatarContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 20,
-    borderWidth: 4,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
+  profileImageWrapper: {
+    marginRight: 18,
+  },
+  profileImageBox: {
+    width: 118,
+    height: 107,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#000',
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
   },
   userInfo: {
     flex: 1,
@@ -376,34 +411,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 24,
     fontFamily: 'Inter-Bold',
-    marginBottom: 8,
+    marginBottom: 10,
     letterSpacing: 0.3,
-  },
-  addressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  address: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 15,
-    fontFamily: 'Inter-Medium',
-    marginRight: 10,
-    flex: 1,
-    lineHeight: 22,
-    letterSpacing: 0.2,
-  },
-  editButton: {
-    backgroundColor: '#FFFFFF',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   tabsContainer: {
     flexDirection: 'row',
