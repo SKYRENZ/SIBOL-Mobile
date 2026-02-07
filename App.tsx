@@ -21,6 +21,7 @@ import OMap from './lib/Pages/oMap';
 import OWasteRecord from './lib/Pages/oWasteRecord';
 import OSchedule from './lib/Pages/oSchedule';
 import HRewards from './lib/Pages/hRewards';
+import HHistory from './lib/Pages/hHistory';
 import ChatSupport from './lib/Pages/ChatSupport';
 import ChatIntro from './lib/Pages/ChatIntro';
 import WiFiConnectivity from './lib/Pages/WiFiConnectivity';
@@ -50,6 +51,7 @@ export default function App() {
           <Stack.Screen name="HDashboard" component={HDashboard} />
           <Stack.Screen name="HMap" component={HMap} />
           <Stack.Screen name="HRewards" component={HRewards} />
+          <Stack.Screen name="HHistory" component={HHistory} />
           <Stack.Screen name="ODashboard" component={ODashboard} />
           <Stack.Screen name="ORequest" component={ORequest} />
           <Stack.Screen name="OMaintenance" component={OMaintenance} />
