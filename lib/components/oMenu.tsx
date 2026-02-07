@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // { added }
 import tw from '../utils/tailwind';
-import { HardDrive, MessageSquare, Settings, LogOut, User } from 'lucide-react-native';
+import { HardDrive, MessageSquare, LogOut, User } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { logout } from '../services/authService';
 import SignOutModal from './SignOutModal'; // ✅ Import modal
@@ -138,6 +138,10 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
 
 							<View style={tw`py-2`}>
 								{/* tailwind items to match hMenu sizing */}
+								<TouchableOpacity style={tw`flex-row items-center py-4 px-5`} onPress={() => { navigation.navigate('OProfile' as never); onClose(); }}>
+									<User color="#E6F0E9" size={20} />
+									<Text style={tw`text-[16px] text-[#E6F0E9] font-medium ml-4`}>My Profile</Text>
+								</TouchableOpacity>
 								<TouchableOpacity style={tw`flex-row items-center py-4 px-5`} onPress={() => { navigation.navigate('OMaintenance' as never); onClose(); }}>
 									<HardDrive color="#E6F0E9" size={20} />
 									<Text style={tw`text-[16px] text-[#E6F0E9] font-medium ml-4`}>SIBOL Machines</Text>
@@ -146,11 +150,6 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
 								<TouchableOpacity style={tw`flex-row items-center py-4 px-5`} onPress={() => { navigation.navigate('ChatSupport' as never); onClose(); }}>
 									<MessageSquare color="#E6F0E9" size={20} />
 									<Text style={tw`text-[16px] text-[#E6F0E9] font-medium ml-4`}>Chat Support</Text>
-								</TouchableOpacity>
-
-								<TouchableOpacity style={tw`flex-row items-center py-4 px-5`} onPress={() => { onNavigate?.('Settings'); onClose(); }}>
-									<Settings color="#E6F0E9" size={20} />
-									<Text style={tw`text-[16px] text-[#E6F0E9] font-medium ml-4`}>Settings</Text>
 								</TouchableOpacity>
 							</View>
 
