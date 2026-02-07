@@ -276,14 +276,6 @@ function OMapContent({ navigation }: any) {
             onTabChange={handleTabChange}
           />
         </View>
-
-        {accuracyLabel !== null && (
-          <View style={styles.accuracyPill}>
-            <Text style={[styles.accuracyText, accuracyLow && styles.accuracyLow]}>
-              {accuracyLow ? `Accuracy low (~${accuracyLabel} m)` : `Accuracy ~${accuracyLabel} m`}
-            </Text>
-          </View>
-        )}
       </View>
 
       <View style={styles.mapArea}>
@@ -520,35 +512,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
+    paddingTop: 44,
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#2E523A',
-    marginBottom: 8,
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#2b6b2b',
+    fontWeight: '600',
+    marginBottom: 18,
   },
   tabsWrap: {
-    marginBottom: 8,
-  },
-  accuracyPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  accuracyText: {
-    fontSize: 11,
-    color: '#6b7280',
-    fontWeight: '500',
-  },
-  accuracyLow: {
-    color: '#d97706',
+    width: '86%',
+    alignSelf: 'center',
+    marginBottom: 14,
   },
   mapArea: {
     flex: 1,
