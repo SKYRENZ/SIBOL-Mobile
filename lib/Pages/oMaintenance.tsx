@@ -1,5 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Modal, TouchableWithoutFeedback } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Modal,
+  TouchableWithoutFeedback,
+} from 'react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -22,11 +29,23 @@ interface MaintenanceRequest {
 
 export default function OMaintenance() {
   const [selectedTab, setSelectedTab] = useState<TabType>('Maintenance');
+
+  // --- merged: keep both dropdown + connection state
   const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 1');
   const [connectedDevice, setConnectedDevice] = useState<string | null>(null);
+
   const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ x: number; y: number; width: number; height: number }>({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
+  const buttonRef = useRef<View>(null);
+
   const [connectModalVisible, setConnectModalVisible] = useState(false);
   const [wifiConnecting, setWifiConnecting] = useState(false);
+
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
@@ -35,17 +54,31 @@ export default function OMaintenance() {
     if (ssid) {
       setSelectedMachine(String(ssid));
       setConnectedDevice(String(ssid));
-      // clear the param to avoid repeated updates if desired
-      // route.params.connectedNetwork = undefined; // avoid mutating route.params directly in some setups
     }
   }, [route.params?.connectedNetwork]);
+
+  const machineOptions = ['SIBOL Machine 1', 'SIBOL Machine 2', 'SIBOL Machine 3', 'SIBOL Machine 4', 'SIBOL Machine 5'];
+
+  const handleMachineSelect = (machine: string) => {
+    setSelectedMachine(machine);
+    setMachineDropdownOpen(false);
+  };
+
+  const openDropdown = () => {
+    if (buttonRef.current) {
+      buttonRef.current.measureInWindow((x, y, width, height) => {
+        setDropdownPos({ x, y, width, height });
+        setMachineDropdownOpen(true);
+      });
+    }
+  };
 
   const handleDisconnect = async () => {
     if (!connectedDevice) return;
     try {
       await disconnectFromESP32(connectedDevice);
-    } catch (e) {
-      // ignore errors for now
+    } catch {
+      // ignore for now
     } finally {
       setConnectedDevice(null);
       setSelectedMachine('SIBOL Machine 1');
@@ -53,7 +86,6 @@ export default function OMaintenance() {
   };
 
   const handleConnect = () => {
-    // ✅ show modal instead of navigating away
     setConnectModalVisible(true);
   };
 
@@ -63,16 +95,25 @@ export default function OMaintenance() {
     setWifiConnecting(true);
     try {
       // TODO: call your ESP32 provisioning function here
-      // Example (if you add one):
       // await provisionESP32Wifi(connectedDevice, ssid, password);
-
       setConnectModalVisible(false);
     } finally {
       setWifiConnecting(false);
     }
   };
 
-  const maintenanceRequests: MaintenanceRequest[] = [];
+  // pick whichever data you want; this is from develop
+  const maintenanceRequests: MaintenanceRequest[] = [
+    {
+      id: '1',
+      title: 'Change filters',
+      description: 'Change the stage 2 filters on SIBOL Machine 2',
+      requestNumber: '112103',
+      dateAssigned: 'August 10, 2025',
+      dueDate: 'August 10, 2025',
+      remarks: 'Change filter',
+    },
+  ];
 
   return (
     <View style={tw`flex-1 bg-white`}>
@@ -99,7 +140,7 @@ export default function OMaintenance() {
           </View>
 
           <View style={tw`flex-row items-center justify-between gap-2 mb-6`}>
-            {/* machine dropdown - uniform style matching home page */}
+            {/* machine dropdown */}
             <View ref={buttonRef}>
               <TouchableOpacity
                 style={tw`bg-primary rounded-md px-2 py-1 flex-row items-center`}
@@ -112,14 +153,12 @@ export default function OMaintenance() {
               </TouchableOpacity>
             </View>
 
-            {/* Add Device - uniform style matching home page */}
+            {/* Add Device */}
             <TouchableOpacity
               style={tw`bg-primary rounded-md px-2 py-1 flex-row items-center`}
               onPress={() => navigation.navigate('WiFiConnectivity' as any)}
             >
-              <Text style={tw`text-white font-semibold text-[11px]`}>
-                Add Device
-              </Text>
+              <Text style={tw`text-white font-semibold text-[11px]`}>Add Device</Text>
             </TouchableOpacity>
           </View>
 
@@ -129,10 +168,8 @@ export default function OMaintenance() {
               <Text style={tw`text-sm text-[#4F6853] font-semibold mb-1`}>Connected Device</Text>
               <Text style={tw`text-lg font-bold text-[#2E523A]`}>{connectedDevice}</Text>
 
-              {/* divider */}
               <View style={{ height: 1, backgroundColor: '#E5E7EB', marginTop: 12, marginBottom: 12 }} />
 
-              {/* buttons: disconnect / connect */}
               <View style={tw`flex-row`}>
                 <TouchableOpacity
                   onPress={handleDisconnect}
@@ -185,39 +222,23 @@ export default function OMaintenance() {
 
               <View style={tw`mt-2`}>
                 <View style={tw`flex-row justify-between mb-2`}>
-                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>
-                    Request number:
-                  </Text>
-                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>
-                    {request.requestNumber}
-                  </Text>
+                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>Request number:</Text>
+                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>{request.requestNumber}</Text>
                 </View>
 
                 <View style={tw`flex-row justify-between mb-2`}>
-                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>
-                    Date Assigned:
-                  </Text>
-                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>
-                    {request.dateAssigned}
-                  </Text>
+                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>Date Assigned:</Text>
+                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>{request.dateAssigned}</Text>
                 </View>
 
                 <View style={tw`flex-row justify-between mb-2`}>
-                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>
-                    Due Date:
-                  </Text>
-                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>
-                    {request.dueDate}
-                  </Text>
+                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>Due Date:</Text>
+                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>{request.dueDate}</Text>
                 </View>
 
                 <View style={tw`flex-row justify-between`}>
-                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>
-                    Remarks from brgy :
-                  </Text>
-                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>
-                    {request.remarks}
-                  </Text>
+                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>Remarks from brgy :</Text>
+                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>{request.remarks}</Text>
                 </View>
               </View>
             </View>
@@ -229,9 +250,25 @@ export default function OMaintenance() {
         <BottomNavbar currentPage="Home" />
       </View>
 
+      {/* Connect Network Modal
+          Note: props may differ in your component; `as any` avoids TS prop mismatch during merge cleanup. */}
+      <ConnectNetworkModal
+        {...({
+          visible: connectModalVisible,
+          onClose: () => setConnectModalVisible(false),
+          onSubmit: handleConnectWifiSubmit,
+          loading: wifiConnecting,
+        } as any)}
+      />
+
       {/* Machine Dropdown Modal */}
       {machineDropdownOpen && (
-        <Modal transparent animationType="none" visible={machineDropdownOpen} onRequestClose={() => setMachineDropdownOpen(false)}>
+        <Modal
+          transparent
+          animationType="none"
+          visible={machineDropdownOpen}
+          onRequestClose={() => setMachineDropdownOpen(false)}
+        >
           <TouchableWithoutFeedback onPress={() => setMachineDropdownOpen(false)}>
             <View style={{ flex: 1 }}>
               <View
