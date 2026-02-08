@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Image,
-  TextInput,
   Modal,
   Alert,
 } from 'react-native';
@@ -16,9 +15,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import tw from '../utils/tailwind';
 import { Pencil } from 'lucide-react-native';
 import BottomNavbar from '../components/oBotNav';
-import Button from '../components/commons/Button';
 import AreaCovered from '../components/AreaCovered';
+import Button from '../components/commons/Button'; // ✅ FIX: add missing import
 import { getMyProfile, updateMyProfile } from '../services/profileService';
+import { OProfileEditForm, type OProfileEditData } from '../components/oProfile/oProfileEdit';
 
 export default function OProfile() {
   const navigation = useNavigation();
@@ -26,53 +26,36 @@ export default function OProfile() {
   const [showNavigationModal, setShowNavigationModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
-  // Form values
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [areaCovered, setAreaCovered] = useState('');
-  const [contact, setContact] = useState(''); // ✅ Contact #
-  const [email, setEmail] = useState('');     // ✅ Email (editable)
-  const [barangay, setBarangay] = useState('');
-  const [username, setUsername] = useState('');
-
-  // Original values for change detection
-  const [originalValues, setOriginalValues] = useState({
+  // ✅ form state (used for header + initialData)
+  const [profile, setProfile] = useState<OProfileEditData>({
+    username: '',
     firstName: '',
     lastName: '',
-    areaCovered: '',
     contact: '',
     email: '',
     barangay: '',
+    areaCovered: '',
   });
 
-  const hasChanges =
-    firstName !== originalValues.firstName ||
-    lastName !== originalValues.lastName ||
-    areaCovered !== originalValues.areaCovered ||
-    contact !== originalValues.contact ||
-    email !== originalValues.email ||
-    barangay !== originalValues.barangay;
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
+
+  // ✅ for unsaved-changes warning
+  const [isDirty, setIsDirty] = useState(false);
 
   const applyProfile = (p: any) => {
-    const next = {
-      firstName: p?.firstName ?? firstName ?? '',
-      lastName: p?.lastName ?? lastName ?? '',
-      areaCovered: p?.areaName ?? areaCovered ?? '',
-      contact: p?.contact ?? contact ?? '',
-      email: p?.email ?? email ?? '',
-      barangay: p?.barangayName ?? barangay ?? '',
+    const next: OProfileEditData = {
+      username: String(p?.username ?? profile.username ?? ''),
+      firstName: String(p?.firstName ?? profile.firstName ?? ''),
+      lastName: String(p?.lastName ?? profile.lastName ?? ''),
+      contact: String(p?.contact ?? profile.contact ?? ''),
+      email: String(p?.email ?? profile.email ?? ''),
+      barangay: String(p?.barangayName ?? p?.barangay ?? profile.barangay ?? ''),
+      areaCovered: String(p?.areaName ?? p?.areaCovered ?? profile.areaCovered ?? ''),
     };
 
-    setFirstName(next.firstName);
-    setLastName(next.lastName);
-    setAreaCovered(next.areaCovered);
-    setContact(next.contact);
-    setEmail(next.email);
-    setBarangay(next.barangay);
-
-    if (p?.username !== undefined) setUsername(String(p.username || ''));
-
-    setOriginalValues(next);
+    setProfile(next);
   };
 
   const loadProfile = React.useCallback(async () => {
@@ -90,25 +73,26 @@ export default function OProfile() {
       }
 
       // 2) backend source of truth
-      const profile = await getMyProfile();
-      applyProfile(profile);
+      const p = await getMyProfile();
+      applyProfile(p);
     } catch (err) {
       console.warn('[OProfile] loadProfile failed', err);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile.username, profile.firstName, profile.lastName, profile.contact, profile.email, profile.barangay, profile.areaCovered]);
 
   // load profile when screen focuses (skip if user has unsaved edits)
   useFocusEffect(
     React.useCallback(() => {
-      if (!hasChanges) {
+      if (!isDirty) {
         loadProfile();
       }
-    }, [hasChanges, loadProfile])
+    }, [isDirty, loadProfile])
   );
 
   // Handle navigation with unsaved changes warning
   const handleNavigationAttempt = (routeName: string) => {
-    if (hasChanges) {
+    if (isDirty) {
       setShowNavigationModal(true);
       setPendingNavigation(routeName ?? null);
     } else {
@@ -137,43 +121,15 @@ export default function OProfile() {
     });
 
     if (!result.canceled) {
-      // Image selected, can be processed further
       console.log('Image selected:', result.assets[0].uri);
     }
   };
 
-  const handleSave = async () => {
-    try {
-      await updateMyProfile({
-        firstName,
-        lastName,
-        contact,
-        email,
-      });
-
-      setOriginalValues({
-        firstName,
-        lastName,
-        areaCovered,
-        contact,
-        email,
-        barangay,
-      });
-
-      Alert.alert('Success', 'Changes saved successfully!');
-    } catch (err: any) {
-      if (err?.status === 429) {
-        Alert.alert('Too Early', err?.message || 'Please try again later.');
-        return;
-      }
-      Alert.alert('Error', err?.message || 'Failed to save changes.');
-    }
-  };
-
+  // block back navigation if dirty
   useFocusEffect(
     React.useCallback(() => {
       const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-        if (hasChanges) {
+        if (isDirty) {
           e.preventDefault();
           setShowNavigationModal(true);
           const routeName =
@@ -187,7 +143,7 @@ export default function OProfile() {
       });
 
       return unsubscribe;
-    }, [hasChanges, navigation])
+    }, [isDirty, navigation])
   );
 
   return (
@@ -203,7 +159,6 @@ export default function OProfile() {
         <View style={tw`bg-white rounded-t-[50px] px-7 pt-8 pb-32 min-h-[700px] mt-5`}>
           {/* Profile Picture, Username and Email Row */}
           <View style={tw`flex-row mb-8`}>
-            {/* Profile Picture and Edit Icon */}
             <View style={tw`mr-6`}>
               <View style={tw`relative`}>
                 <View style={tw`w-[118px] h-[107px] rounded-[15px] border border-black bg-white overflow-hidden`}>
@@ -222,13 +177,12 @@ export default function OProfile() {
               </View>
             </View>
 
-            {/* Username and Email */}
             <View style={tw`justify-center flex-1`}>
               <Text style={tw`text-[#2E523A] text-xl font-bold mb-2`}>
-                {username || '—'}
+                {profile.username || '—'}
               </Text>
               <Text style={tw`text-[#2E523A] text-[13px] font-semibold`}>
-                {email || '—'}
+                {profile.email || '—'}
               </Text>
             </View>
           </View>
@@ -280,107 +234,43 @@ export default function OProfile() {
 
           {/* Content for Tabs */}
           {activeTab === 'personal' ? (
-            <View style={tw`gap-4`}>
-              {/* First Name */}
-              <View style={tw`relative`}>
-                <View style={tw`absolute -top-3 left-7 bg-white px-2 z-10`}>
-                  <Text style={tw`text-[#2E523A] text-base font-semibold`}>
-                    First Name
-                  </Text>
-                </View>
-                <TextInput
-                  style={tw`border-2 border-[#6C8770] rounded-[10px] px-4 py-3 bg-[rgba(255,255,255,0.79)] text-[#2E523A]`}
-                  value={firstName}
-                  onChangeText={setFirstName}
-                />
-              </View>
+            <OProfileEditForm
+              initialData={profile}
+              loading={formLoading}
+              error={formError}
+              success={formSuccess}
+              onDirtyChange={setIsDirty}
+              onSave={async (data) => {
+                setFormLoading(true);
+                setFormError(null);
+                setFormSuccess(null);
+                try {
+                  // NOTE: backend currently updates firstName/lastName/contact/email (+ username/password elsewhere)
+                  await updateMyProfile({
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                    contact: data.contact,
+                    email: data.email,
+                  });
 
-              {/* Last Name */}
-              <View style={tw`relative`}>
-                <View style={tw`absolute -top-3 left-7 bg-white px-2 z-10`}>
-                  <Text style={tw`text-[#2E523A] text-base font-semibold`}>
-                    Last Name
-                  </Text>
-                </View>
-                <TextInput
-                  style={tw`border-2 border-[#6C8770] rounded-[10px] px-4 py-3 bg-[rgba(255,255,255,0.79)] text-[#2E523A]`}
-                  value={lastName}
-                  onChangeText={setLastName}
-                />
-              </View>
-
-              {/* Area Covered (personal) */}
-              <View style={tw`relative`}>
-                <View style={tw`absolute -top-3 left-7 bg-white px-2 z-10`}>
-                  <Text style={tw`text-[#2E523A] text-base font-semibold`}>
-                    Area Covered
-                  </Text>
-                </View>
-                <TextInput
-                  style={tw`border-2 border-[#6C8770] rounded-[10px] px-4 py-3 bg-[rgba(255,255,255,0.79)] text-[#2E523A]`}
-                  value={areaCovered}
-                  onChangeText={setAreaCovered}
-                />
-              </View>
-
-              {/* Contact # */}
-              <View style={tw`relative`}>
-                <View style={tw`absolute -top-3 left-7 bg-white px-2 z-10`}>
-                  <Text style={tw`text-[#2E523A] text-base font-semibold`}>
-                    Contact #
-                  </Text>
-                </View>
-                <TextInput
-                  style={tw`border-2 border-[#6C8770] rounded-[10px] px-4 py-3 bg-[rgba(255,255,255,0.79)] text-[#2E523A]`}
-                  value={contact}
-                  onChangeText={setContact}
-                  keyboardType="phone-pad"
-                />
-              </View>
-
-              {/* Email */}
-              <View style={tw`relative`}>
-                <View style={tw`absolute -top-3 left-7 bg-white px-2 z-10`}>
-                  <Text style={tw`text-[#2E523A] text-base font-semibold`}>
-                    Email
-                  </Text>
-                </View>
-                <TextInput
-                  style={tw`border-2 border-[#6C8770] rounded-[10px] px-4 py-3 bg-[rgba(255,255,255,0.79)] text-[#2E523A]`}
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-
-              {/* Barangay */}
-              <View style={tw`relative mb-0`}>
-                <View style={tw`absolute -top-3 left-7 bg-white px-2 z-10`}>
-                  <Text style={tw`text-[#2E523A] text-base font-semibold`}>
-                    Barangay
-                  </Text>
-                </View>
-                <TextInput
-                  style={tw`border-2 border-[#6C8770] rounded-[10px] px-4 py-3 bg-[rgba(255,255,255,0.79)] text-[#2E523A]`}
-                  value={barangay}
-                  onChangeText={setBarangay}
-                />
-              </View>
-
-              {/* Save Button */}
-              {hasChanges && (
-                <View style={tw`items-center mt-1 mb-2`}>
-                  <Button
-                    title="Save Changes"
-                    onPress={handleSave}
-                    variant="primary"
-                    style={tw`w-[140px] py-2`}
-                    textStyle={tw`text-sm`}
-                  />
-                </View>
-              )}
-            </View>
+                  // Update UI locally (Area Covered + Barangay are kept for display)
+                  setProfile((prev) => ({ ...prev, ...data }));
+                  setFormSuccess('Changes saved successfully.');
+                } catch (err: any) {
+                  if (err?.status === 429) {
+                    const msg = err?.message || 'Please try again later.';
+                    setFormError(msg);
+                    Alert.alert('Too Early', msg);
+                  } else {
+                    const msg = err?.message || 'Failed to save changes.';
+                    setFormError(msg);
+                    Alert.alert('Error', msg);
+                  }
+                } finally {
+                  setFormLoading(false);
+                }
+              }}
+            />
           ) : (
             <AreaCovered />
           )}
@@ -420,9 +310,7 @@ export default function OProfile() {
         </View>
       </Modal>
 
-      <BottomNavbar
-        currentPage="Back"
-      />
+      <BottomNavbar currentPage="Back" />
     </SafeAreaView>
   );
 }
