@@ -21,15 +21,22 @@ export function useSignIn(navigation: any) {
     type: 'error' as 'error' | 'success' | 'info',
   });
 
-  const validateUsername = (username: string) => {
-    return username.trim().length > 0 && !username.includes('@');
+  const isEmail = (value: string) => value.includes('@');
+  const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  const validateUsername = (value: string) => {
+    const v = value.trim();
+    if (!v) return false;
+    if (isEmail(v)) return validateEmail(v);
+    return true; // non-empty username
   };
 
   const handleUsernameChange = (text: string) => {
     if (loading) return; // ✅ block edits while signing in
     setUsername(text);
+
     if (text && !validateUsername(text)) {
-      setUsernameError('Please enter a valid username');
+      setUsernameError('Please enter a valid email or username');
     } else {
       setUsernameError('');
     }
@@ -64,7 +71,7 @@ export function useSignIn(navigation: any) {
 
     let hasError = false;
     if (!validateUsername(username)) {
-      setUsernameError('Please enter a valid username');
+      setUsernameError('Please enter a valid email or username');
       hasError = true;
     }
     if (!password || password.length === 0) {
@@ -83,7 +90,7 @@ export function useSignIn(navigation: any) {
       if (!token && !user) {
         setSnackbar({
           visible: true,
-          message: 'Invalid username or password',
+          message: 'Invalid email/username or password',
           type: 'error',
         });
         return;
@@ -103,15 +110,11 @@ export function useSignIn(navigation: any) {
         err?.message === platformMsg ||
         err?.payload?.message === platformMsg
       ) {
-        setSnackbar({
-          visible: true,
-          message: platformMsg,
-          type: 'error',
-        });
+        setSnackbar({ visible: true, message: platformMsg, type: 'error' });
       } else {
         setSnackbar({
           visible: true,
-          message: 'Wrong Username or Password',
+          message: 'Wrong email/username or password',
           type: 'error',
         });
       }

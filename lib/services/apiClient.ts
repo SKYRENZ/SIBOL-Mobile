@@ -4,8 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 // Merge sources (Expo config extras + process.env)
+// IMPORTANT: let build/runtime env vars override "extra"
 const extras = (Constants as any).expoConfig?.extra ?? {};
-const env = { ...(process.env as any), ...extras };
+const env = { ...extras, ...(process.env as any) };
 
 const envApiBaseWeb = env?.EXPO_PUBLIC_API_BASE_WEB;
 const envApiBaseMobile = env?.EXPO_PUBLIC_API_BASE_MOBILE;
@@ -42,20 +43,42 @@ const apiClient: ReturnType<typeof axios.create> = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
   headers: {
-    'Content-Type': 'application/json',
+    // ✅ don't set Content-Type globally; it breaks multipart in RN sometimes
+    Accept: 'application/json',
     'x-client-type': CLIENT_TYPE,
   },
 });
 
 // local axios error type-guard (include message so TS allows error.message)
-function isAxiosError(err: any): err is { isAxiosError?: boolean; response?: any; request?: any; message?: string } {
+function isAxiosError(err: any): err is {
+  isAxiosError?: boolean;
+  response?: any;
+  request?: any;
+  message?: string;
+  code?: string;
+} {
   return !!err && err.isAxiosError === true;
 }
+
+// ✅ RN-safe FormData detection
+function isFormDataLike(data: any): boolean {
+  if (!data) return false;
+
+  // Web / some runtimes
+  if (typeof FormData !== 'undefined' && data instanceof FormData) return true;
+
+  // React Native FormData polyfill usually has _parts + append()
+  return typeof data === 'object' && typeof data.append === 'function' && Array.isArray((data as any)._parts);
+}
+
+const DEBUG_NET = typeof __DEV__ !== 'undefined' ? __DEV__ : false;
 
 apiClient.interceptors.request.use(
   async (config: any) => {
     config.headers = config.headers ?? {};
+
     (config.headers as any)['x-client-type'] = (config.headers as any)['x-client-type'] ?? CLIENT_TYPE;
+
     try {
       const token = await AsyncStorage.getItem('token');
       if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -63,31 +86,43 @@ apiClient.interceptors.request.use(
       console.debug('[apiClient] token read failed', e);
     }
 
-    const isFormData = typeof FormData !== 'undefined' && config.data instanceof FormData;
-    if (isFormData) {
-      delete (config.headers as any)['Content-Type'];
-      delete (config.headers as any)['content-type'];
+    // ✅ IMPORTANT: don't force JSON header when sending FormData
+    if (isFormDataLike(config.data)) {
+      delete config.headers['Content-Type'];
+      delete config.headers['content-type'];
+    } else {
+      // (optional) ensure JSON only for non-FormData requests
+      config.headers['Content-Type'] = config.headers['Content-Type'] ?? 'application/json';
     }
+
     return config;
   },
   (error: any) => Promise.reject(error)
 );
 
 apiClient.interceptors.response.use(
-  (response: any) => response,
+  (res: any) => res,
   (error: any) => {
+
     if (isAxiosError(error)) {
+      // ✅ make timeouts obvious (was previously shown as "Cannot connect...")
+      if (error.code === 'ECONNABORTED' || String(error.message || '').toLowerCase().includes('timeout')) {
+        return Promise.reject(new Error('Request timed out. Please try again (or upload a smaller image).'));
+      }
+
       if (error.response) {
-        const msg = error.response?.data?.message ?? error.response?.data ?? error.message;
+        const msg = error.response?.data?.message ?? error.response?.data?.error ?? error.response?.data ?? error.message;
         const e: any = new Error(String(msg));
         e.status = error.response.status;
         e.payload = error.response.data;
         return Promise.reject(e);
       }
+
       if (error.request) {
         return Promise.reject(new Error('Cannot connect to server. Please check your network.'));
       }
     }
+
     return Promise.reject(error);
   }
 );

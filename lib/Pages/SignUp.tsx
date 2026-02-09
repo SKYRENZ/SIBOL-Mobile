@@ -179,7 +179,7 @@ export default function SignUp({ navigation, route }: Props) {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 1,
+      quality: 1, // ✅ was 1
     });
 
     if (!result.canceled && result.assets[0]) {
