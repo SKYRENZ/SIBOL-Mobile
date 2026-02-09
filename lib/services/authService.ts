@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { post, setToken } from './apiClient';
+import { post, setToken, API_BASE } from './apiClient';
 import apiClient from './apiClient';
 import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import { FileSystemUploadType } from 'expo-file-system/legacy';
 
 export type User = { Account_id?: number; Username?: string; Roles?: number; [k: string]: any };
 export type AuthResponse = { token?: string; accessToken?: string; user?: User; [k: string]: any };
@@ -59,6 +61,56 @@ function guessFileName(uri: string) {
 export async function registerWithAttachment(payload: RegisterWithAttachmentPayload) {
   if (!payload?.attachmentUri) throw new Error('Signup attachment is required');
 
+  console.log('[authService] registerWithAttachment called');
+  console.log('[authService] attachmentUri =', payload.attachmentUri);
+
+  const name = guessFileName(payload.attachmentUri);
+  const type = guessMimeType(payload.attachmentUri);
+
+  // ✅ Native: use FileSystem multipart upload instead of axios
+  if (Platform.OS !== 'web') {
+    const url = `${API_BASE}/api/auth/register`;
+
+    const result = await FileSystem.uploadAsync(url, payload.attachmentUri, {
+      httpMethod: 'POST',
+      uploadType: FileSystemUploadType.MULTIPART, // ✅ change
+      fieldName: 'attachment',
+      mimeType: type,
+      headers: {
+        'x-client-type': 'mobile',
+        Accept: 'application/json',
+      },
+      parameters: {
+        firstName: String(payload.firstName ?? ''),
+        lastName: String(payload.lastName ?? ''),
+        email: String(payload.email ?? ''),
+        barangayId: String(payload.barangayId ?? ''),
+        roleId: String(payload.roleId ?? ''),
+        isSSO: String(Boolean(payload.isSSO)),
+      },
+    });
+
+    console.log('[authService] upload status =', result.status);
+
+    let data: any = result.body;
+    try {
+      data = JSON.parse(result.body);
+    } catch {
+      // leave as string
+    }
+
+    if (result.status < 200 || result.status >= 300) {
+      const msg = data?.message ?? data?.error ?? result.body ?? `HTTP ${result.status}`;
+      const err: any = new Error(String(msg));
+      err.status = result.status;
+      err.payload = data;
+      throw err;
+    }
+
+    return data;
+  }
+
+  // Web: keep existing axios FormData flow
   const form = new FormData();
   form.append('firstName', String(payload.firstName ?? ''));
   form.append('lastName', String(payload.lastName ?? ''));
@@ -67,25 +119,14 @@ export async function registerWithAttachment(payload: RegisterWithAttachmentPayl
   form.append('roleId', String(payload.roleId ?? ''));
   form.append('isSSO', String(Boolean(payload.isSSO)));
 
-  const name = guessFileName(payload.attachmentUri);
-  const type = guessMimeType(payload.attachmentUri);
-
-  if (Platform.OS === 'web') {
-    const resp = await fetch(payload.attachmentUri);
-    const blob = await resp.blob();
-    const file = new File([blob], name, { type: blob.type || type });
-    form.append('attachment', file);
-  } else {
-    form.append('attachment', { uri: payload.attachmentUri, name, type } as any);
-  }
+  const resp = await fetch(payload.attachmentUri);
+  const blob = await resp.blob();
+  const file = new File([blob], name, { type: blob.type || type });
+  form.append('attachment', file);
 
   const res = await apiClient.post('/api/auth/register', form, {
-    headers: {
-      'x-client-type': 'mobile',
-    },
-    timeout: 60000, // ✅ was 15000 globally; uploads + cloudinary/email can exceed 15s in prod
-    maxBodyLength: Infinity, // ✅ helps in Node/axios envs; harmless in RN
-    maxContentLength: Infinity,
+    headers: { 'x-client-type': 'mobile' },
+    timeout: 120000,
   });
 
   return res.data;
