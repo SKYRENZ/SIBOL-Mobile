@@ -95,13 +95,6 @@ apiClient.interceptors.request.use(
       config.headers['Content-Type'] = config.headers['Content-Type'] ?? 'application/json';
     }
 
-    if (DEBUG_NET) {
-      const full = `${config.baseURL ?? ''}${config.url ?? ''}`;
-      console.log('[apiClient] ->', config.method?.toUpperCase(), full);
-      console.log('[apiClient]    ct=', config.headers?.['Content-Type'] ?? config.headers?.['content-type']);
-      console.log('[apiClient]    hasData=', !!config.data);
-    }
-
     return config;
   },
   (error: any) => Promise.reject(error)
@@ -110,12 +103,6 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (res: any) => res,
   (error: any) => {
-    if (DEBUG_NET) {
-      console.log('[apiClient] <- ERROR message=', error?.message, 'code=', error?.code);
-      console.log('[apiClient] <- ERROR baseURL=', error?.config?.baseURL, 'url=', error?.config?.url);
-      console.log('[apiClient] <- ERROR status=', error?.response?.status);
-      console.log('[apiClient] <- ERROR data=', error?.response?.data);
-    }
 
     if (isAxiosError(error)) {
       // ✅ make timeouts obvious (was previously shown as "Cannot connect...")
