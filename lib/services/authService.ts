@@ -8,24 +8,26 @@ import { FileSystemUploadType } from 'expo-file-system/legacy';
 export type User = { Account_id?: number; Username?: string; Roles?: number; [k: string]: any };
 export type AuthResponse = { token?: string; accessToken?: string; user?: User; [k: string]: any };
 
-export async function login(username: string, password: string): Promise<AuthResponse> {
-  const res = await post('/api/auth/login', { username, password });
-  
+// ✅ UPDATED: accept email or username
+export async function login(identifier: string, password: string): Promise<AuthResponse> {
+  const res = await post('/api/auth/login', {
+    identifier,
+    // keep backward compatibility with older backend/controller code paths
+    username: identifier,
+    email: identifier,
+    password,
+  });
+
   const token = res?.token ?? res?.accessToken;
   const user = res?.user ?? null;
-  
-  if (!token) {
-    throw new Error('No authentication token received');
-  }
 
-  if (!user) {
-    throw new Error('No user data received');
-  }
+  if (!token) throw new Error('No authentication token received');
+  if (!user) throw new Error('No user data received');
 
   await setToken(token);
   await AsyncStorage.setItem('token', token);
   await AsyncStorage.setItem('user', JSON.stringify(user));
-  
+
   return { token, user };
 }
 

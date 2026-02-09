@@ -56,16 +56,6 @@ const GoogleIcon = () => (
   </Svg>
 );
 
-const validateEmail = (email: string) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
-
-const validateUsername = (username: string) => {
-  // treat anything with "@" as an email (reject) and require non-empty
-  return username.trim().length > 0 && !username.includes('@');
-};
-
 export default function SignIn({ navigation }: Props) {
   const {
     username, setUsername,
@@ -74,8 +64,8 @@ export default function SignIn({ navigation }: Props) {
     usernameError, passwordError,
     usernameTouched, passwordTouched,
     setUsernameTouched, setPasswordTouched,
-    setUsernameError, setPasswordError, // <-- add these
-    loading, setLoading, // <-- add setLoading here
+    setUsernameError, setPasswordError,
+    loading, setLoading,
     snackbar, setSnackbar,
     handleUsernameBlur, handlePasswordBlur,
     handleSignIn,
@@ -183,33 +173,25 @@ export default function SignIn({ navigation }: Props) {
 
               <View style={tw`gap-5`}>
                 <View style={tw`gap-2`}>
-                  <Text style={[tw`text-[#9794AA]`, styles.label]}>Username</Text>
+                  <Text style={[tw`text-[#9794AA]`, styles.label]}>Email or Username</Text>
                   <TextInput
                     style={[
                       tw`border border-[#CBCAD7] rounded-md px-5 py-4.5 text-[#686677]`,
                       ((usernameError || (!username.trim() && usernameTouched)) ? tw`border-red-500` : null),
                       styles.input,
                     ]}
-                    placeholder="Enter your username"
+                    placeholder="Enter your email or username"
                     placeholderTextColor="#686677"
                     value={username}
                     editable={!loading}                 // ✅ disable editing
                     selectTextOnFocus={!loading}        // ✅ prevents focus selection while disabled
-                    onChangeText={text => {
-                      if (loading) return;              // ✅ extra safety
-                      setUsername(text);
-                      if (text && !validateUsername(text)) {
-                        setUsernameError('Please enter a valid username');
-                      } else {
-                        setUsernameError('');
-                      }
-                    }}
+                    onChangeText={setUsername}  // ✅ let the hook validate
                     autoCapitalize="none"
                     onBlur={handleUsernameBlur}
                   />
                   {(usernameError || (!username.trim() && usernameTouched)) ? (
                     <Text style={tw`text-red-500 text-xs mt-1`}>
-                      {usernameError || 'Username is required'}
+                      {usernameError || 'Email/Username is required'}
                     </Text>
                   ) : null}
                 </View>
