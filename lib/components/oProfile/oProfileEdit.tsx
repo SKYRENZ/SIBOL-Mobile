@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import tw from '../../utils/tailwind';
 import Button from '../commons/Button';
+// ❌ remove: import Snackbar from '../commons/Snackbar';
 import ChangePasswordModal from '../ChangePasswordModal';
 import ChangeUsernameModal from '../ChangeUsernameModal';
 
@@ -12,7 +13,7 @@ export type OProfileEditData = {
   contact: string;
   email: string;
   barangay: string;
-  areaCovered: string; // ✅ included
+  areaCovered: string;
 };
 
 type FormProps = {
@@ -21,10 +22,35 @@ type FormProps = {
   loading?: boolean;
   error?: string | null;
   success?: string | null;
-
   onEditingChange?: (editing: boolean) => void;
   onDirtyChange?: (dirty: boolean) => void;
+
+  onUsernameSubmit?: (newUsername: string, currentPassword: string) => void | Promise<void>;
+  onUsernameUpdated?: (newUsername: string) => void;
+
+  usernameLastUpdated?: string | null;
+  passwordLastUpdated?: string | null;
+  profileLastUpdated?: string | null;
+  onNotify?: (message: string, type?: 'error' | 'success' | 'info') => void;
+
+  onPasswordChanged?: () => void;
 };
+
+const USERNAME_DAYS_RESTRICTION = 15;
+const PASSWORD_DAYS_RESTRICTION = 15;
+const PROFILEINFO_DAYS_RESTRICTION = 15;
+
+function remainingDays(lastUpdated: string | null | undefined, restrictionDays: number) {
+  if (!lastUpdated) return { allowed: true, days: 0 };
+  const last = new Date(lastUpdated);
+  if (Number.isNaN(last.getTime())) return { allowed: true, days: 0 };
+
+  const retryAt = new Date(last.getTime() + restrictionDays * 24 * 60 * 60 * 1000);
+  const diff = retryAt.getTime() - Date.now();
+  if (diff <= 0) return { allowed: true, days: 0 };
+
+  return { allowed: false, days: Math.ceil(diff / (24 * 60 * 60 * 1000)) };
+}
 
 export function OProfileEditForm({
   initialData,
@@ -34,6 +60,13 @@ export function OProfileEditForm({
   success,
   onEditingChange,
   onDirtyChange,
+  onUsernameSubmit,
+  onUsernameUpdated,
+  usernameLastUpdated,
+  passwordLastUpdated,
+  profileLastUpdated,
+  onNotify,
+  onPasswordChanged,
 }: FormProps) {
   const [username, setUsername] = useState(initialData.username ?? '');
 
@@ -60,12 +93,10 @@ export function OProfileEditForm({
     );
   }, [username, firstName, lastName, contact, email, barangay, areaCovered, initialData]);
 
-  // ✅ keep parent informed for navigation guard
   useEffect(() => {
     onDirtyChange?.(Boolean(hasChanges && editingProfile));
   }, [hasChanges, editingProfile, onDirtyChange]);
 
-  // ✅ if parent loads fresh data, update inputs only when not editing
   useEffect(() => {
     if (editingProfile) return;
     setUsername(initialData.username ?? '');
@@ -87,8 +118,18 @@ export function OProfileEditForm({
     setAreaCovered(initialData.areaCovered ?? '');
   };
 
+  const lockOtherButtons = editingProfile || loading;
+
+  const profileRestriction = remainingDays(profileLastUpdated, PROFILEINFO_DAYS_RESTRICTION);
+  const canStartProfileEdit = profileRestriction.allowed;
+
   const handleToggleEditProfile = () => {
     if (loading) return;
+
+    if (!editingProfile && !canStartProfileEdit) {
+      onNotify?.(`You can update your profile again in ${profileRestriction.days} day(s).`, 'error');
+      return;
+    }
 
     if (!editingProfile) {
       setIsChangePasswordOpen(false);
@@ -135,7 +176,23 @@ export function OProfileEditForm({
     </View>
   );
 
-  const lockOtherButtons = editingProfile || loading;
+  const tryOpenUsername = () => {
+    const r = remainingDays(usernameLastUpdated, USERNAME_DAYS_RESTRICTION);
+    if (!r.allowed) {
+      onNotify?.(`You can change your username again in ${r.days} day(s).`, 'error');
+      return;
+    }
+    setIsChangeUsernameOpen(true);
+  };
+
+  const tryOpenPassword = () => {
+    const r = remainingDays(passwordLastUpdated, PASSWORD_DAYS_RESTRICTION);
+    if (!r.allowed) {
+      onNotify?.(`You can change your password again in ${r.days} day(s).`, 'error');
+      return;
+    }
+    setIsChangePasswordOpen(true);
+  };
 
   return (
     <View style={tw`gap-4`}>
@@ -156,7 +213,7 @@ export function OProfileEditForm({
           <TouchableOpacity
             activeOpacity={0.85}
             disabled={lockOtherButtons}
-            onPress={() => setIsChangeUsernameOpen(true)}
+            onPress={tryOpenUsername} // ✅ changed
             style={tw.style(
               `px-4 py-3 rounded-xl border border-[#6C8770] bg-white`,
               lockOtherButtons && 'opacity-50'
@@ -168,7 +225,7 @@ export function OProfileEditForm({
           <TouchableOpacity
             activeOpacity={0.85}
             disabled={lockOtherButtons}
-            onPress={() => setIsChangePasswordOpen(true)}
+            onPress={tryOpenPassword} // ✅ changed
             style={tw.style(`px-4 py-3 rounded-xl bg-[#2E523A]`, lockOtherButtons && 'opacity-50')}
           >
             <Text style={tw`text-white font-semibold text-center`}>Change Password</Text>
@@ -189,9 +246,12 @@ export function OProfileEditForm({
 
           <TouchableOpacity
             onPress={handleToggleEditProfile}
-            disabled={loading}
+            disabled={loading || (!editingProfile && !canStartProfileEdit)}
             activeOpacity={0.8}
-            style={tw`px-3 py-2 rounded-xl border border-[#6C8770] bg-white`}
+            style={tw.style(
+              `px-3 py-2 rounded-xl border border-[#6C8770] bg-white`,
+              (loading || (!editingProfile && !canStartProfileEdit)) && 'opacity-50'
+            )}
           >
             <Text style={tw`text-[#2E523A] font-semibold text-sm`}>
               {editingProfile ? 'Cancel' : 'Edit Profile'}
@@ -199,23 +259,20 @@ export function OProfileEditForm({
           </TouchableOpacity>
         </View>
 
-        {success ? <Text style={tw`text-green-600 mb-2`}>{success}</Text> : null}
+        {!editingProfile && !canStartProfileEdit ? (
+          <Text style={tw`text-[#6C8770] text-xs mb-4`}>
+            You can update your profile again in {profileRestriction.days} day(s).
+          </Text>
+        ) : null}
+
         {error ? <Text style={tw`text-red-500 mb-2`}>{error}</Text> : null}
 
         <View style={tw`gap-5`}>
           {fieldBox('First Name', firstName, setFirstName, { editable: editingProfile && !loading })}
           {fieldBox('Last Name', lastName, setLastName, { editable: editingProfile && !loading })}
-          {fieldBox('Contact #', contact, setContact, {
-            editable: editingProfile && !loading,
-            keyboardType: 'phone-pad',
-          })}
-          {fieldBox('Email', email, setEmail, {
-            editable: editingProfile && !loading,
-            keyboardType: 'email-address',
-            autoCapitalize: 'none',
-          })}
+          {fieldBox('Contact #', contact, setContact, { editable: editingProfile && !loading, keyboardType: 'phone-pad' })}
+          {fieldBox('Email', email, setEmail, { editable: editingProfile && !loading, keyboardType: 'email-address', autoCapitalize: 'none' })}
           {fieldBox('Barangay', barangay, setBarangay, { editable: editingProfile && !loading })}
-          {/* ✅ NEW: Area Covered textfield */}
           {fieldBox('Area Covered', areaCovered, setAreaCovered, { editable: editingProfile && !loading })}
         </View>
 
@@ -236,23 +293,27 @@ export function OProfileEditForm({
       <ChangeUsernameModal
         visible={isChangeUsernameOpen}
         onClose={() => setIsChangeUsernameOpen(false)}
-        onSuccess={(u) => setUsername(u)}
-        onSubmit={async ({ newUsername }) => {
-          await onSave({
-            username: newUsername,
-            firstName,
-            lastName,
-            contact,
-            email,
-            barangay,
-            areaCovered,
-          });
+        currentUsername={username}
+        onNotify={onNotify}
+        onSuccess={(u) => {
+          setUsername(u);
+          onUsernameUpdated?.(u);
+        }}
+        onSubmit={async ({ newUsername, password, confirmPassword }) => {
+          if (password !== confirmPassword) throw new Error('Passwords do not match.');
+          if (!onUsernameSubmit) throw new Error('Username change handler not provided');
+          await onUsernameSubmit(newUsername, password);
         }}
       />
 
       <ChangePasswordModal
         visible={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
+        onNotify={onNotify}
+        onSuccess={() => {
+          // ✅ update restriction immediately (no reload needed)
+          onPasswordChanged?.();
+        }}
       />
     </View>
   );

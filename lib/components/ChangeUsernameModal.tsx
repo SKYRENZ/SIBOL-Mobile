@@ -15,19 +15,16 @@ import {
 import tw from '../utils/tailwind';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { updateMyProfile } from '../services/profileService';
+import Snackbar from './commons/Snackbar'; // ✅ add
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   onSuccess?: (newUsername: string) => void;
-  requireChange?: boolean; // if true, cannot dismiss until success
-
-  // ✅ NEW: allow parent to handle saving + refreshing
-  onSubmit?: (payload: {
-    newUsername: string;
-    password: string;
-    confirmPassword: string;
-  }) => void | Promise<void>;
+  requireChange?: boolean;
+  onSubmit?: (payload: { newUsername: string; password: string; confirmPassword: string }) => void | Promise<void>;
+  currentUsername?: string;
+  onNotify?: (message: string, type?: 'error' | 'success' | 'info') => void;
 };
 
 export default function ChangeUsernameModal({
@@ -36,18 +33,27 @@ export default function ChangeUsernameModal({
   onSuccess,
   requireChange = false,
   onSubmit,
+  currentUsername,
+  onNotify,
 }: Props) {
   const [newUsername, setNewUsername] = useState('');
-  const [password, setPassword] = useState(''); // UI-only
-  const [confirmPassword, setConfirmPassword] = useState(''); // UI-only
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [kavKey, setKavKey] = useState(0); // ✅ add
-  const [keyboardVisible, setKeyboardVisible] = useState(false); // ✅ add
+  const [kavKey, setKavKey] = useState(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  const [snack, setSnack] = useState<{ visible: boolean; message: string; type?: 'error' | 'success' | 'info' }>({
+    visible: false,
+    message: '',
+    type: 'info',
+  });
+
+  const showModalSnack = (message: string, type: 'error' | 'success' | 'info' = 'info') =>
+    setSnack({ visible: true, message, type });
 
   useEffect(() => {
     if (!visible) {
@@ -57,16 +63,13 @@ export default function ChangeUsernameModal({
       setShowPassword(false);
       setShowConfirm(false);
       setLoading(false);
-      setError(null);
-      setSuccess(null);
+      setSnack({ visible: false, message: '', type: 'info' }); // ✅ reset
     }
 
     const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
     const hideSub = Keyboard.addListener('keyboardDidHide', () => {
       setKeyboardVisible(false);
-      if (Platform.OS === 'android') {
-        setTimeout(() => setKavKey((k) => k + 1), 220);
-      }
+      if (Platform.OS === 'android') setTimeout(() => setKavKey((k) => k + 1), 220);
     });
     return () => {
       showSub.remove();
@@ -74,29 +77,49 @@ export default function ChangeUsernameModal({
     };
   }, [visible]);
 
-  const handleSubmit = async () => {
-    setError(null);
-    setSuccess(null);
-    setLoading(true);
+  const trimmedNew = newUsername.trim();
+  const trimmedCurrent = String(currentUsername ?? '').trim();
 
+  // ✅ Only disable until every field has input (like ChangePassword)
+  const allFilled =
+    trimmedNew.length > 0 &&
+    password.trim().length > 0 &&
+    confirmPassword.trim().length > 0;
+
+  const canSubmit = !loading && allFilled;
+
+  const handleSubmit = async () => {
+    if (!allFilled) return;
+
+    // ✅ validations -> modal snackbar
+    if (trimmedCurrent && trimmedNew.toLowerCase() === trimmedCurrent.toLowerCase()) {
+      return showModalSnack('No changes detected. Please enter a different username.', 'error');
+    }
+    if (password !== confirmPassword) {
+      return showModalSnack('Passwords do not match.', 'error');
+    }
+
+    setLoading(true);
     try {
-      // ✅ Per request: NO client-side validations.
       if (onSubmit) {
-        await onSubmit({ newUsername, password, confirmPassword });
+        await onSubmit({ newUsername: trimmedNew, password, confirmPassword });
       } else {
-        // fallback (kept for backward-compat)
-        await updateMyProfile({ username: newUsername });
+        await updateMyProfile({ username: trimmedNew });
       }
 
-      setSuccess('Username updated successfully');
-      onSuccess?.(newUsername);
+      onSuccess?.(trimmedNew);
+
+      // ✅ success -> page snackbar (preferred)
+      if (onNotify) onNotify('Username updated successfully.', 'success');
+      else showModalSnack('Username updated successfully.', 'success');
 
       setTimeout(() => {
         setLoading(false);
         onClose();
-      }, 700);
+      }, 300);
     } catch (err: any) {
-      setError(err?.message ?? 'Failed to update username');
+      // ✅ API errors -> modal snackbar (NOT page)
+      showModalSnack(err?.message ?? 'Failed to update username', 'error');
       setLoading(false);
     }
   };
@@ -111,15 +134,12 @@ export default function ChangeUsernameModal({
         if (!requireChange) onClose();
       }}
     >
-      {/* Overlay: tap outside closes */}
       <TouchableWithoutFeedback onPress={() => { if (!requireChange) onClose(); }}>
         <View style={tw`flex-1 bg-black/35 justify-center items-center p-4`}>
-          {/* Same as RequestForm/AdditiveInput: inner TouchableWithoutFeedback prevents closing */}
           <TouchableWithoutFeedback>
             <KeyboardAvoidingView
               key={kavKey}
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              // ✅ offset usually won't help much on Android; keep it small/zero
               keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
               style={tw`flex-1 w-full`}
             >
@@ -130,7 +150,6 @@ export default function ChangeUsernameModal({
                   tw`px-0 py-4`,
                   {
                     flexGrow: 1,
-                    // ✅ IMPORTANT: this reduces the gap on Android
                     justifyContent: keyboardVisible ? 'flex-end' : 'center',
                     paddingBottom: keyboardVisible ? 350 : 0,
                   },
@@ -147,13 +166,7 @@ export default function ChangeUsernameModal({
                   </View>
 
                   <View style={tw`p-4`}>
-                    {success ? (
-                      <View style={tw`mb-3`}>
-                        <Text style={tw`text-green-600`}>{success}</Text>
-                      </View>
-                    ) : null}
-
-                    {error ? <Text style={tw`text-red-500 mb-2`}>{error}</Text> : null}
+                    {/* ✅ removed inline success/error messages */}
 
                     <Text style={tw`text-sm text-gray-700 mb-1`}>New Username</Text>
                     <View style={tw`mb-3`}>
@@ -207,19 +220,18 @@ export default function ChangeUsernameModal({
 
                     <View style={tw`flex-row justify-end gap-2`}>
                       {!requireChange && (
-                        <TouchableOpacity
-                          onPress={onClose}
-                          disabled={loading}
-                          style={tw`px-4 py-2 rounded-md bg-gray-100`}
-                        >
+                        <TouchableOpacity onPress={onClose} disabled={loading} style={tw`px-4 py-2 rounded-md bg-gray-100`}>
                           <Text>Cancel</Text>
                         </TouchableOpacity>
                       )}
 
                       <TouchableOpacity
                         onPress={handleSubmit}
-                        disabled={loading}
-                        style={[tw`px-4 py-2 rounded-md`, loading ? tw`bg-gray-300` : tw`bg-[#2E523A]`]}
+                        disabled={!canSubmit}
+                        style={[
+                          tw`px-4 py-2 rounded-md`,
+                          !canSubmit ? tw`bg-gray-300` : tw`bg-[#2E523A]`,
+                        ]}
                       >
                         {loading ? <ActivityIndicator color="#fff" /> : <Text style={tw`text-white`}>Save</Text>}
                       </TouchableOpacity>
@@ -231,6 +243,15 @@ export default function ChangeUsernameModal({
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
+
+      {/* ✅ Modal snackbar (errors/validation; success only if no onNotify) */}
+      <Snackbar
+        visible={snack.visible}
+        message={snack.message}
+        type={snack.type}
+        onDismiss={() => setSnack((s) => ({ ...s, visible: false }))}
+        bottomOffset={90}
+      />
     </Modal>
   );
 }
