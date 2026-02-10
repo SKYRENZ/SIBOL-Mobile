@@ -5,7 +5,6 @@ import tw from '../utils/tailwind';
 import { CameraWrapper } from './CameraWrapper';
 import Snackbar from './commons/Snackbar';
 import QRMessage from './QRMessage';
-import { decodeQrFromImage } from '../utils/qrDecoder';
 import { scanQr } from '../services/apiClient';
 
 type ScanResultPayload = {
@@ -69,20 +68,29 @@ export default function ScanProvider({ children }: { children: React.ReactNode }
     if (cameraRef.current?.resetScan) cameraRef.current.resetScan();
   }, []);
 
-  const handleCapture = useCallback(async (captured: string) => {
+  const handleCapture = useCallback(async (captured: { qr: string; qrImage?: string }) => {
     setSnackbar((s) => ({ ...s, visible: false }));
     setIsProcessingScan(true);
 
     try {
-      const qrString =
-        Platform.OS === 'web' && typeof captured === 'string' && captured.startsWith('data:')
-          ? await decodeQrFromImage(captured)
-          : captured;
+      const qrString = captured?.qr;
+      const qrImage = captured?.qrImage;
 
-      const weight = parseFloat(String(qrString));
-      if (!Number.isFinite(weight) || weight <= 0) throw new Error('Invalid QR payload');
+      if (!qrString) throw new Error('Invalid QR payload');
 
-      const result: ScanResultPayload = await scanQr(qrString, weight);
+      if (typeof __DEV__ !== 'undefined' ? __DEV__ : false) {
+        console.log('[scan] captured', {
+          qr: qrString,
+          qrImage: qrImage ? { hasImage: true, length: qrImage.length } : { hasImage: false, length: 0 },
+          platform: Platform.OS,
+        });
+      }
+
+      const result: ScanResultPayload = await scanQr(qrString, undefined, qrImage, qrString);
+
+      if (typeof __DEV__ !== 'undefined' ? __DEV__ : false) {
+        console.log('[scan] backend response', result);
+      }
 
       setQRMessageType('success');
       setQRMessageData({ points: result?.awarded, total: result?.totalPoints });
@@ -94,6 +102,13 @@ export default function ScanProvider({ children }: { children: React.ReactNode }
       // close scanner on success
       setIsOpen(false);
     } catch (err: any) {
+      if (typeof __DEV__ !== 'undefined' ? __DEV__ : false) {
+        console.log('[scan] error', {
+          message: err?.message,
+          status: err?.status,
+          payload: err?.payload,
+        });
+      }
       setSnackbar({
         visible: true,
         message: err?.message || 'Scan failed',

@@ -20,7 +20,6 @@ import tw from '../utils/tailwind';
 import Container from '../components/primitives/Container';
 import { Bell } from 'lucide-react-native';
 import { CameraWrapper } from '../components/CameraWrapper';
-import { decodeQrFromImage } from '../utils/qrDecoder';
 import { scanQr } from '../services/apiClient';
 import { getMyPoints } from '../services/profileService';
 import ChangePasswordModal from '../components/ChangePasswordModal';
@@ -89,20 +88,17 @@ export default function HDashboard(props: any) {
     type: 'error' as 'error' | 'success' | 'info',
   });
 
-  const handleCapture = useCallback(async (captured: string) => {
+  const handleCapture = useCallback(async (captured: { qr: string; qrImage?: string }) => {
     setSnackbar((s) => ({ ...s, visible: false })); // Hide snackbar before processing
     setIsProcessingScan(true);
     try {
-      const qrString =
-        Platform.OS === 'web' && typeof captured === 'string' && captured.startsWith('data:')
-          ? await decodeQrFromImage(captured)
-          : captured;
+      const qrString = captured?.qr;
+      const qrImage = captured?.qrImage;
 
-      const weight = parseFloat(String(qrString));
-      if (!Number.isFinite(weight) || weight <= 0) throw new Error('Invalid QR payload');
+      if (!qrString) throw new Error('Invalid QR payload');
 
       // Send to backend
-      const result = await scanQr(qrString, weight);
+      const result = await scanQr(qrString, undefined, qrImage, qrString);
 
       // Show success modal and update points
       setQRMessageType('success');

@@ -188,6 +188,23 @@ export async function ping() {
   return get('/api/health');
 }
 
-export async function scanQr(qr: string, weight: number) {
-  return post('/api/qr/scan', { qr, weight });
+export async function scanQr(qr: string, weight?: number | null, qrImage?: string | null, deviceId?: string | null) {
+  const debug = typeof __DEV__ !== 'undefined' ? __DEV__ : false;
+  if (debug) {
+    console.log('[mobile scanQr] request', {
+      qr,
+      deviceId,
+      hasWeight: weight != null,
+      weight,
+      qrImage: qrImage ? { hasImage: true, length: qrImage.length } : { hasImage: false, length: 0 },
+      API_BASE,
+    });
+  }
+
+  return post('/api/qr/scan', {
+    qr,
+    weight: weight ?? undefined,
+    qrImage: qrImage ?? undefined,
+    deviceId: deviceId ?? undefined,
+  });
 }

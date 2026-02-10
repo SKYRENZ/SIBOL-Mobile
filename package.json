@@ -24,6 +24,7 @@
     "expo-auth-session": "~7.0.8",
     "expo-camera": "^17.0.9",
     "expo-file-system": "~19.0.21",
+    "expo-image-manipulator": "^14.0.8",
     "expo-image-picker": "^17.0.8",
     "expo-location": "^19.0.8",
     "expo-sharing": "~14.0.8",

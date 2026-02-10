@@ -4,9 +4,10 @@ import jsQR from 'jsqr';
 
 // Import expo-camera for native platforms
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 interface CameraWrapperProps {
-  onCapture: (imageData: string) => void;
+  onCapture: (payload: { qr: string; qrImage?: string }) => void;
   setSnackbar?: (snackbar: { visible: boolean; message: string; type: 'error' | 'success' | 'info' }) => void;
   isProcessingScan?: boolean;
   active?: boolean; // <-- add this
@@ -146,9 +147,10 @@ export const CameraWrapper = forwardRef(({ onCapture, setSnackbar, isProcessingS
           // ✅ Mark as scanned to prevent duplicate scans
           hasScannedRef.current = true;
           console.log('✅ QR detected, stopping scan loop');
-          // ✅ Pass decoded string instead of image dataURL
+          // ✅ Pass decoded string and image data URL
           if (!isProcessingScan) {
-            onCapture(code.data); // <-- use onCapture directly
+            const qrImage = canvas.toDataURL('image/jpeg', 0.8);
+            onCapture({ qr: code.data, qrImage });
           }
           return;
         }
@@ -257,7 +259,7 @@ export const CameraWrapper = forwardRef(({ onCapture, setSnackbar, isProcessingS
         style={StyleSheet.absoluteFill}
         facing="back"
         // use the correct prop name expected by the CameraView typings
-        onBarcodeScanned={(event: any) => {
+        onBarcodeScanned={async (event: any) => {
           try {
             if (hasScannedRef.current) return;
 
@@ -270,7 +272,32 @@ export const CameraWrapper = forwardRef(({ onCapture, setSnackbar, isProcessingS
 
             hasScannedRef.current = true;
             console.log('[Camera] QR scanned:', data);
-            onCapture(String(data));
+            let qrImage: string | undefined;
+            try {
+              const picture = await cameraRef.current?.takePictureAsync({
+                // Capture a URI first; we'll resize/compress before base64 to keep payload small
+                base64: false,
+                quality: 0.2,
+                skipProcessing: true,
+                exif: false,
+              });
+
+              if (picture?.uri) {
+                // Resize to a reasonable width and compress; base64 after manipulation is much smaller.
+                const manipulated = await manipulateAsync(
+                  picture.uri,
+                  [{ resize: { width: 640 } }],
+                  { compress: 0.25, format: SaveFormat.JPEG, base64: true }
+                );
+
+                if (manipulated?.base64) {
+                  qrImage = `data:image/jpeg;base64,${manipulated.base64}`;
+                }
+              }
+            } catch (captureErr) {
+              console.warn('[Camera] takePictureAsync failed', captureErr);
+            }
+            onCapture({ qr: String(data), qrImage });
           } catch (e) {
             console.error('[Camera] onBarcodeScanned error', e);
           }
