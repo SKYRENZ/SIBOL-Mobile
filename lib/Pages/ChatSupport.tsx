@@ -159,8 +159,8 @@ export default function ChatSupport() {
           <View style={tw`items-center mb-2`}>
             <Image
               source={require('../../assets/lili-headshot.png')}
-              style={tw`w-[223px] h-[223px]`}
-              resizeMode="center"
+              style={{ width: '55%', aspectRatio: 1 }}
+              resizeMode="contain"
             />
           </View>
 

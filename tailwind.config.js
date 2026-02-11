@@ -9,6 +9,8 @@ module.exports = {
         'green-light': 'rgba(175,200,173,0.61)',
         'text-gray': '#6C8770',
         sibolGreen: '#2E523A',
+        'btn-green': '#88AB8E',
+        'btn-text': '#F2F1EB',
         //pedi add ng ibang colors here
       },
       fontFamily: {
