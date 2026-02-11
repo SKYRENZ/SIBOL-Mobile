@@ -307,6 +307,21 @@ function OMapContent({ navigation }: any) {
               routePath={routePath}
             />
 
+            {/* Collect button placed inside map area (top-left overlay) */}
+            <View style={{ position: 'absolute', top: 12, left: 12, zIndex: 50, flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity
+                style={styles.collectBtn}
+                onPress={() => setShowWasteModal(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add" size={22} color="#fff" />
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => setShowWasteModal(true)} activeOpacity={0.8} style={styles.collectLabelWrap}>
+                <Text style={styles.collectLabelText}>Collect waste</Text>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity style={styles.recenterBtn} onPress={handleRecenter} activeOpacity={0.85}>
               <MapPin size={16} color="#2E523A" style={{ marginRight: 6 }} />
               <Text style={styles.recenterText}>Recenter</Text>
@@ -361,13 +376,7 @@ function OMapContent({ navigation }: any) {
         )}
       </View>
 
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setShowWasteModal(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+      
 
       <View style={[styles.bottomNavWrapper, { paddingBottom: insets.bottom }]}>
         <BottomNavbar />
@@ -512,7 +521,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
-    paddingTop: 44,
+    paddingTop: 24,
     paddingHorizontal: 16,
     paddingBottom: 8,
     backgroundColor: '#fff',
@@ -522,15 +531,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#2b6b2b',
     fontWeight: '600',
-    marginBottom: 18,
+    marginBottom: 8,
   },
   tabsWrap: {
     width: '86%',
     alignSelf: 'center',
-    marginBottom: 14,
+    marginBottom: 8,
   },
   mapArea: {
-    flex: 1,
+    flex: 1.3,
     backgroundColor: '#fff',
   },
   center: {
@@ -737,6 +746,38 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  collectBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#2E523A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  collectLabelWrap: {
+    backgroundColor: '#2E523A',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginLeft: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  collectLabelText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
   },
   bottomNavWrapper: {
     backgroundColor: '#fff',

@@ -15,6 +15,7 @@ import {
 
 import { createCollection, NormalizedArea } from '../services/wasteCollectionService';
 import { listWasteContainers, WasteContainer } from '../services/wasteContainerService';
+import Snackbar from './commons/Snackbar';
 
 interface Props {
   visible: boolean;
@@ -27,6 +28,8 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
   const [selectedAreaId, setSelectedAreaId] = useState<number | null>(null);
   const [weight, setWeight] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [snack, setSnack] = useState({ visible: false, message: '', type: 'error' as 'error' | 'success' | 'info' });
+  const [currentSensorKg, setCurrentSensorKg] = useState<number | null>(null);
 
   // suggestions
   const [areasList, setAreasList] = useState<NormalizedArea[]>([]);
@@ -56,6 +59,14 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
         if (!mounted) return;
         setAreasList(list);
         console.debug('[oWasteInput] loaded areas count:', list.length, 'sample:', list.slice(0,10).map(i => ({ id: i.id, label: i.label })));
+        if (list.length > 0) {
+          try {
+            const sampleRaw = list[0].raw;
+            console.debug('[oWasteInput] sample area raw keys:', sampleRaw ? Object.keys(sampleRaw).slice(0,20) : 'no raw', sampleRaw && typeof sampleRaw === 'object' ? sampleRaw : undefined);
+          } catch (e) {
+            // ignore logging errors
+          }
+        }
       } catch (e) {
         console.error('[oWasteInput] failed to load areas', e);
       } finally {
@@ -69,6 +80,8 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
   const onChangeArea = (text: string) => {
     setArea(text);
     setSelectedAreaId(null); // typing clears selection
+    setWeight('');
+    setCurrentSensorKg(null);
     setError(null);
 
     const q = text.trim().toLowerCase();
@@ -96,7 +109,61 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
     setSuggestions([]);
     setShowSuggestions(false);
     setError(null);
+    // try to auto-fill weight from the area's raw container data (with debug)
+    try {
+      const raw = (s as any).raw;
+      const { value: found, key: matchedKey } = extractWeightFromRaw(raw, { debug: true });
+      console.debug('[oWasteInput] selectSuggestion raw matchedKey:', matchedKey, 'found:', found, 'areaId:', s.id);
+      if (found !== null && found !== undefined) {
+        const num = Number(found);
+        if (!Number.isNaN(num)) {
+          // keep at most 2 decimals
+          const formatted = Math.round(num * 100) / 100;
+          setWeight(String(formatted));
+          setCurrentSensorKg(Number(formatted));
+        }
+      } else {
+        // container has no explicit current weight — leave field empty for manual entry
+        setWeight('');
+        setCurrentSensorKg(null);
+      }
+    } catch (e) {
+      console.error('[oWasteInput] selectSuggestion: error extracting weight', e);
+    }
   };
+
+  // When the user leaves the Area input, if it matches an existing area label exactly,
+  // select it and auto-fill weight from its raw data.
+  const onAreaBlur = () => {
+    const q = area.trim().toLowerCase();
+    if (!q) return;
+    const exact = areasList.find(a => a.label.trim().toLowerCase() === q);
+    if (exact) selectSuggestion(exact);
+  };
+
+  // Try to extract a numeric weight value from a container's raw data.
+  // Returns an object with `{ value, key }` so callers can log which key matched.
+  // By default only explicit `current_weight_kg` (and close variants) are checked.
+  function extractWeightFromRaw(raw: any, opts?: { debug?: boolean }): { value: number | null; key: string | null } {
+    if (!raw) return { value: null, key: null };
+    const candidates: [string, any][] = [
+      // backend alias uses `current_kg`
+      ['current_kg', raw.current_kg],
+      ['currentKg', raw.currentKg],
+      // older/other variants
+      ['current_weight_kg', raw.current_weight_kg],
+      ['current_weightkg', raw.current_weightkg],
+      ['currentWeightKg', raw.currentWeightKg],
+    ];
+
+    for (const [key, val] of candidates) {
+      if (val === undefined || val === null) continue;
+      const n = Number(val);
+      if (!Number.isNaN(n)) return { value: n, key };
+    }
+
+    return { value: null, key: null };
+  }
 
   // allow decimals: digits and one dot, limit 2 decimals
   const onChangeWeight = (raw: string) => {
@@ -134,6 +201,30 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
     try {
       // If user selected a suggestion, submit the numeric id; otherwise submit the typed area (service will resolve)
       const areaPayload: string | number = selectedAreaId ?? area.trim();
+
+      // Prevent manual save when container has no weight data:
+      // find the normalized area entry (by id or label)
+      let matchedArea: NormalizedArea | undefined;
+      if (typeof areaPayload === 'number') matchedArea = areasList.find(a => a.id === areaPayload);
+      else matchedArea = areasList.find(a => a.label.trim().toLowerCase() === String(areaPayload).trim().toLowerCase());
+
+      if (matchedArea) {
+        const hasSensor = !!(matchedArea.raw && (matchedArea.raw.has_weight_data === true || matchedArea.raw.current_kg !== undefined));
+        if (!hasSensor) {
+          // operator entering manual weight while container has no sensor data — show snackbar and block
+          setSnack({ visible: true, message: 'Container has no weight sensor data — cannot submit manual measurement.', type: 'error' });
+          return;
+        }
+
+        // If sensor exists, deny submissions greater than the sensor reading.
+        const sensorVal = matchedArea.raw && (matchedArea.raw.current_kg !== undefined ? Number(matchedArea.raw.current_kg) : null);
+        if (sensorVal !== null && !Number.isNaN(sensorVal)) {
+          if (numericWeight > sensorVal) {
+            setSnack({ visible: true, message: `Entered weight exceeds current sensor reading (${sensorVal} kg). Submission blocked.`, type: 'error' });
+            return;
+          }
+        }
+      }
       await createCollection(areaPayload, numericWeight);
 
       if (onSave) onSave({ area: areaPayload, weight: numericWeight });
@@ -146,6 +237,21 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
       console.error('Failed to submit waste input', err);
       setError(err?.message || 'Failed to submit waste input');
     }
+  };
+
+  // whether the Save button should be enabled
+  const canSave = () => {
+    if (!area || !area.toString().trim()) return false;
+    if (!weight) return false;
+    const numeric = Number(weight);
+    if (Number.isNaN(numeric)) return false;
+    // Disallow submitting a value greater than current sensor reading when present
+    if (currentSensorKg !== null && numeric > currentSensorKg) return false;
+
+    // allow zero if there's a sensor reading (explicit 0 kg)
+    if (numeric > 0) return true;
+    if (numeric === 0 && currentSensorKg !== null) return true;
+    return false;
   };
 
   return (
@@ -176,6 +282,7 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
                       setSuggestions(areasList.slice(0, SUGGESTION_LIMIT));
                     }
                   }}
+                  onBlur={onAreaBlur}
                 />
 
                 {loadingAreas ? (
@@ -205,7 +312,7 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
                     placeholder="35.5"
                     placeholderTextColor="#9aa89a"
                     keyboardType="decimal-pad"
-                    style={[styles.input, { flex: 1, paddingRight: 44 }]}
+                    style={[styles.input, { flex: 1, paddingRight: 64 }]}
                     maxLength={10}
                   />
                   <View style={styles.unit}>
@@ -213,9 +320,20 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
                   </View>
                 </View>
 
+                {currentSensorKg !== null ? (
+                  <Text style={styles.sensorInfo}>Sensor reading: {currentSensorKg} kg</Text>
+                ) : null}
+
                 {error ? <Text style={styles.error}>{error}</Text> : null}
 
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>
+                <Snackbar visible={snack.visible} message={snack.message} type={snack.type} onDismiss={() => setSnack(s => ({ ...s, visible: false }))} />
+
+                <TouchableOpacity
+                  style={[styles.saveBtn, !canSave() ? styles.saveBtnDisabled : null]}
+                  onPress={handleSave}
+                  activeOpacity={0.8}
+                  disabled={!canSave()}
+                >
                   <Text style={styles.saveText}>Save</Text>
                 </TouchableOpacity>
               </View>
@@ -235,7 +353,12 @@ function normalizeContainersToAreas(containers: WasteContainer[]): NormalizedAre
     if (!label) return;
     if (Number.isFinite(areaId)) {
       if (!map.has(areaId)) {
-        map.set(areaId, { id: areaId, label, raw: c.raw });
+        // include sensor flags/values into raw so UI can access them
+        const rawWithFlags = Object.assign({}, c.raw ?? {});
+        // backend-normalized fields on the WasteContainer
+        if ((c as any).currentKg !== undefined) rawWithFlags.current_kg = (c as any).currentKg;
+        if ((c as any).hasWeightData !== undefined) rawWithFlags.has_weight_data = (c as any).hasWeightData;
+        map.set(areaId, { id: areaId, label, raw: rawWithFlags });
       }
     }
   });
@@ -247,7 +370,7 @@ function normalizeContainersToAreas(containers: WasteContainer[]): NormalizedAre
     .map((c, idx) => ({
       id: c.id ?? idx,
       label: String(c.areaName || c.name || `Area ${idx + 1}`),
-      raw: c.raw,
+      raw: Object.assign({}, c.raw ?? {}, { current_kg: (c as any).currentKg, has_weight_data: (c as any).hasWeightData }),
     }));
 }
 
@@ -292,16 +415,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     color: '#153915',
   },
   rowInput: {
     position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   unit: {
     position: 'absolute',
-    right: 10,
-    top: 10,
+    right: 12,
+    top: 0,
+    bottom: 0,
     backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
@@ -318,6 +444,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
   },
+  saveBtnDisabled: {
+    backgroundColor: '#9aa89a',
+    opacity: 0.7,
+  },
   saveText: {
     color: '#fff',
     fontWeight: '600',
@@ -326,5 +456,12 @@ const styles = StyleSheet.create({
     color: '#cc3b3b',
     marginTop: 8,
     textAlign: 'center',
+  },
+  sensorInfo: {
+    color: '#2f6b3f',
+    marginTop: 8,
+    textAlign: 'left',
+    fontSize: 13,
+    opacity: 0.9,
   },
 });
