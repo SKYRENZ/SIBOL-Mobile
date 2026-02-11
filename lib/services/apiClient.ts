@@ -200,4 +200,10 @@ const handleError = (error: any) => {
   }
 };
 
+// ✅ helper to call backend QR scan endpoint
+export async function scanQr(qr: string, weight: number): Promise<any> {
+  // adjust path if your backend expects a different route
+  return post('/qr/scan', { qr, weight });
+}
+
 export default apiClient;

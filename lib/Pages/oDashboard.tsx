@@ -31,11 +31,12 @@ type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
 
 type RootStackParamList = {
   WiFiConnectivity: undefined;
-
-  // ✅ add: make sure this matches your navigator screen name for oRequest
   ORequest: { initialTab?: FilterTab; openRequestId?: string; navAt?: number };
-  // Add other screens here as needed
+  ONotifications: undefined; // ✅ add this so navigation.navigate('ONotifications') is valid
+  // add other screen names this file navigates to (must match App.tsx)
 };
+
+const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
 interface MachineStatusDropdownProps {
   selectedMachine: string;

@@ -24,6 +24,33 @@ import { getMyProfile, getMyPoints, updateMyProfile, uploadMyProfileImage } from
 import HProfileContributions from '../components/hProfile/hProfileContributions';
 import { HProfileEditForm, type HProfileEditData } from '../components/hProfile/hProfileEdit';
 
+// Added types to fix implicit any / unknown names
+type TabType = 'contributions' | 'profile';
+
+type UserDataState = {
+  username: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  address?: string;
+  contact?: string | null;
+  email?: string;
+  barangay?: string | null;
+  totalContributions: number;
+  points: number;
+  contributions: any[];
+};
+
+type HProfileRouteParams = {
+  updatedData?: Partial<{
+    username: string;
+    firstName: string;
+    lastName: string;
+    contact: string;
+    email: string;
+    barangay: string;
+  }>;
+};
+
 // ✅ Add this (or import your real mock data)
 const MOCK_CONTRIBUTIONS: any[] = [];
 
@@ -98,7 +125,7 @@ export default function HProfile() {
       setPasswordLastUpdated(profile.passwordLastUpdated ?? null);
       setProfileLastUpdated(profile.profileLastUpdated ?? null); // ✅ add
 
-      setUserData((prev) => ({
+      setUserData((prev: UserDataState) => ({
         ...prev,
         username: profile.username || prev.username,
         firstName: profile.firstName ?? prev.firstName,
@@ -138,7 +165,7 @@ export default function HProfile() {
   useEffect(() => {
     const updated = route.params?.updatedData;
     if (updated) {
-      setUserData((prev) => ({
+      setUserData((prev: UserDataState) => ({
         ...prev,
         username: updated.username ?? prev.username,
         firstName: updated.firstName ?? prev.firstName,
@@ -168,7 +195,7 @@ export default function HProfile() {
 
   const handleChangeUsername = async (newUsername: string, currentPassword: string) => {
     await updateMyProfile({ username: newUsername, currentPassword });
-    setUserData((p) => ({ ...p, username: newUsername }));
+    setUserData((prev: UserDataState) => ({ ...prev, username: newUsername }));
     setUsernameLastUpdated(new Date().toISOString());
   };
 
