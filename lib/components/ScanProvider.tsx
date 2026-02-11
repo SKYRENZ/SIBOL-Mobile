@@ -79,10 +79,31 @@ export default function ScanProvider({ children }: { children: React.ReactNode }
           ? await decodeQrFromImage(captured)
           : captured;
 
-      const weight = parseFloat(String(qrString));
-      if (!Number.isFinite(weight) || weight <= 0) throw new Error('Invalid QR payload');
+      const qrText = String(qrString ?? '').trim();
+      // Try to extract numeric weight from mixed-format payloads like "WC-01 | 1.120 kg"
+      let parsedWeight: number | null = null;
+      let parsedDeviceId: string | null = null;
 
-      const result: ScanResultPayload = await scanQr(qrString, weight);
+      if (qrText.length > 0) {
+        // numeric matches (integers or decimals)
+        const numMatches = qrText.match(/(\d+(?:\.\d+)?)/g);
+        if (numMatches && numMatches.length > 0) {
+          // take the last numeric token as weight (handles formats like "ID | 1.120 kg")
+          parsedWeight = parseFloat(numMatches[numMatches.length - 1]);
+        }
+
+        // try to extract device id before a pipe delimiter if present
+        const parts = qrText.split('|');
+        if (parts.length >= 2) parsedDeviceId = parts[0].trim();
+      }
+
+      console.debug('[ScanProvider] QR parsed:', { qrText, parsedWeight, parsedDeviceId });
+
+      if (!Number.isFinite(parsedWeight as any) || (parsedWeight ?? 0) <= 0) {
+        throw new Error('Invalid QR payload');
+      }
+
+      const result: ScanResultPayload = await scanQr(qrText, parsedWeight as number);
 
       setQRMessageType('success');
       setQRMessageData({ points: result?.awarded, total: result?.totalPoints });

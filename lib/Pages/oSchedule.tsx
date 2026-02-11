@@ -33,7 +33,8 @@ export default function OSchedule({ navigation }: any) {
   const today = new Date();
   const nextPickup = nextEveryTwoDays(today);
   const scheduleItems = useMemo(() => {
-    if (!containers.length) return [] as Array<{ location: string; status: string; lastCollected: string }>;
+    const eligible = containers.filter((c) => c.hasWeightData);
+    if (!eligible.length) return [] as Array<{ location: string; status: string; lastCollected: string }>;
     const lastCollectedByArea = new Map<number, string>();
 
     collections.forEach((row) => {
@@ -45,7 +46,7 @@ export default function OSchedule({ navigation }: any) {
       }
     });
 
-    return containers.map((c) => {
+    return eligible.map((c) => {
       const areaId = Number(c?.raw?.area_id ?? c?.raw?.Area_id);
       const lastCollected = Number.isFinite(areaId)
         ? lastCollectedByArea.get(areaId) ?? 'No record'
