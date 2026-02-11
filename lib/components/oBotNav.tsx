@@ -8,7 +8,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface BottomNavbarProps {
-  currentPage?: 'Menu' | 'Request' | 'Home' | 'Map' | 'Back';
+  // allow 'Chat' as well so pages like ChatSupport can pass currentPage="Chat"
+  currentPage?: 'Menu' | 'Request' | 'Home' | 'Map' | 'Back' | 'Chat';
   onRefresh?: () => void;
 }
 
