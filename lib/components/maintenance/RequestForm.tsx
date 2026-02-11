@@ -217,28 +217,24 @@ export default function RequestForm({
 
         if (failed.length > 0) {
           console.error('Failed uploads:', failed);
-          Alert.alert(
-            'Partial Success', 
-            `Ticket created. ${succeeded.length} of ${attachments.length} attachments uploaded successfully.`
-          );
+          // keep console for debugging; notification shown at page level via onSave
         } else {
           console.log('All attachments uploaded successfully');
-          Alert.alert('Success', 'Maintenance request created with all attachments');
         }
-      } else {
-        Alert.alert('Success', 'Maintenance request created successfully');
-      }
-      
-      if (onSave) {
-        onSave({
-          request,
-          description,
-          sibolMachineNo,
-          area,
-          date: selectedDate,
-          attachment: attachments[0] || null,
-        });
-      }
+       } else {
+        // nothing here — page will show snackbar via onSave
+       }
+       
+       if (onSave) {
+         onSave({
+           request,
+           description,
+           sibolMachineNo,
+           area,
+           date: selectedDate,
+           attachment: attachments[0] || null,
+         });
+       }
 
       resetForm();
       onClose();

@@ -5,6 +5,7 @@ import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import RequestCard, { RequestItem } from '../components/maintenance/RequestCard';
 import RequestForm from '../components/maintenance/RequestForm';
+import SnackBar from '../components/commons/Snackbar';
 import { useMaintenance } from '../hooks/useMaintenance';
 import type { MaintenanceTicket } from '../types/maintenance.types';
 import { useRoute } from '@react-navigation/native'; // ✅ add
@@ -18,6 +19,15 @@ type ORequestRouteParams = {
 };
 
 export default function ORequest() {
+  const [snackVisible, setSnackVisible] = React.useState(false);
+  const [snackMsg, setSnackMsg] = React.useState('');
+  const [snackType, setSnackType] = React.useState<'success' | 'info' | 'error'>('success');
+  const notify = React.useCallback((message: string, type: 'success'|'info'|'error' = 'success') => {
+    setSnackType(type);
+    setSnackMsg(message);
+    setSnackVisible(true);
+  }, []);
+
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Pending');
   const [filterOpen, setFilterOpen] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -217,6 +227,7 @@ export default function ORequest() {
   const handleRequestFormSave = useCallback(() => {
     setRequestFormVisible(false);
     refresh();
+    notify('Request created', 'success');
   }, [refresh]);
 
   const filteredRequests = getFilteredTickets();
@@ -304,6 +315,7 @@ export default function ORequest() {
                   onToggleExpand={toggleRequestExpanded}
                   onMarkDone={handleMarkDone}
                   onCancelRequest={handleCancelRequest}
+                  onNotify={notify}
                 />
               </View>
             ))
@@ -318,6 +330,12 @@ export default function ORequest() {
       <BottomNavbar currentPage="Request" onRefresh={handleRefresh} />
 
       <RequestForm visible={requestFormVisible} onClose={handleRequestFormClose} onSave={handleRequestFormSave} />
+      <SnackBar
+        visible={snackVisible}
+        message={snackMsg}
+        onDismiss={() => setSnackVisible(false)}
+        type={snackType}
+      />
     </View>
   );
 }
