@@ -7,23 +7,32 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
-  KeyboardAvoidingView, // ✅ add
-  Platform, // ✅ add
-  Keyboard, // ✅ add
-  TouchableWithoutFeedback, // ✅ add
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import tw from '../utils/tailwind';
 import { Eye, EyeOff, Check, X } from 'lucide-react-native';
 import { changePassword as apiChangePassword } from '../services/authService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Snackbar from './commons/Snackbar'; // ✅ add
 
 type Props = {
   visible: boolean;
   onClose: () => void;
-  requireChange?: boolean; // if true, cannot dismiss until success
+  requireChange?: boolean;
+  onSuccess?: () => void;
+  onNotify?: (message: string, type?: 'error' | 'success' | 'info') => void;
 };
 
-export default function ChangePasswordModal({ visible, onClose, requireChange = false }: Props) {
+export default function ChangePasswordModal({
+  visible,
+  onClose,
+  requireChange = false,
+  onSuccess,
+  onNotify,
+}: Props) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -31,10 +40,9 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [kavKey, setKavKey] = useState(0); // ✅ add
-  const [keyboardVisible, setKeyboardVisible] = useState(false); // ✅ add
+
+  const [kavKey, setKavKey] = useState(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
     if (!visible) {
@@ -45,16 +53,13 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
       setShowNew(false);
       setShowConfirm(false);
       setLoading(false);
-      setError(null);
-      setSuccess(null);
+      setSnack({ visible: false, message: '', type: 'info' }); // ✅ reset
     }
 
     const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
     const hideSub = Keyboard.addListener('keyboardDidHide', () => {
       setKeyboardVisible(false);
-      if (Platform.OS === 'android') {
-        setTimeout(() => setKavKey((k) => k + 1), 220);
-      }
+      if (Platform.OS === 'android') setTimeout(() => setKavKey((k) => k + 1), 220);
     });
     return () => {
       showSub.remove();
@@ -88,16 +93,19 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
   const passwordValid = hasUpper && hasLower && hasNumber && hasSymbol && hasLength;
 
+  const canSubmit = !loading && Boolean(currentPassword) && passwordValid && passwordsMatch;
+
   const handleSubmit = async () => {
-    setError(null);
-    if (!currentPassword) return setError('Current password is required');
-    if (!passwordValid) return setError('Password does not meet requirements');
-    if (!passwordsMatch) return setError('Passwords do not match');
+    // ✅ validation -> modal snackbar
+    if (!currentPassword) return showModalSnack('Current password is required', 'error');
+    if (currentPassword === newPassword) return showModalSnack('New password must be different from current password', 'error');
+    if (!passwordValid) return showModalSnack('Password does not meet requirements', 'error');
+    if (!passwordsMatch) return showModalSnack('Passwords do not match', 'error');
 
     setLoading(true);
     try {
       await apiChangePassword(currentPassword, newPassword);
-      // mark success and clear first-login flag in storage
+
       try {
         const raw = await AsyncStorage.getItem('user');
         if (raw) {
@@ -106,16 +114,32 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
           await AsyncStorage.setItem('user', JSON.stringify(u));
         }
       } catch {}
-      setSuccess('Password changed successfully');
+
+      // ✅ success -> page snackbar
+      if (onNotify) onNotify('Password changed successfully.', 'success');
+      else showModalSnack('Password changed successfully.', 'success');
+
+      onSuccess?.();
+
       setTimeout(() => {
         setLoading(false);
         onClose();
-      }, 700);
+      }, 300);
     } catch (err: any) {
-      setError(err?.message ?? 'Failed to change password');
+      // ✅ API errors -> modal snackbar (NOT page)
+      showModalSnack(err?.message ?? 'Failed to change password', 'error');
       setLoading(false);
     }
   };
+
+  const [snack, setSnack] = useState<{ visible: boolean; message: string; type?: 'error' | 'success' | 'info' }>({
+    visible: false,
+    message: '',
+    type: 'info',
+  });
+
+  const showModalSnack = (message: string, type: 'error' | 'success' | 'info' = 'info') =>
+    setSnack({ visible: true, message, type });
 
   return (
     <Modal
@@ -144,7 +168,6 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
                 ]}
               >
                 <View style={tw`w-full max-w-md bg-white rounded-lg overflow-hidden self-center`}>
-                  {/* Header only should be green */}
                   <View
                     style={[
                       tw`px-4 py-3 border-b`,
@@ -155,13 +178,7 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
                   </View>
 
                   <View style={tw`p-4`}>
-                    {success ? (
-                      <View style={tw`mb-3`}>
-                        <Text style={tw`text-green-600`}>{success}</Text>
-                      </View>
-                    ) : null}
-
-                    {error ? <Text style={tw`text-red-500 mb-2`}>{error}</Text> : null}
+                    {/* ✅ removed inline success/error messages */}
 
                     <Text style={tw`text-sm text-gray-700 mb-1`}>Current Password</Text>
                     <View style={tw`relative mb-3`}>
@@ -208,7 +225,6 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
                       </TouchableOpacity>
                     </View>
 
-                    {/* Strength bar */}
                     <View style={tw`mb-3`}>
                       <View style={tw`flex-row items-center gap-2 mb-2`}>
                         <View style={tw`flex-1 h-2 rounded-full bg-gray-200 overflow-hidden flex-row`}>
@@ -228,7 +244,6 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
                         <Text style={tw`text-xs font-medium text-gray-700 ml-2`}>{strengthLabel}</Text>
                       </View>
 
-                      {/* Requirements list (matches frontend) */}
                       <View>
                         {requirements.map((r, idx) => (
                           <View key={idx} style={tw`flex-row items-center mb-1`}>
@@ -239,14 +254,6 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
                       </View>
                     </View>
 
-                    {/* Match indicator */}
-                    {confirmPassword.length > 0 && (
-                      <View style={tw`flex-row items-center mb-3`}>
-                        {passwordsMatch ? <Check size={16} color="#10B981" /> : <X size={16} color="#ef4444" />}
-                        <Text style={tw`ml-2 text-sm`}>{passwordsMatch ? 'Passwords match' : 'Passwords do not match'}</Text>
-                      </View>
-                    )}
-
                     <View style={tw`flex-row justify-end gap-2`}>
                       {!requireChange && (
                         <TouchableOpacity onPress={onClose} disabled={loading} style={tw`px-4 py-2 rounded-md bg-gray-100`}>
@@ -255,11 +262,8 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
                       )}
                       <TouchableOpacity
                         onPress={handleSubmit}
-                        disabled={loading || !passwordValid || !passwordsMatch || !currentPassword}
-                        style={[
-                          tw`px-4 py-2 rounded-md`,
-                          (loading || !passwordValid || !passwordsMatch || !currentPassword) ? tw`bg-gray-300` : tw`bg-[#2E523A]`,
-                        ]}
+                        disabled={!canSubmit}
+                        style={[tw`px-4 py-2 rounded-md`, !canSubmit ? tw`bg-gray-300` : tw`bg-[#2E523A]`]}
                       >
                         {loading ? <ActivityIndicator color="#fff" /> : <Text style={tw`text-white`}>Change Password</Text>}
                       </TouchableOpacity>
@@ -271,6 +275,15 @@ export default function ChangePasswordModal({ visible, onClose, requireChange = 
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
+
+      {/* ✅ Modal snackbar */}
+      <Snackbar
+        visible={snack.visible}
+        message={snack.message}
+        type={snack.type}
+        onDismiss={() => setSnack((s) => ({ ...s, visible: false }))}
+        bottomOffset={90}
+      />
     </Modal>
   );
 }

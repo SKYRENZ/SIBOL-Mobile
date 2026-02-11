@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
@@ -11,57 +10,32 @@ import {
   Easing,
   ActivityIndicator,
   Image,
+  Alert,
+  Pressable,
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view'; // ✅ add
+import * as ImagePicker from 'expo-image-picker';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
+import tw from '../utils/tailwind';
 import BottomNavbar from '../components/hBotNav';
-import { Edit, Award } from 'lucide-react-native';
-import { getMyProfile, getMyPoints, updateMyProfile } from '../services/profileService';
-import { HProfileEditForm, type HProfileEditData } from '../components/hProfile/hProfileEdit';
+import Snackbar from '../components/commons/Snackbar'; // ✅ keep this (now exists)
+import { Edit, Award, Pencil } from 'lucide-react-native';
+import { getMyProfile, getMyPoints, updateMyProfile, uploadMyProfileImage } from '../services/profileService';
 import HProfileContributions from '../components/hProfile/hProfileContributions';
+import { HProfileEditForm, type HProfileEditData } from '../components/hProfile/hProfileEdit';
 
-type TabType = 'contributions' | 'profile';
+// ✅ Add this (or import your real mock data)
+const MOCK_CONTRIBUTIONS: any[] = [];
 
-type HProfileRouteParams = {
-  updatedData?: {
-    username: string;
-    firstName?: string;
-    lastName?: string;
-    contact?: string;
-    email?: string;
-    barangay?: string;
-  };
+const formatTooEarly = (payload: any, fallback = 'You can’t update yet.') => {
+  const kind = String(payload?.kind || '').toUpperCase();
+  const when = payload?.retryAt ? new Date(payload.retryAt).toLocaleString() : null;
+  const label =
+    kind === 'USERNAME' ? 'username' :
+    kind === 'PASSWORD' ? 'password' :
+    kind === 'PROFILE' ? 'profile' : 'profile';
+  return when ? `You can update your ${label} again after: ${when}` : (payload?.message ?? fallback);
 };
-
-type UserDataState = {
-  username: string;
-  firstName?: string;
-  lastName?: string;
-  address: string;
-  contact?: string;
-  email?: string;
-  barangay?: string;
-  totalContributions: number;
-  points: number;
-
-  contributions: Array<{
-    id: string;
-    date: string;
-    points: number;
-    totalContribution: number;
-    area: string;
-  }>;
-};
-
-const MOCK_CONTRIBUTIONS: UserDataState['contributions'] = [
-  {
-    id: '1',
-    date: 'November 11, 2025',
-    points: 30,
-    totalContribution: 6,
-    area: 'Waste Bin 12 - Petunia St.',
-  },
-];
 
 export default function HProfile() {
   const navigation = useNavigation<any>();
@@ -93,6 +67,9 @@ export default function HProfile() {
     contributions: MOCK_CONTRIBUTIONS,
   });
 
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false); // ✅ add
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -114,6 +91,12 @@ export default function HProfile() {
       setLoadError(null);
 
       const [profile, points] = await Promise.all([getMyProfile(), getMyPoints()]);
+
+      setProfileImageUrl(profile.imagePath ?? null);
+
+      setUsernameLastUpdated(profile.usernameLastUpdated ?? null);
+      setPasswordLastUpdated(profile.passwordLastUpdated ?? null);
+      setProfileLastUpdated(profile.profileLastUpdated ?? null); // ✅ add
 
       setUserData((prev) => ({
         ...prev,
@@ -177,6 +160,18 @@ export default function HProfile() {
     }
   };
 
+  const [profileEditing, setProfileEditing] = useState(false); // ✅ add
+
+  const showSnack = (message: string, type: 'error' | 'success' | 'info' = 'info') => {
+    setSnackbar({ visible: true, message, type });
+  };
+
+  const handleChangeUsername = async (newUsername: string, currentPassword: string) => {
+    await updateMyProfile({ username: newUsername, currentPassword });
+    setUserData((p) => ({ ...p, username: newUsername }));
+    setUsernameLastUpdated(new Date().toISOString());
+  };
+
   const handleSaveProfile = async (data: HProfileEditData) => {
     setProfileSaveError(null);
     setProfileSaveSuccess(null);
@@ -186,7 +181,6 @@ export default function HProfile() {
       // Backend supports: username/firstName/lastName/contact/email/password/area
       // It does NOT support barangay updates (keep barangay UI local-only for now)
       await updateMyProfile({
-        username: data.username,
         firstName: data.firstName,
         lastName: data.lastName,
         contact: data.contact,
@@ -194,17 +188,11 @@ export default function HProfile() {
       });
 
       setProfileSaveSuccess('Profile updated successfully.');
-      // Refresh to ensure we show server truth + updated Profile_last_updated restriction timing
       await loadFromBackend();
+      showSnack('Profile updated successfully.', 'success');
     } catch (e: any) {
-      // apiClient attaches status/payload for axios responses
       if (e?.status === 429) {
-        const retryAt = e?.payload?.retryAt;
-        setProfileSaveError(
-          retryAt
-            ? `You can update your profile again after: ${new Date(retryAt).toLocaleString()}`
-            : (e?.message ?? 'You can’t update your profile yet.')
-        );
+        showSnack(formatTooEarly(e?.payload, e?.message), 'error');
       } else {
         setProfileSaveError(e?.message ?? 'Failed to update profile');
       }
@@ -213,35 +201,132 @@ export default function HProfile() {
     }
   };
 
+  const handleImagePicker = async () => {
+    try {
+      if (uploadingAvatar || profileEditing) return;
+
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission required', 'Please allow photo library access to change your profile photo.');
+        return;
+      }
+
+      const imagesOnly =
+        (ImagePicker as any).MediaType?.Images ??
+        (ImagePicker as any).MediaTypeOptions?.Images;
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        ...(imagesOnly ? { mediaTypes: imagesOnly } : {}),
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri) return;
+
+      const mimeType =
+        (asset as any).mimeType ||
+        (asset.uri.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg');
+
+      if (!['image/jpeg', 'image/jpg', 'image/png'].includes(String(mimeType).toLowerCase())) {
+        Alert.alert('Invalid file', 'Only JPEG/PNG images are allowed.');
+        return;
+      }
+
+      setUploadingAvatar(true);
+      const uploaded = await uploadMyProfileImage({
+        uri: asset.uri,
+        mimeType: mimeType === 'image/jpg' ? 'image/jpeg' : mimeType,
+        name: (asset as any).fileName,
+      });
+
+      setProfileImageUrl(uploaded.imagePath);
+
+      // ✅ Snackbar on success
+      showSnack('Profile photo updated.', 'success');
+    } catch (e: any) {
+      Alert.alert('Upload failed', e?.message ?? 'Please try again.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const renderHeader = () => (
     <Animated.View
       style={[
-        styles.header,
+        tw`bg-[#2E523A] pt-[60px] pb-[30px] px-6 rounded-bl-[24px] rounded-br-[24px]`,
         {
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
+          elevation: 4,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
         },
       ]}
     >
-      <View style={styles.headerContent}>
-        <View style={styles.profileImageWrapper}>
-          <View style={styles.profileImageBox}>
-            <Image
-              source={require('../../assets/profile.png')}
-              style={styles.profileImage}
-              resizeMode="cover"
+      <View style={tw`flex-row items-center`}>
+        <View style={tw`mr-[18px]`}>
+          <View style={tw`relative`}>
+            <View style={tw`w-[118px] h-[107px] rounded-[15px] border-2 border-green-300 bg-white overflow-hidden`}>
+              <Image
+                source={profileImageUrl ? { uri: profileImageUrl } : require('../../assets/profile.png')}
+                style={tw`w-full h-full`}
+                resizeMode="cover"
+              />
+            </View>
+
+            {/* ✅ NEW: clickable overlay for the whole image */}
+            <Pressable
+              onPress={handleImagePicker}
+              disabled={uploadingAvatar || profileEditing}
+              style={[tw`absolute inset-0`, { zIndex: 10 }]}
             />
+
+            {/* Pencil stays clickable too */}
+            <TouchableOpacity
+              style={[tw`absolute -right-2 -bottom-2 w-[29px] h-[29px] items-center justify-center`, { zIndex: 20 }]}
+              onPress={handleImagePicker}
+              disabled={uploadingAvatar || profileEditing}
+              activeOpacity={0.8}
+            >
+              <Pencil color="#26cf5f" size={24} />
+            </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.userInfo}>
-          <Text style={styles.username}>{userData.username}</Text>
+        <View style={tw`flex-1`}>
+          <Text style={[tw`text-white text-[24px] mb-1`, { fontFamily: 'Inter-Bold', letterSpacing: 0.3 }]}>
+            {userData.username}
+          </Text>
+
+          <Text style={[tw`text-white/90 text-[13px] mb-3`, { fontFamily: 'Inter-SemiBold' }]}>
+            {userData.email || '—'}
+          </Text>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleImagePicker}
+            disabled={uploadingAvatar || profileEditing}
+            style={tw.style(
+              `self-start px-[14px] py-2 rounded-xl bg-white border border-white/60`,
+              (uploadingAvatar || profileEditing) && 'opacity-60'
+            )}
+          >
+            <Text style={[tw`text-[#2E523A] text-[12px]`, { fontFamily: 'Inter-SemiBold' }]}>
+              {uploadingAvatar ? 'Uploading…' : 'Change Photo'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
       {loadError ? (
-        <View style={{ marginTop: 10 }}>
-          <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12 }}>{loadError}</Text>
+        <View style={tw`mt-2`}>
+          <Text style={tw`text-white/90 text-[12px]`}>{loadError}</Text>
         </View>
       ) : null}
     </Animated.View>
@@ -250,16 +335,16 @@ export default function HProfile() {
   const renderTabContent = () => {
     if (loading) {
       return (
-        <View style={{ padding: 18, alignItems: 'center' }}>
+        <View style={tw`px-5 py-5 items-center`}>
           <ActivityIndicator />
-          <Text style={{ marginTop: 10, color: '#6C8770' }}>Loading profile…</Text>
+          <Text style={tw`mt-2 text-[#6C8770]`}>Loading profile…</Text>
         </View>
       );
     }
 
     if (activeTab === 'profile') {
       return (
-        <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+        <View style={tw`px-4 pt-2`}>
           <HProfileEditForm
             initialData={{
               username: userData.username,
@@ -273,13 +358,19 @@ export default function HProfile() {
             error={profileSaveError}
             success={profileSaveSuccess}
             onSave={handleSaveProfile}
-            onEditingChange={setProfileEditing} // ✅ add
+            onEditingChange={setProfileEditing}
+            onUsernameSubmit={handleChangeUsername}
+            onUsernameUpdated={(u) => setUserData((p) => ({ ...p, username: u }))}
+            onNotify={(msg, type = 'info') => showSnack(msg, type)}
+            usernameLastUpdated={usernameLastUpdated}
+            passwordLastUpdated={passwordLastUpdated}
+            profileLastUpdated={profileLastUpdated} // ✅ add
+            onPasswordChanged={() => setPasswordLastUpdated(new Date().toISOString())}
           />
         </View>
       );
     }
 
-    // ✅ Contributions tab extracted to component
     return (
       <HProfileContributions
         fadeAnim={fadeAnim}
@@ -290,20 +381,25 @@ export default function HProfile() {
     );
   };
 
-  const [profileEditing, setProfileEditing] = useState(false); // ✅ add
+  const [snackbar, setSnackbar] = useState<{
+    visible: boolean;
+    message: string;
+    type?: 'error' | 'success' | 'info';
+  }>({ visible: false, message: '', type: 'info' });
+
+  const [usernameLastUpdated, setUsernameLastUpdated] = useState<string | null>(null);
+  const [passwordLastUpdated, setPasswordLastUpdated] = useState<string | null>(null);
+  const [profileLastUpdated, setProfileLastUpdated] = useState<string | null>(null); // ✅ add
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* ✅ Keyboard behavior like SignIn: affect scroll/content only, NOT bottom nav */}
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+    <SafeAreaView style={tw`flex-1 bg-[#F8FAF8]`}>
+      {/* Keyboard behavior affects content only, NOT bottom nav */}
+      <KeyboardAvoidingView style={tw`flex-1`} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <KeyboardAwareScrollView
           enableOnAndroid
           extraScrollHeight={Platform.OS === 'ios' ? 20 : 120}
           keyboardOpeningTime={0}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={tw`pb-[160px]`}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -312,57 +408,87 @@ export default function HProfile() {
           {/* Tabs */}
           <Animated.View
             style={[
-              styles.tabsContainer,
+              tw`flex-row bg-white py-3 border-b border-[#E8E8E8] mx-4 mt-[-12px] rounded-xl px-2`,
               {
                 opacity: fadeAnim,
                 transform: [{ translateY: slideAnim }],
-                marginTop: -12,
+                elevation: 2,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.05,
+                shadowRadius: 3,
               },
             ]}
-            pointerEvents={profileEditing ? 'none' : 'auto'} // ✅ disable tab touches entirely
+            pointerEvents={profileEditing ? 'none' : 'auto'}
           >
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'contributions' && styles.activeTab]}
+              style={tw.style(
+                `flex-1 items-center py-[10px] flex-row justify-center rounded-lg mx-1`,
+                activeTab === 'contributions' && 'bg-[rgba(46,82,58,0.1)]'
+              )}
               onPress={() => setActiveTab('contributions')}
               activeOpacity={0.7}
-              disabled={profileEditing} // ✅ add
+              disabled={profileEditing}
             >
               <Award
                 size={20}
                 color={activeTab === 'contributions' ? '#2E523A' : '#9E9E9E'}
                 fill={activeTab === 'contributions' ? '#2E523A' : 'none'}
               />
-              <Text style={[styles.tabText, activeTab === 'contributions' && styles.activeTabText]}>
+              <Text
+                style={[
+                  tw`ml-1.5 text-[14px] text-[#6C8770]`,
+                  { fontFamily: 'Inter-SemiBold', letterSpacing: 0.2 },
+                  activeTab === 'contributions' && tw`text-[#2E523A]`,
+                ]}
+              >
                 Contributions
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
+              style={tw.style(
+                `flex-1 items-center py-[10px] flex-row justify-center rounded-lg mx-1`,
+                activeTab === 'profile' && 'bg-[rgba(46,82,58,0.1)]'
+              )}
               onPress={() => setActiveTab('profile')}
               activeOpacity={0.7}
-              disabled={profileEditing} // ✅ add
+              disabled={profileEditing}
             >
               <Edit size={20} color={activeTab === 'profile' ? '#2E523A' : '#9E9E9E'} />
-              <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>
+              <Text
+                style={[
+                  tw`ml-1.5 text-[14px] text-[#6C8770]`,
+                  { fontFamily: 'Inter-SemiBold', letterSpacing: 0.2 },
+                  activeTab === 'profile' && tw`text-[#2E523A]`,
+                ]}
+              >
                 Profile
               </Text>
             </TouchableOpacity>
           </Animated.View>
 
           {/* Content */}
-          <View style={styles.content}>{renderTabContent()}</View>
+          <View style={tw`flex-1 p-4 pt-2 mb-20`}>{renderTabContent()}</View>
         </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
 
-      {/* ✅ Bottom nav stays fixed, but disabled during edit */}
-      <View
-        style={styles.bottomNav}
-        pointerEvents={profileEditing ? 'none' : 'auto'} // ✅ disables clicks
-      >
+      {/* ✅ ADD THIS: snackbar mounted on page */}
+      <Snackbar
+        visible={snackbar.visible}
+        message={snackbar.message}
+        type={snackbar.type}
+        onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
+        // If your SnackBar overlays the bottom nav, bump it up
+        duration={3000}
+        bottomOffset={110} // ✅ above BottomNavbar
+      />
+
+      {/* Bottom nav stays fixed */}
+      <View style={tw`absolute bottom-0 left-0 right-0`} pointerEvents={profileEditing ? 'none' : 'auto'}>
         <BottomNavbar currentPage="Back" onRefresh={handleRefresh} />
         {refreshing ? (
-          <View style={{ position: 'absolute', right: 12, bottom: 72 }}>
+          <View style={tw`absolute right-3 bottom-[72px]`}>
             <ActivityIndicator />
           </View>
         ) : null}
@@ -370,260 +496,3 @@ export default function HProfile() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAF8',
-  },
-  tabContent: {
-    flex: 1,
-    padding: 16,
-  },
-  header: {
-    backgroundColor: '#2E523A',
-    paddingTop: 60,
-    paddingBottom: 30,
-    paddingHorizontal: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  profileImageWrapper: {
-    marginRight: 18,
-  },
-  profileImageBox: {
-    width: 118,
-    height: 107,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#000',
-    backgroundColor: '#fff',
-    overflow: 'hidden',
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-  },
-  userInfo: {
-    flex: 1,
-  },
-  username: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontFamily: 'Inter-Bold',
-    marginBottom: 10,
-    letterSpacing: 0.3,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E8',
-    marginHorizontal: 16,
-    marginTop: -12,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  scrollContent: {
-    paddingBottom: 160,
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    borderRadius: 8,
-    marginHorizontal: 4,
-    backgroundColor: 'transparent',
-  },
-  activeTab: {
-    backgroundColor: 'rgba(46, 82, 58, 0.1)',
-    borderRadius: 8,
-  },
-  tabText: {
-    marginLeft: 6,
-    color: '#6C8770',
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
-    letterSpacing: 0.2,
-  },
-  activeTabText: {
-    color: '#2E523A',
-    fontFamily: 'Inter-SemiBold',
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-    paddingTop: 8,
-    marginBottom: 80, // Add margin to account for bottom navigation
-  },
-  leaderboardContainer: {
-    marginTop: 10,
-  },
-  contributionsContainer: {
-    flex: 1,
-  },
-  leaderboardTitle: {
-    fontSize: 20,
-    fontFamily: 'Inter-Bold',
-    color: '#2E523A',
-    marginBottom: 4,
-    letterSpacing: 0.2,
-  },
-  leaderboardSubtitle: {
-    color: '#6C8770',
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    marginBottom: 16,
-    opacity: 0.9,
-  },
-  leaderboardItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-  },
-  rankBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F0F7F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  rankText: {
-    color: '#2E523A',
-    fontFamily: 'Inter-Bold',
-    fontSize: 16,
-  },
-  leaderboardInfo: {
-    flex: 1,
-  },
-  leaderboardName: {
-    fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
-    marginBottom: 2,
-    color: '#2E523A',
-    letterSpacing: 0.2,
-  },
-  leaderboardPoints: {
-    color: '#6C8770',
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    opacity: 0.9,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  statCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    flex: 0.48,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-    borderTopWidth: 3,
-    borderTopColor: '#2E523A',
-  },
-  statValue: {
-    fontSize: 24,
-    fontFamily: 'Inter-Bold',
-    color: '#2E523A',
-    marginBottom: 5,
-  },
-  statLabel: {
-    color: '#6C8770',
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontFamily: 'Inter-Bold',
-    color: '#2E523A',
-  },
-  contributionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-    borderLeftWidth: 4,
-    borderLeftColor: '#2E523A',
-  },
-  contributionDate: {
-    color: '#6C8770',
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    marginBottom: 10,
-  },
-  contributionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  contributionValue: {
-    fontFamily: 'Inter-SemiBold',
-    color: '#2E523A',
-  },
-  rewardsContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  noRewardsText: {
-    color: '#6C8770',
-    fontFamily: 'Inter-Regular',
-    textAlign: 'center',
-    marginTop: 20,
-    lineHeight: 24,
-    fontSize: 15,
-    maxWidth: '80%',
-    alignSelf: 'center',
-  },
-  contributionLabel: {
-    color: '#6C8770',
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-  },
-  bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-});

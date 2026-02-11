@@ -211,6 +211,25 @@ export default function RequestCard({
   const isCancelRequested = request.status === 'Cancel Requested';
   const isCanceled = request.status === 'Canceled';
 
+  // ✅ NEW: status pill background per requirements
+  const statusBgClass =
+    isPending
+      ? 'bg-amber-100'
+      : isRequested
+        ? 'bg-blue-600'
+        : isCancelRequested
+          ? 'bg-orange-600'
+          : isForReview
+            ? 'bg-purple-600'
+            : isDone
+              ? 'bg-green-600'
+              : isCanceled
+                ? 'bg-red-600'
+                : 'bg-[#AFC8AD]';
+
+  // (Optional but recommended for readability since amber-100 is light)
+  const statusTextClass = isPending ? 'text-amber-900' : 'text-white';
+
   // Requested tickets are not yet assigned → avoid calling mark-done/cancel APIs that require assignment
   const canComment = (isPending || isForReview) && !isRequested;
   const isViewOnly = isDone || isCanceled || isRequested;
@@ -224,8 +243,9 @@ export default function RequestCard({
           <View style={tw`flex-row items-center gap-3`}>
             <Text style={tw`text-primary text-[13px] font-bold`}>{request.title}</Text>
 
-            <View style={tw`bg-[#AFC8AD] border border-text-gray rounded-xl px-3 py-1`}>
-              <Text style={tw`text-white text-[10px] font-bold`}>{request.status}</Text>
+            {/* ✅ UPDATED: dynamic bg color */}
+            <View style={tw`${statusBgClass} border-2 border-text-gray rounded-xl px-3 py-1`}>
+              <Text style={tw`${statusTextClass} text-[10px] font-bold`}>{request.status}</Text>
             </View>
           </View>
 
@@ -338,7 +358,11 @@ export default function RequestCard({
           <View style={tw`border-t border-green-light mt-3`} />
 
           <View style={tw`mt-3 items-center`}>
-            {!isRequested ? (
+            {isRequested ? (
+              <Text style={tw`text-text-gray text-[11px] font-semibold`}>
+                Waiting for staff to accept and assign this request.
+              </Text>
+            ) : isPending ? (
               <View style={tw`flex-row items-center`}>
                 <TouchableOpacity
                   onPress={() => {
@@ -356,17 +380,13 @@ export default function RequestCard({
                   onPress={() => {
                     setCompletionModalMode('cancel');
                     setForCompletionModalVisible(true);
-                    }}
-                    style={tw`bg-red-600 rounded-md py-2 px-4`}
-                    >
+                  }}
+                  style={tw`bg-red-600 rounded-md py-2 px-4`}
+                >
                   <Text style={tw`text-white text-[11px] font-bold`}>Cancel Request</Text>
                 </TouchableOpacity>
               </View>
-            ) : (
-              <Text style={tw`text-text-gray text-[11px] font-semibold`}>
-                Waiting for staff to accept and assign this request.
-              </Text>
-            )}
+            ) : null}
           </View>
         </View>
       </View>
