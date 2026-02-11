@@ -211,6 +211,12 @@ export default function RequestCard({
   const isCancelRequested = request.status === 'Cancel Requested';
   const isCanceled = request.status === 'Canceled';
 
+  // display labels (keep internal status values for logic)
+  const displayStatus =
+    request.status === 'For review' ? 'For Verification' :
+    request.status === 'Done' ? 'Completed' :
+    request.status;
+
   // ✅ NEW: status pill background per requirements
   const statusBgClass =
     isPending
@@ -245,7 +251,7 @@ export default function RequestCard({
 
             {/* ✅ UPDATED: dynamic bg color */}
             <View style={tw`${statusBgClass} border-2 border-text-gray rounded-xl px-3 py-1`}>
-              <Text style={tw`${statusTextClass} text-[10px] font-bold`}>{request.status}</Text>
+              <Text style={tw`${statusTextClass} text-[10px] font-bold`}>{displayStatus}</Text>
             </View>
           </View>
 
