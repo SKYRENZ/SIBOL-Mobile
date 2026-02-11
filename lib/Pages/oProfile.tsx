@@ -8,6 +8,7 @@ import {
   Image,
   Modal,
   Alert,
+  Pressable,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -16,9 +17,20 @@ import tw from '../utils/tailwind';
 import { Pencil } from 'lucide-react-native';
 import BottomNavbar from '../components/oBotNav';
 import AreaCovered from '../components/AreaCovered';
-import Button from '../components/commons/Button'; // ✅ FIX: add missing import
-import { getMyProfile, updateMyProfile } from '../services/profileService';
-import { OProfileEditForm, type OProfileEditData } from '../components/oProfile/oProfileEdit';
+import Button from '../components/commons/Button';
+import Snackbar from '../components/commons/Snackbar';
+import OProfileEditForm, { OProfileEditData } from '../components/oProfile/oProfileEdit';
+import { getMyProfile, updateMyProfile, uploadMyProfileImage } from '../services/profileService';
+
+const formatTooEarly = (payload: any, fallback = 'You can’t update yet.') => {
+  const kind = String(payload?.kind || '').toUpperCase();
+  const when = payload?.retryAt ? new Date(payload.retryAt).toLocaleString() : null;
+  const label =
+    kind === 'USERNAME' ? 'username' :
+    kind === 'PASSWORD' ? 'password' :
+    kind === 'PROFILE' ? 'profile' : 'profile';
+  return when ? `You can update your ${label} again after: ${when}` : (payload?.message ?? fallback);
+};
 
 export default function OProfile() {
   const navigation = useNavigation();
@@ -26,7 +38,12 @@ export default function OProfile() {
   const [showNavigationModal, setShowNavigationModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
-  // ✅ form state (used for header + initialData)
+  const [profileEditing, setProfileEditing] = useState(false);
+
+  const [usernameLastUpdated, setUsernameLastUpdated] = useState<string | null>(null);
+  const [passwordLastUpdated, setPasswordLastUpdated] = useState<string | null>(null);
+  const [profileLastUpdated, setProfileLastUpdated] = useState<string | null>(null);
+
   const [profile, setProfile] = useState<OProfileEditData>({
     username: '',
     firstName: '',
@@ -41,7 +58,6 @@ export default function OProfile() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
-  // ✅ for unsaved-changes warning
   const [isDirty, setIsDirty] = useState(false);
 
   const applyProfile = (p: any) => {
@@ -57,6 +73,9 @@ export default function OProfile() {
 
     setProfile(next);
   };
+
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false); // ✅ add
 
   const loadProfile = React.useCallback(async () => {
     try {
@@ -75,6 +94,12 @@ export default function OProfile() {
       // 2) backend source of truth
       const p = await getMyProfile();
       applyProfile(p);
+
+      setProfileImageUrl((p as any)?.imagePath ?? null);
+
+      setUsernameLastUpdated((p as any)?.usernameLastUpdated ?? null);
+      setPasswordLastUpdated((p as any)?.passwordLastUpdated ?? null);
+      setProfileLastUpdated((p as any)?.profileLastUpdated ?? null); // ✅ add
     } catch (err) {
       console.warn('[OProfile] loadProfile failed', err);
     }
@@ -113,15 +138,59 @@ export default function OProfile() {
   };
 
   const handleImagePicker = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
+    try {
+      // ✅ match hProfile behavior
+      if (uploadingAvatar || profileEditing) return;
 
-    if (!result.canceled) {
-      console.log('Image selected:', result.assets[0].uri);
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission required', 'Please allow photo library access to change your profile photo.');
+        return;
+      }
+
+      const imagesOnly =
+        (ImagePicker as any).MediaType?.Images ??
+        (ImagePicker as any).MediaTypeOptions?.Images;
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        ...(imagesOnly ? { mediaTypes: imagesOnly } : {}),
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri) return;
+
+      const mimeType =
+        (asset as any).mimeType ||
+        (asset.uri.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg');
+
+      if (!['image/jpeg', 'image/jpg', 'image/png'].includes(String(mimeType).toLowerCase())) {
+        Alert.alert('Invalid file', 'Only JPEG/PNG images are allowed.');
+        return;
+      }
+
+      setUploadingAvatar(true);
+      const uploaded = await uploadMyProfileImage({
+        uri: asset.uri,
+        mimeType: mimeType === 'image/jpg' ? 'image/jpeg' : mimeType,
+        name: (asset as any).fileName,
+      });
+
+      setProfileImageUrl(uploaded.imagePath);
+
+      // ✅ make restriction apply immediately (no reload needed)
+      setProfileLastUpdated(new Date().toISOString());
+
+      // ✅ Snackbar instead of Alert on success
+      showSnack('Profile photo updated.', 'success');
+    } catch (e: any) {
+      Alert.alert('Upload failed', e?.message ?? 'Please try again.');
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -146,6 +215,22 @@ export default function OProfile() {
     }, [isDirty, navigation])
   );
 
+  const [snackbar, setSnackbar] = useState<{
+    visible: boolean;
+    message: string;
+    type?: 'error' | 'success' | 'info';
+  }>({ visible: false, message: '', type: 'info' });
+
+  const showSnack = (message: string, type: 'error' | 'success' | 'info' = 'info') => {
+    setSnackbar({ visible: true, message, type });
+  };
+
+  const handleChangeUsername = async (newUsername: string, currentPassword: string) => {
+    await updateMyProfile({ username: newUsername, currentPassword });
+    setProfile((p) => ({ ...p, username: newUsername }));
+    setUsernameLastUpdated(new Date().toISOString());
+  };
+
   return (
     <SafeAreaView style={tw`flex-1 bg-[#AFC8AD]`}>
       <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
@@ -161,16 +246,27 @@ export default function OProfile() {
           <View style={tw`flex-row mb-8`}>
             <View style={tw`mr-6`}>
               <View style={tw`relative`}>
-                <View style={tw`w-[118px] h-[107px] rounded-[15px] border border-black bg-white overflow-hidden`}>
+                <View style={tw`w-[118px] h-[107px] rounded-[15px] border-2 border-green-800 bg-white overflow-hidden`}>
                   <Image
-                    source={require('../../assets/profile.png')}
+                    source={profileImageUrl ? { uri: profileImageUrl } : require('../../assets/profile.png')}
                     style={tw`w-full h-full`}
                     resizeMode="cover"
                   />
                 </View>
-                <TouchableOpacity
-                  style={tw`absolute -right-2 -bottom-2 w-[29px] h-[29px] items-center justify-center`}
+
+                {/* ✅ NEW: clickable overlay for the whole image */}
+                <Pressable
                   onPress={handleImagePicker}
+                  disabled={uploadingAvatar || profileEditing} // ✅ add
+                  style={[tw`absolute inset-0`, { zIndex: 10 }]}
+                />
+
+                {/* Pencil stays clickable too */}
+                <TouchableOpacity
+                  style={[tw`absolute -right-2 -bottom-2 w-[29px] h-[29px] items-center justify-center`, { zIndex: 20 }]}
+                  onPress={handleImagePicker}
+                  disabled={uploadingAvatar || profileEditing} // ✅ add
+                  activeOpacity={0.8}
                 >
                   <Pencil color="#2E523A" size={24} />
                 </TouchableOpacity>
@@ -184,6 +280,21 @@ export default function OProfile() {
               <Text style={tw`text-[#2E523A] text-[13px] font-semibold`}>
                 {profile.email || '—'}
               </Text>
+
+              {/* ✅ NEW: Change Photo button under username+email */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleImagePicker}
+                disabled={uploadingAvatar || profileEditing} // ✅ add
+                style={tw.style(
+                  `mt-3 self-start px-4 py-2 rounded-xl border border-[#6C8770] bg-white`,
+                  uploadingAvatar && 'opacity-50'
+                )}
+              >
+                <Text style={tw`text-[#2E523A] font-semibold text-[12px]`}>
+                  {uploadingAvatar ? 'Uploading…' : 'Change Photo'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -191,6 +302,7 @@ export default function OProfile() {
           <View style={tw`flex-row mb-8`}>
             <TouchableOpacity
               onPress={() => setActiveTab('personal')}
+              disabled={profileEditing} // ✅ add
               style={[
                 tw`rounded-[15px] px-6 py-2 mr-3`,
                 activeTab === 'personal'
@@ -212,6 +324,7 @@ export default function OProfile() {
 
             <TouchableOpacity
               onPress={() => setActiveTab('area')}
+              disabled={profileEditing} // ✅ add
               style={[
                 tw`rounded-[15px] px-6 py-2`,
                 activeTab === 'area'
@@ -240,12 +353,12 @@ export default function OProfile() {
               error={formError}
               success={formSuccess}
               onDirtyChange={setIsDirty}
+              onEditingChange={setProfileEditing} // ✅ add (parity with hProfile)
               onSave={async (data) => {
                 setFormLoading(true);
                 setFormError(null);
                 setFormSuccess(null);
                 try {
-                  // NOTE: backend currently updates firstName/lastName/contact/email (+ username/password elsewhere)
                   await updateMyProfile({
                     firstName: data.firstName,
                     lastName: data.lastName,
@@ -253,14 +366,24 @@ export default function OProfile() {
                     email: data.email,
                   });
 
-                  // Update UI locally (Area Covered + Barangay are kept for display)
                   setProfile((prev) => ({ ...prev, ...data }));
                   setFormSuccess('Changes saved successfully.');
+
+                  // ✅ Snackbar on success
+                  showSnack('Profile updated successfully.', 'success');
+
+                  // ✅ make restriction apply immediately (no reload needed)
+                  setProfileLastUpdated(new Date().toISOString());
                 } catch (err: any) {
                   if (err?.status === 429) {
-                    const msg = err?.message || 'Please try again later.';
-                    setFormError(msg);
-                    Alert.alert('Too Early', msg);
+                    const kind = String(err?.payload?.kind || '').toUpperCase();
+
+                    // ✅ only show inline error in Profile Details when it's PROFILE restriction
+                    if (kind === 'PROFILE') {
+                      setFormError(formatTooEarly(err?.payload, err?.message));
+                    } else {
+                      showSnack(formatTooEarly(err?.payload, err?.message), 'error');
+                    }
                   } else {
                     const msg = err?.message || 'Failed to save changes.';
                     setFormError(msg);
@@ -270,6 +393,13 @@ export default function OProfile() {
                   setFormLoading(false);
                 }
               }}
+              onUsernameSubmit={handleChangeUsername}
+              onUsernameUpdated={(u) => setProfile((p) => ({ ...p, username: u }))}
+              usernameLastUpdated={usernameLastUpdated}
+              passwordLastUpdated={passwordLastUpdated}
+              profileLastUpdated={profileLastUpdated} // ✅ add
+              onNotify={showSnack}
+              onPasswordChanged={() => setPasswordLastUpdated(new Date().toISOString())}
             />
           ) : (
             <AreaCovered />
@@ -309,6 +439,15 @@ export default function OProfile() {
           </View>
         </View>
       </Modal>
+
+      {/* ✅ Snackbar mounted on page */}
+      <Snackbar
+        visible={snackbar.visible}
+        message={snackbar.message}
+        type={snackbar.type}
+        onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
+        bottomOffset={110} // ✅ above your BottomNavbar
+      />
 
       <BottomNavbar currentPage="Back" />
     </SafeAreaView>

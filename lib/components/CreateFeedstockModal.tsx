@@ -11,23 +11,45 @@ import {
 } from 'react-native';
 import tw from '../utils/tailwind';
 import { X as LucideX } from 'lucide-react-native';
+import Constants from 'expo-constants'; // added
 
 /* =========================
    BACKEND API CALL
    ========================= */
+// replaced static localhost with environment + platform aware resolver
 export async function analyzeWaterAPI(foodWasteKg: number) {
-  const response = await fetch(
-    'http://localhost:5000/api/ai/analyze-water',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        food_waste_kg: foodWasteKg,
-      }),
-    }
-  );
+  const isWeb = Platform.OS === 'web';
+
+  // Try process.env first (EXPO_WEB variables set via your .env or build), then Expo manifest extras,
+  // then sensible defaults.
+  const webBase =
+    (process.env.EXPO_PUBLIC_API_BASE_WEB as string) ||
+    (process.env.VITE_API_URL as string) ||
+    'http://localhost:5000/';
+
+  const mobileBase =
+    (process.env.EXPO_PUBLIC_API_BASE_MOBILE as string) ||
+    // expo config extras if you injected them
+    (Constants.expoConfig?.extra?.EXPO_PUBLIC_API_BASE_MOBILE as string) ||
+    (Constants.manifest?.extra?.EXPO_PUBLIC_API_BASE_MOBILE as string) ||
+    // common Android emulator host fallback
+    (Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://192.168.1.114:5000');
+
+  const base = isWeb ? webBase : mobileBase;
+
+  // normalize to avoid double slashes
+  const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
+  const url = `${normalizedBase}/api/ai/analyze-water`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      food_waste_kg: foodWasteKg,
+    }),
+  });
 
   if (!response.ok) {
     throw new Error('Failed to analyze water');
@@ -67,7 +89,11 @@ export default function CreateFeedstockModal({
 
       const result = await analyzeWaterAPI(parseFloat(weightKg));
 
-      setRecommendedWater(result.recommendedWater);
+      // ensure the displayed value is a string and includes 'L' (e.g. "4L")
+      const rec = result?.recommendedWater ?? '';
+      const recStr = String(rec).toUpperCase().endsWith('L') ? String(rec) : `${rec}L`;
+      setRecommendedWater(recStr);
+
       setExplanation(result.explanation);
     } catch (err) {
       console.error(err);
@@ -109,13 +135,13 @@ export default function CreateFeedstockModal({
                 {/* Explanation */}
                 <Text style={tw`text-[#88AB8E] text-center text-[14px] mb-8 leading-5`}>
                   {mode === 'input'
-                    ? 'Lili will suggest the most optimal amount of water for proper digestion.'
+                    ? 'Lili will suggest the most optimal amount of water for proper grinding.'
                     : explanation}
                 </Text>
 
                 {/* Label */}
                 <Text style={tw`text-[#2E523A] text-[14px] font-semibold mb-2`}>
-                  {mode === 'input' ? 'Weight Total' : 'Recommended Water'}
+                  {mode === 'input' ? 'Weight Total' : 'Recommended Litres'}
                 </Text>
 
                 {/* Input */}

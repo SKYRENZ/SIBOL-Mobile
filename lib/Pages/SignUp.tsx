@@ -177,9 +177,9 @@ export default function SignUp({ navigation, route }: Props) {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1, // ✅ was 1
+      allowsEditing: false, // ✅ no cropping UI
+      // ✅ remove aspect (only used when allowsEditing is true)
+      quality: 1,
     });
 
     if (!result.canceled && result.assets[0]) {
