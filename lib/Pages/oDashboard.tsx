@@ -36,8 +36,6 @@ type RootStackParamList = {
   // add other screen names this file navigates to (must match App.tsx)
 };
 
-const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-
 interface MachineStatusDropdownProps {
   selectedMachine: string;
   onSelect: (machine: string) => void;
