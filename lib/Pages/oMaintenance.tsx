@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
+import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ add
 import { MaterialIcons } from '@expo/vector-icons';
 import Tabs from '../components/commons/Tabs';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -117,7 +118,7 @@ export default function OMaintenance() {
 
   return (
     <View style={tw`flex-1 bg-white`}>
-      <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-20`}>
+      <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-0`}>
         <View style={tw`px-4 pt-11`}>
           <Text style={tw`text-center text-[#6C8770] text-xl font-bold mb-6`}>
             SIBOL Machines
@@ -244,6 +245,9 @@ export default function OMaintenance() {
             </View>
           ))}
         </View>
+
+        {/* ✅ allow scroll past bottom nav */}
+        <BottomNavSpacer />
       </ScrollView>
 
       <View style={tw`absolute bottom-0 left-0 right-0`}>

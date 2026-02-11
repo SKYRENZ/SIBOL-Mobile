@@ -17,7 +17,8 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import HistoryCard from '../components/HistoryCard';
 import BottomNavbar from '../components/hBotNav';
 import { fetchMyHistory, type HistoryApiItem } from '../services/historyService';
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ add
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ already present
+import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ added
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -230,7 +231,7 @@ export default function HHistory() {
     scrollView: { flex: 1 },
     scrollViewContent: {
       paddingTop: 8,
-      paddingBottom: NAV_HEIGHT + insets.bottom + 16,
+      paddingBottom: 16, // changed: remove NAV_HEIGHT + insets.bottom math — spacer handles bottom space
     },
     emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 40 },
     emptyText: { fontSize: 16, color: '#6B7280', textAlign: 'center' },
@@ -324,6 +325,9 @@ export default function HHistory() {
             <Text style={styles.emptyText}>No history records found for this period</Text>
           </View>
         )}
+
+        {/* spacer so content can scroll above bottom nav */}
+        <BottomNavSpacer />
       </ScrollView>
 
       {/* Calendar Modal (unchanged) */}

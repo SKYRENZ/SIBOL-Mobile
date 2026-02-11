@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Menu, FileText, Home as HomeIcon, Map as MapIcon, ArrowLeft } from 'lucide-react-native';
 import { useMenu } from './MenuProvider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface BottomNavbarProps {
   currentPage?: 'Menu' | 'Request' | 'Home' | 'Map' | 'Back';
@@ -14,6 +15,7 @@ interface BottomNavbarProps {
 export default function BottomNavbar({ currentPage, onRefresh }: BottomNavbarProps) {
   const navigation = useNavigation();
   const { openMenu } = useMenu();
+  const insets = useSafeAreaInsets();
 
   const handleNavigation = async (page: string) => {
     if (page === currentPage) {
@@ -68,49 +70,42 @@ export default function BottomNavbar({ currentPage, onRefresh }: BottomNavbarPro
     }
   };
 
+  const labelStyle = tw`text-[12px] font-semibold text-white mt-1`;
+
   return (
-    <View style={tw`bg-primary h-18`}>
-      <View style={tw`flex-row justify-around items-center h-full pt-2`}>
-        <TouchableOpacity 
-          style={tw`items-center flex-1`}
-          onPress={() => handleNavigation('Menu')}
-        >
+    // ✅ Safe-area space is just background
+    <View style={[tw`bg-primary`, { paddingBottom: insets.bottom }]}>
+      {/* ✅ Match hBotNav layout */}
+      <View style={tw`h-20 flex-row justify-around items-center px-2 pt-2`}>
+        <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Menu')}>
           <Menu color="white" size={22} />
-          <Text style={tw`text-white font-semibold text-[11px] mt-1`}>Menu</Text>
+          <Text style={labelStyle}>Menu</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={tw`items-center flex-1`}
-          onPress={() => handleNavigation('Request')}
-        >
+        <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Request')}>
           <FileText color="white" size={22} />
-          <Text style={tw`text-white font-semibold text-[11px] mt-1`}>Request</Text>
+          <Text style={labelStyle}>Request</Text>
         </TouchableOpacity>
 
-        <View style={tw`items-center -mt-8`}>
-          <TouchableOpacity 
-            style={tw`w-18 h-18 rounded-full bg-primary border-2 border-white items-center justify-center`}
+        {/* ✅ Home button: same size + same lift */}
+        <View style={tw`items-center -mt-7`}>
+          <TouchableOpacity
+            style={tw`w-16 h-16 rounded-full bg-primary border-2 border-white items-center justify-center`}
             onPress={() => handleNavigation('Home')}
           >
-            <HomeIcon color="white" size={25} />
+            <HomeIcon color="white" size={24} />
           </TouchableOpacity>
-          <Text style={tw`text-white font-semibold text-[11px] mt-1`}>Home</Text>
+          <Text style={labelStyle}>Home</Text>
         </View>
 
-        <TouchableOpacity 
-          style={tw`items-center flex-1`}
-          onPress={() => handleNavigation('Map')}
-        >
+        <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Map')}>
           <MapIcon color="white" size={22} />
-          <Text style={tw`text-white font-semibold text-[11px] mt-1`}>Map</Text>
+          <Text style={labelStyle}>Map</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={tw`items-center flex-1`}
-          onPress={() => handleNavigation('Back')}
-        >
+        <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Back')}>
           <ArrowLeft color="white" size={22} />
-          <Text style={tw`text-white font-semibold text-[11px] mt-1`}>Back</Text>
+          <Text style={labelStyle}>Back</Text>
         </TouchableOpacity>
       </View>
     </View>

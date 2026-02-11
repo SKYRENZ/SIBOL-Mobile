@@ -6,6 +6,7 @@ import tw from '../utils/tailwind';
 import BottomNavbar from '../components/hBotNav';
 import Button from '../components/commons/Button';
 import FAQs, { FAQItem } from '../components/commons/FAQs';
+import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ add
 
 const CLOUD_ANIMATION_DURATION = 15000;
 
@@ -262,11 +263,14 @@ export default function ChatSupport() {
         </View>
 
         {/* FAQs Section with White Background */}
-        <View style={tw`bg-white pt-8 pb-24`}>
+        <View style={tw`bg-white pt-8 pb-8`}>
           <Text style={tw`text-[20px] font-bold text-green-light mb-2 font-inter px-6`}>
             Frequently Asked Questions:
           </Text>
           <FAQs items={faqItems} />
+
+          {/* ✅ ensures last FAQ can scroll above the bottom nav */}
+          <BottomNavSpacer />
         </View>
       </ScrollView>
 
