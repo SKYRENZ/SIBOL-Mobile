@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { Animated, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Text, TouchableOpacity, View, Platform } from 'react-native';
 import { Bell, AlertCircle, CheckCircle, Info } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface SnackbarProps {
   visible: boolean;
@@ -25,6 +26,12 @@ const Snackbar: React.FC<SnackbarProps> = ({
 }) => {
   const slideAnim = React.useRef(new Animated.Value(100)).current;
 
+  // ✅ use safe-area insets to avoid being clipped by gesture / 3-button nav
+  const insets = useSafeAreaInsets();
+  // Provide a small Android fallback when inset is 0 (covers some 3-button nav cases)
+  const androidFallback = Platform.OS === 'android' ? 12 : 0;
+  const computedBottom = bottomOffset + Math.max(insets.bottom, androidFallback);
+
   useEffect(() => {
     if (visible) {
       Animated.timing(slideAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
@@ -47,7 +54,7 @@ const Snackbar: React.FC<SnackbarProps> = ({
     <Animated.View
       style={{
         position: 'absolute',
-        bottom: bottomOffset, // ✅ use bottomOffset
+        bottom: computedBottom, // ✅ use computed bottom that includes safe-area / android fallback
         left: 16,
         right: 16,
         backgroundColor: bgColor,
