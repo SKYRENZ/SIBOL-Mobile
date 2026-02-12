@@ -200,4 +200,21 @@ const handleError = (error: any) => {
   }
 };
 
+// ✅ helper to call backend QR scan endpoint
+export async function scanQr(qr: string, weight: number): Promise<any> {
+  // adjust path if your backend expects a different route
+  return post('/qr/scan', { qr, weight });
+}
+
+// NEW: fetch barangays helper used by mobile signup
+export async function fetchBarangays(): Promise<{ id: number; name: string }[]> {
+  try {
+    const res: any = await get('/api/auth/barangays');
+    return Array.isArray(res?.barangays) ? res.barangays : [];
+  } catch (err) {
+    console.error('fetchBarangays error', err);
+    return [];
+  }
+}
+
 export default apiClient;

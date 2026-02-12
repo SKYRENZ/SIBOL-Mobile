@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
+import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ added
 import { ChevronDown, Settings, Wifi, FileSearch } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
 import OProcessSensors from '../components/oProcessSensors';
@@ -156,8 +157,12 @@ export default function OProcess() {
               </View>
 
               <View style={tw`mb-3`}>
-                <View style={tw`h-5 rounded-2xl border-2 border-[#AFC8AD] bg-[#88AB8E] overflow-hidden`}>
-                  <View style={{ width: '50%', height: '100%', backgroundColor: '#FFFFFF', borderRadius: 999 }} />
+                <View
+                  style={tw`h-5 rounded-2xl border-2 border-[#AFC8AD] bg-[#88AB8E] overflow-hidden`}
+                >
+                  <View
+                    style={{ width: '50%', height: '100%', backgroundColor: '#FFFFFF', borderRadius: 999 }}
+                  />
                 </View>
               </View>
 
@@ -264,8 +269,11 @@ export default function OProcess() {
 
         <View style={tw`border-b border-[#6C8770] my-4 mx-2`} />
 
-        <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-24`}>
+        <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-0`}>  {/* changed from pb-24 */}
           {renderProcessTabContent()}
+
+          {/* ✅ allow scroll past bottom nav */}
+          <BottomNavSpacer />
         </ScrollView>
       </View>
 

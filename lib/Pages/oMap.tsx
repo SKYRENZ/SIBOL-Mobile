@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Image, Modal, ScrollView } from 'react-native';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import * as Location from 'expo-location';
@@ -376,9 +376,7 @@ function OMapContent({ navigation }: any) {
         )}
       </View>
 
-      
-
-      <View style={[styles.bottomNavWrapper, { paddingBottom: insets.bottom }]}>
+      <View style={styles.bottomNavWrapper}>
         <BottomNavbar />
       </View>
 
@@ -439,11 +437,7 @@ function OMapContent({ navigation }: any) {
 }
 
 export default function OMap({ navigation }: any) {
-  return (
-    <SafeAreaProvider>
-      <OMapContent navigation={navigation} />
-    </SafeAreaProvider>
-  );
+  return <OMapContent navigation={navigation} />;
 }
 
 function distanceKm(a: LatLng, b: LatLng) {

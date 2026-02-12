@@ -1,11 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Image, ScrollView, Animated, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import tw from '../utils/tailwind';
-import BottomNavbar from '../components/hBotNav';
+import HBottomNavbar from '../components/hBotNav';
+import OBottomNavbar from '../components/oBotNav';
 import Button from '../components/commons/Button';
 import FAQs, { FAQItem } from '../components/commons/FAQs';
+import BottomNavSpacer from '../components/commons/BottomNavSpacer';
+import { useMenu } from '../components/MenuProvider';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CLOUD_ANIMATION_DURATION = 15000;
 
@@ -20,14 +24,34 @@ export default function ChatSupport() {
   const cloud7 = useRef(new Animated.Value(-110)).current;
   const cloud8 = useRef(new Animated.Value(-160)).current;
 
+  const { role } = useMenu(); // 'household' | 'operator' | null
+  const [displayName, setDisplayName] = useState<string>('User');
+
   useEffect(() => {
-    
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('user');
+        if (!raw) return;
+        const u = JSON.parse(raw);
+        const first = u?.FirstName ?? u?.firstName ?? '';
+        const last = u?.LastName ?? u?.lastName ?? '';
+        const username = u?.Username ?? u?.username ?? '';
+        const email = u?.Email ?? u?.email ?? '';
+        const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
+        setDisplayName(name);
+      } catch (e) {
+        // keep default
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
     const animateCloud = (animValue: Animated.Value, delay: number, initialPos: number) => {
       Animated.loop(
         Animated.sequence([
           Animated.delay(delay),
           Animated.timing(animValue, {
-            toValue: 550, 
+            toValue: 550,
             duration: CLOUD_ANIMATION_DURATION,
             useNativeDriver: true,
           }),
@@ -147,7 +171,7 @@ export default function ChatSupport() {
 
           {/* Greeting */}
           <Text style={tw`text-white text-[20px] font-bold text-center mb-4 font-inter`}>
-            Hi, User#39239!
+            Hi, {displayName}!
           </Text>
 
           {/* Lili here! label */}
@@ -262,17 +286,20 @@ export default function ChatSupport() {
         </View>
 
         {/* FAQs Section with White Background */}
-        <View style={tw`bg-white pt-8 pb-24`}>
+        <View style={tw`bg-white pt-8 pb-8`}>
           <Text style={tw`text-[20px] font-bold text-green-light mb-2 font-inter px-6`}>
             Frequently Asked Questions:
           </Text>
           <FAQs items={faqItems} />
+
+          {/* ensures last FAQ can scroll above the bottom nav */}
+          <BottomNavSpacer />
         </View>
       </ScrollView>
 
-      {/* Bottom Navigation */}
+      {/* Bottom Navigation - render operator or household variant based on role */}
       <View style={tw`absolute bottom-0 left-0 right-0`}>
-        <BottomNavbar currentPage="Chat" />
+        {role === 'operator' ? <OBottomNavbar currentPage="Chat" /> : <HBottomNavbar currentPage="Chat" />}
       </View>
     </SafeAreaView>
   );
