@@ -28,20 +28,21 @@ export async function analyzeWaterAPI(foodWasteKg: number) {
     'http://localhost:5000/';
 
   const mobileBase =
-    // Prefer Expo-managed config extras (set in app.config.js / EAS), then process.env for local
+    (process.env.EXPO_PUBLIC_API_BASE_MOBILE as string) ||
+    // expo config extras if you injected them
     (Constants.expoConfig?.extra?.EXPO_PUBLIC_API_BASE_MOBILE as string) ||
     (Constants.manifest?.extra?.EXPO_PUBLIC_API_BASE_MOBILE as string) ||
-    (process.env.EXPO_PUBLIC_API_BASE_MOBILE as string) ||
-    // common Android emulator / LAN fallback for local development
-    (Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://192.168.1.114:5000') ||
-    // Final fallback to deployed backend (useful for production builds where env may be missing)
-    'https://sibol-backend-i0i6.onrender.com';
+    // common Android emulator host fallback
+    (Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://192.168.1.114:5000');
 
   const base = isWeb ? webBase : mobileBase;
 
   // normalize to avoid double slashes
   const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
   const url = `${normalizedBase}/api/ai/analyze-water`;
+
+  // Log URL and base for easier debugging in production builds
+  console.log('[analyzeWaterAPI] base=', base, 'normalizedBase=', normalizedBase, 'url=', url);
 
   try {
     const response = await fetch(url, {
@@ -55,17 +56,21 @@ export async function analyzeWaterAPI(foodWasteKg: number) {
     });
 
     if (!response.ok) {
-      const text = await response.text().catch(() => '<no body>');
-      const msg = `Failed to analyze water: ${response.status} ${response.statusText} - ${text}`;
-      // include url in console for debugging
-      console.error('[analyzeWaterAPI] url=', url, 'status=', response.status, 'body=', text);
-      throw new Error(msg);
+      // attempt to read body for diagnostics
+      let text = '';
+      try {
+        text = await response.text();
+      } catch (e) {
+        text = '<unreadable response body>';
+      }
+      console.error('[analyzeWaterAPI] non-OK response', response.status, response.statusText, text);
+      throw new Error(`Failed to analyze water (status ${response.status})`);
     }
 
-    return response.json();
+    const json = await response.json();
+    return json;
   } catch (err: any) {
-    // Network or other unexpected errors
-    console.error('[analyzeWaterAPI] network/error calling url=', url, 'error=', err?.message || err);
+    console.error('[analyzeWaterAPI] network/error', err?.message || err);
     throw err;
   }
 }
