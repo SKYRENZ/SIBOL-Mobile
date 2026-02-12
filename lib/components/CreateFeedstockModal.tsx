@@ -28,12 +28,14 @@ export async function analyzeWaterAPI(foodWasteKg: number) {
     'http://localhost:5000/';
 
   const mobileBase =
-    (process.env.EXPO_PUBLIC_API_BASE_MOBILE as string) ||
-    // expo config extras if you injected them
+    // Prefer Expo-managed config extras (set in app.config.js / EAS), then process.env for local
     (Constants.expoConfig?.extra?.EXPO_PUBLIC_API_BASE_MOBILE as string) ||
     (Constants.manifest?.extra?.EXPO_PUBLIC_API_BASE_MOBILE as string) ||
-    // common Android emulator host fallback
-    (Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://192.168.1.114:5000');
+    (process.env.EXPO_PUBLIC_API_BASE_MOBILE as string) ||
+    // common Android emulator / LAN fallback for local development
+    (Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://192.168.1.114:5000') ||
+    // Final fallback to deployed backend (useful for production builds where env may be missing)
+    'https://sibol-backend-i0i6.onrender.com';
 
   const base = isWeb ? webBase : mobileBase;
 
@@ -41,21 +43,31 @@ export async function analyzeWaterAPI(foodWasteKg: number) {
   const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
   const url = `${normalizedBase}/api/ai/analyze-water`;
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      food_waste_kg: foodWasteKg,
-    }),
-  });
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        food_waste_kg: foodWasteKg,
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error('Failed to analyze water');
+    if (!response.ok) {
+      const text = await response.text().catch(() => '<no body>');
+      const msg = `Failed to analyze water: ${response.status} ${response.statusText} - ${text}`;
+      // include url in console for debugging
+      console.error('[analyzeWaterAPI] url=', url, 'status=', response.status, 'body=', text);
+      throw new Error(msg);
+    }
+
+    return response.json();
+  } catch (err: any) {
+    // Network or other unexpected errors
+    console.error('[analyzeWaterAPI] network/error calling url=', url, 'error=', err?.message || err);
+    throw err;
   }
-
-  return response.json();
 }
 
 
