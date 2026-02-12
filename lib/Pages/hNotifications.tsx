@@ -10,6 +10,7 @@ type FilterOption = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
 export default function HNotifications(props: any) {
   const [activeTab, setActiveTab] = useState<TabType>('Unread');
+  const [tabHistory, setTabHistory] = useState<TabType[]>([]);
   const [filterValue, setFilterValue] = useState<FilterOption>('all');
   
   // Sample notification data - in a real app, this would come from an API or state management
@@ -115,7 +116,7 @@ export default function HNotifications(props: any) {
           <View style={tw`flex-row border border-[#CAD3CA] rounded-[15px] h-9 relative`}>
             {/* Read Tab */}
             <TouchableOpacity
-              onPress={() => setActiveTab('Read')}
+              onPress={() => changeTab('Read')}
               style={tw.style(
                 `flex-1 justify-center items-center rounded-[15px]`,
                 activeTab === 'Read' && 'bg-[#88AB8E] border border-[#88AB8E]'
@@ -133,7 +134,7 @@ export default function HNotifications(props: any) {
 
             {/* Unread Tab */}
             <TouchableOpacity
-              onPress={() => setActiveTab('Unread')}
+              onPress={() => changeTab('Unread')}
               style={tw.style(
                 `flex-1 justify-center items-center rounded-[15px] flex-row`,
                 activeTab === 'Unread' && 'bg-[#88AB8E] border border-[#88AB8E]'
@@ -159,7 +160,7 @@ export default function HNotifications(props: any) {
 
             {/* Rewards Tab */}
             <TouchableOpacity
-              onPress={() => setActiveTab('Rewards')}
+              onPress={() => changeTab('Rewards')}
               style={tw.style(
                 `flex-1 justify-center items-center rounded-[15px]`,
                 activeTab === 'Rewards' && 'bg-[#88AB8E] border border-[#88AB8E]'
@@ -211,8 +212,25 @@ export default function HNotifications(props: any) {
 
       {/* Bottom Navigation */}
       <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
-        <BottomNavbar currentPage="Back" />
+        <BottomNavbar currentPage="Back" onBack={handleBack} />
       </View>
     </SafeAreaView>
   );
+
+  function changeTab(next: TabType) {
+    if (next === activeTab) return;
+    setTabHistory((h) => [...h, activeTab]);
+    setActiveTab(next);
+  }
+
+  function handleBack() {
+    const h = tabHistory.slice();
+    const prev = h.pop();
+    if (prev) {
+      setTabHistory(h);
+      setActiveTab(prev);
+      return true;
+    }
+    return false;
+  }
 }
