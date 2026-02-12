@@ -57,7 +57,8 @@ export default function HMenu({ visible, onClose, onNavigate, user }: Props) {
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [displayName, setDisplayName] = useState<string>('User');
   const [profileImage, setProfileImage] = useState<string | null>(null);
-
+  const [roleLabel, setRoleLabel] = useState<string>('User');
+ 
   // prefer user prop for instant updates, fallback to AsyncStorage
   useEffect(() => {
     if (!visible) return;
@@ -79,12 +80,18 @@ export default function HMenu({ visible, onClose, onNavigate, user }: Props) {
           u?.profile_image_path ??
           null;
         setProfileImage(img || null);
+        const r = Number(u?.Roles ?? u?.role ?? NaN);
+        if (r === 1) setRoleLabel('Admin');
+        else if (r === 3) setRoleLabel('Operator');
+        else if (r === 4) setRoleLabel('Household');
+        else if (String(u?.role)?.toLowerCase?.() === 'operator') setRoleLabel('Operator');
+        else setRoleLabel('User');
         return;
       } catch (e) {
         console.warn('[HMenu] using injected user failed', e);
       }
     }
-
+ 
     (async () => {
       try {
         const raw = await AsyncStorage.getItem('user');
@@ -105,6 +112,12 @@ export default function HMenu({ visible, onClose, onNavigate, user }: Props) {
           u?.profile_image_path ??
           null;
         setProfileImage(img || null);
+        const r = Number(u?.Roles ?? u?.role ?? NaN);
+        if (r === 1) setRoleLabel('Admin');
+        else if (r === 3) setRoleLabel('Operator');
+        else if (r === 4) setRoleLabel('Household');
+        else if (String(u?.role)?.toLowerCase?.() === 'operator') setRoleLabel('Operator');
+        else setRoleLabel('User');
       } catch (e) {
         console.warn('[HMenu] refresh failed', e);
       }
@@ -186,10 +199,15 @@ export default function HMenu({ visible, onClose, onNavigate, user }: Props) {
                 tw`bg-[#18472F]`,
               ]}
             >
-              {/* ✅ Header fills status bar/notch area */}
-              <View style={[tw`w-full bg-[#A6BCAF] px-5 py-4 flex-row justify-between items-center`, { paddingTop: insets.top + 12 }]}>
+              {/* ✅ Header fills status bar/notch area and is clickable */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => { navigation.navigate('HProfile' as never); onClose(); }}
+                style={[tw`w-full bg-[#A6BCAF] px-5 py-4 flex-row justify-between items-center`, { paddingTop: insets.top + 12 }]}
+              >
                 <View>
                   <Text style={tw`text-[16px] font-semibold text-[#18472F]`}>{displayName}</Text>
+                  <Text style={tw`text-[11px] text-[#18472F] mt-1`}>{roleLabel}</Text>
                 </View>
                 <View style={tw`w-10 h-10 rounded-full bg-[#E0E0E0] overflow-hidden`}>
                   <Image
@@ -197,7 +215,7 @@ export default function HMenu({ visible, onClose, onNavigate, user }: Props) {
                     style={tw`w-full h-full`}
                   />
                 </View>
-              </View>
+              </TouchableOpacity>
 
               {/* Menu Items */}
               <View style={tw`py-2`}>

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import HMenu from './hMenu';
 import OMenu from './oMenu';
+import { getMyProfile } from '../services/profileService';
 
 type MenuRole = 'household' | 'operator' | null;
 
@@ -37,6 +38,39 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const user = JSON.parse(raw);
         console.debug('MenuProvider: loaded user from storage', { user });
+
+        // ensure we have latest profile image — if missing, fetch backend and merge
+        const hasImage =
+          user?.Profile_image_path ||
+          user?.ProfileImage ||
+          user?.Image_path ||
+          user?.imagePath ||
+          user?.image_path ||
+          user?.profile_image_path;
+        if (!hasImage) {
+          try {
+            const p = await getMyProfile();
+            const img =
+              p?.imagePath ||
+              p?.raw?.Profile_image_path ||
+              p?.raw?.Image_path ||
+              p?.raw?.image_path ||
+              null;
+            if (img) {
+              user.Profile_image_path = img;
+              user.ProfileImage = img;
+              user.Image_path = img;
+              user.imagePath = img;
+              user.image_path = img;
+              user.profile_image_path = img;
+              // persist merged user so subsequent opens use it immediately
+              await AsyncStorage.setItem('user', JSON.stringify(user));
+              console.debug('MenuProvider: merged profile image into stored user');
+            }
+          } catch (err) {
+            console.debug('MenuProvider: failed to fetch profile for image merge', err);
+          }
+        }
 
         // store full user for menus to consume
         setUser(user);
@@ -108,6 +142,31 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const raw = await AsyncStorage.getItem('user');
       if (raw) {
         const user = JSON.parse(raw);
+        // if stored user has no image, fetch profile and merge (handles fresh login)
+        const hasImage =
+          user?.Profile_image_path ||
+          user?.ProfileImage ||
+          user?.Image_path ||
+          user?.imagePath ||
+          user?.image_path ||
+          user?.profile_image_path;
+        if (!hasImage) {
+          try {
+            const p = await getMyProfile();
+            const img = p?.imagePath ?? p?.raw?.Profile_image_path ?? p?.raw?.Image_path ?? p?.raw?.image_path ?? null;
+            if (img) {
+              user.Profile_image_path = img;
+              user.ProfileImage = img;
+              user.Image_path = img;
+              user.imagePath = img;
+              user.image_path = img;
+              user.profile_image_path = img;
+              await AsyncStorage.setItem('user', JSON.stringify(user));
+            }
+          } catch (err) {
+            console.debug('MenuProvider: openMenu failed to fetch profile image', err);
+          }
+        }
         setUser(user);
         const r = user?.Roles ?? user?.role ?? null;
         const rnum = Number(r);

@@ -186,8 +186,6 @@ export default function OMenu({ visible, onClose, onNavigate, user }: Props) {
                                 </View>
                             </TouchableOpacity>
 
-                            <View style={tw`h-[1px] bg-[#264A3C] my-2`} />
-
                             <View style={tw`py-2`}>
                                 <TouchableOpacity
                                     style={tw`flex-row items-center py-4 px-5`}
