@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
 import tw from '../utils/tailwind';
 import NotificationCard, { NotificationData } from '../components/NotificationCard';
 import BottomNavbar from '../components/oBotNav';
 import HistoryFilter from '../components/HistoryFilter';
+import { get, post } from '../services/apiClient';
 
 type TabType = 'Read' | 'Unread';
 type FilterOption = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
@@ -11,42 +12,59 @@ type FilterOption = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 export default function ONotifications(props: any) {
   const [activeTab, setActiveTab] = useState<TabType>('Unread');
   const [filterValue, setFilterValue] = useState<FilterOption>('all');
-  
-  // Sample notification data - in a real app, this would come from an API or state management
-  const [notifications, setNotifications] = useState<NotificationData[]>([
-    {
-      id: '1',
-      type: 'schedule',
-      title: 'You missed your schedule',
-      message: 'You can reschedule or alert your waste collector to collect your waste',
-      time: '9:00 A.M',
-      isRead: false,
-    },
-    {
-      id: '2',
-      type: 'schedule',
-      title: 'You missed your schedule',
-      message: 'You can reschedule or alert your waste collector to collect your waste',
-      time: '9:00 A.M',
-      isRead: false,
-    },
-    {
-      id: '3',
-      type: 'schedule',
-      title: 'You missed your schedule',
-      message: 'You can reschedule or alert your waste collector to collect your waste',
-      time: '9:00 A.M',
-      isRead: false,
+  const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  // map backend row to NotificationData (simple)
+  const mapRow = (row: any): NotificationData => {
+    const backendType = row.type as string;
+    let type: NotificationData['type'] = 'schedule';
+    if (backendType === 'system') {
+      const et = String(row.eventType ?? '').toUpperCase();
+      if (et === 'POINTS_AWARDED') type = 'points';
+      else if (et === 'REWARD_REDEEMED') type = 'reward_redeemed';
+      else if (et === 'REWARD_CLAIMED') type = 'reward_success';
+      else type = 'schedule';
     }
-  ]);
+    return {
+      id: String(row.id),
+      type,
+      title: row.title ?? '',
+      message: row.message ?? '',
+      time: row.timestamp ?? '',
+      isRead: !!row.read,
+      // @ts-ignore
+      backendType: backendType,
+    } as any;
+  };
+
+  const fetchNotifications = async () => {
+    setLoading(true);
+    try {
+      const res = await get<any>('/api/notifications');
+      const rows = res?.data ?? [];
+      setNotifications((rows || []).map(mapRow));
+    } catch (err) {
+      console.warn('Failed to fetch notifications', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
   // Handle notification click - move from Unread to Read
   const handleNotificationPress = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((notif) =>
-        notif.id === id ? { ...notif, isRead: true } : notif
-      )
-    );
+    const found = notifications.find((n) => n.id === id) as any;
+    setNotifications((prev) => prev.map((notif) => (notif.id === id ? { ...notif, isRead: true } : notif)));
+    try {
+      const backendType = (found && (found as any).backendType) || 'system';
+      post('/api/notifications/read', { type: backendType, id: Number(id) }).catch((e) => console.warn(e));
+    } catch (e) {
+      console.warn(e);
+    }
   };
 
   // Filter notifications based on active tab
@@ -145,7 +163,11 @@ export default function ONotifications(props: any) {
           contentContainerStyle={tw`pb-24`}
           showsVerticalScrollIndicator={false}
         >
-          {filteredNotifications.length === 0 ? (
+          {loading ? (
+            <View style={tw`items-center justify-center py-20`}>
+              <ActivityIndicator size="small" color="#88AB8E" />
+            </View>
+          ) : filteredNotifications.length === 0 ? (
             <View style={tw`items-center justify-center py-20`}>
               <Text style={tw`text-[#88AB8E] text-[14px]`}>
                 No notifications

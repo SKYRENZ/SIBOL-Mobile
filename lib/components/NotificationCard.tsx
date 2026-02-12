@@ -4,7 +4,8 @@ import tw from '../utils/tailwind';
 
 export interface NotificationData {
   id: string;
-  type: 'schedule' | 'reward_claimed' | 'reward_processing';
+  // extended types to support backend system notifications
+  type: 'schedule' | 'reward_claimed' | 'reward_processing' | 'points' | 'reward_redeemed' | 'reward_success';
   title: string;
   message: string;
   time: string;
