@@ -57,20 +57,10 @@ export default function TypingIndicator({ variant = 'ai' }: TypingIndicatorProps
     // AI Typing Indicator (Green)
     return (
       <View style={tw`px-2 mb-4`}>
-        <View style={tw`relative max-w-[70px]`}>
-          {/* AI Message Bubble Tail */}
-          <View style={tw`absolute -left-0 top-3.5 z-0`}>
-            <Svg width={28} height={33} viewBox="0 0 39 46" fill="none">
-              <Path
-                d="M11.7523 31.3777C9.71739 31.379 8.50163 28.9909 9.46446 26.8839L16.5055 11.4753C17.5545 9.17978 20.3554 8.9444 21.4331 11.0612L29.2731 26.4607C30.3507 28.5775 28.8503 31.3673 26.6333 31.3686L11.7523 31.3777Z"
-                fill="#88AB8E"
-              />
-            </Svg>
-          </View>
-
+        <View style={tw`relative max-w-[70px] ml-4`}>
           {/* AI Message Content with Animated Dots */}
           <View style={[
-            tw`bg-[#88AB8E] rounded-[15px] px-4 py-2.5 ml-3 flex-row items-center justify-center`,
+            tw`bg-[#88AB8E] rounded-[15px] px-4 py-2.5 flex-row items-center justify-center`,
             {
               minWidth: 60,
               height: 36,
