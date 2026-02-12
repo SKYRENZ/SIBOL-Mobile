@@ -85,20 +85,23 @@ export default function ChatSupport() {
   const faqItems: FAQItem[] = [
     {
       question: 'How long does the stage 1 process usually take?',
-      answer: 'The stage 1 process typically takes 2-3 business days to complete. You will receive a notification once your submission has been reviewed and approved.',
+      answer: 'The stage 1 process typically takes minutes to complete. In this stage, household users can also get their rewards by scanning the QR code on the IoT Machine.',
     },
-    {
-      question: 'How do I earn reward points?',
-      answer: 'You earn reward points by properly segregating and disposing of your food waste. Scan the QR code on waste containers to track your contributions and earn points.',
-    },
-    {
-      question: 'What can I redeem with my points?',
-      answer: 'You can redeem your points for various eco-friendly products, discounts at partner stores, or donate them to community environmental projects.',
-    },
-    {
-      question: 'How do I report a maintenance issue?',
-      answer: 'You can report maintenance issues by going to the Maintenance section in the menu, filling out the form with details and photos, then submitting your report.',
-    },
+  {
+    question: "How do I properly segregate food waste?",
+    answer:
+      "Segregation involves separating biodegradable from non-biodegradable materials. Use separate bins and follow local guidelines to ensure material can be processed efficiently.",
+  },
+  {
+    question: "What food waste can be processed?",
+    answer:
+      "Most kitchen scraps and cooked food are acceptable. Avoid hazardous materials, oils in large quantity, and sharp objects. Check the machine's guidelines for specifics.",
+  },
+  {
+    question: "How often should the machine be maintained?",
+    answer:
+      "Regular maintenance is encouraged monthly with professional servicing every 6-12 months depending on usage. Keep the machine clean and report any issues promptly.",
+  },
   ];
 
   return (
@@ -183,8 +186,8 @@ export default function ChatSupport() {
           <View style={tw`items-center mb-2`}>
             <Image
               source={require('../../assets/lili-headshot.png')}
-              style={tw`w-[223px] h-[223px]`}
-              resizeMode="center"
+              style={{ width: '55%', aspectRatio: 1 }}
+              resizeMode="contain"
             />
           </View>
 
