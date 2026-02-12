@@ -37,6 +37,7 @@ interface RequestCardProps {
   onToggleExpand: (id: string) => void;
   onMarkDone?: (requestId: string, remarks: string, attachments: any[]) => Promise<void>;
   onCancelRequest?: (requestId: string, reason: string) => Promise<void>;
+  onNotify?: (message: string, type?: 'success'|'info'|'error') => void; // <-- new
 }
 
 interface RemarkAttachment {
@@ -51,6 +52,7 @@ export default function RequestCard({
   onToggleExpand,
   onMarkDone,
   onCancelRequest,
+  onNotify,
 }: RequestCardProps) {
   const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
   const [commentsModalVisible, setCommentsModalVisible] = useState(false);
@@ -64,6 +66,9 @@ export default function RequestCard({
 
   const [attachmentsRefreshSignal, setAttachmentsRefreshSignal] = useState(0);
   const [autoPickOnOpen, setAutoPickOnOpen] = useState(false);
+  const [snackVisible, setSnackVisible] = useState(false);
+  const [snackMsg, setSnackMsg] = useState('');
+  const [snackType, setSnackType] = useState<'success' | 'info' | 'error'>('success');
 
   useEffect(() => {
     const loadUser = async () => {
@@ -182,18 +187,15 @@ export default function RequestCard({
         }
 
         if (failed.length > 0) {
-          Alert.alert(
-            'Partial Success',
-            `Request marked for verification.\n${succeeded.length} of ${attachments.length} photos uploaded successfully.`
-          );
+          onNotify?.(`Marked for verification — ${succeeded.length} of ${attachments.length} photos uploaded`, 'info');
         } else {
-          Alert.alert('Success', `Request marked for verification with ${attachments.length} photo(s)`);
+          onNotify?.(`Marked for verification (${attachments.length} photo(s))`, 'success');
         }
       } else {
         if (onMarkDone) {
           await onMarkDone(request.id, completionRemarks, attachments);
         }
-        Alert.alert('Success', 'Request marked for verification');
+        onNotify?.('Marked for verification', 'success');
       }
 
       await loadRemarks();
@@ -211,24 +213,28 @@ export default function RequestCard({
   const isCancelRequested = request.status === 'Cancel Requested';
   const isCanceled = request.status === 'Canceled';
 
-  // ✅ NEW: status pill background per requirements
-  const statusBgClass =
-    isPending
-      ? 'bg-amber-100'
-      : isRequested
-        ? 'bg-blue-600'
-        : isCancelRequested
-          ? 'bg-orange-600'
-          : isForReview
-            ? 'bg-purple-600'
-            : isDone
-              ? 'bg-green-600'
-              : isCanceled
-                ? 'bg-red-600'
-                : 'bg-[#AFC8AD]';
+  // display labels (keep internal status values for logic)
+  const displayStatus =
+    request.status === 'For review' ? 'For Verification' :
+    request.status === 'Done' ? 'Completed' :
+    request.status;
 
-  // (Optional but recommended for readability since amber-100 is light)
-  const statusTextClass = isPending ? 'text-amber-900' : 'text-white';
+  // pill colors (bg, border, text) per status
+  const statusBgColor =
+    isPending ? '#FEF3C7' : // amber-100
+    isRequested ? '#2563EB' : // blue-600
+    isCancelRequested ? '#EA580C' : // orange-600
+    isForReview ? '#7C3AED' : // purple-600
+    isDone ? '#16A34A' : // green-600
+    isCanceled ? '#DC2626' : '#AFC8AD';
+  const statusBorderColor =
+    isPending ? '#D97706' : // darker amber
+    isRequested ? '#93C5FD' : // lighter blue
+    isCancelRequested ? '#FDBA74' : // lighter orange
+    isForReview ? '#A78BFA' : // lighter violet/purple
+    isDone ? '#A7F3D0' : // lighter green
+    isCanceled ? '#FCA5A5' : '#2E523A';
+  const statusTextColor = isPending ? '#92400E' : '#FFFFFF';
 
   // Requested tickets are not yet assigned → avoid calling mark-done/cancel APIs that require assignment
   const canComment = (isPending || isForReview) && !isRequested;
@@ -244,8 +250,8 @@ export default function RequestCard({
             <Text style={tw`text-primary text-[13px] font-bold`}>{request.title}</Text>
 
             {/* ✅ UPDATED: dynamic bg color */}
-            <View style={tw`${statusBgClass} border-2 border-text-gray rounded-xl px-3 py-1`}>
-              <Text style={tw`${statusTextClass} text-[10px] font-bold`}>{request.status}</Text>
+            <View style={{ backgroundColor: statusBgColor, borderColor: statusBorderColor, borderWidth: 2, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 }}>
+              <Text style={{ color: statusTextColor, fontSize: 10, fontWeight: '700' }}>{displayStatus}</Text>
             </View>
           </View>
 
@@ -422,7 +428,7 @@ export default function RequestCard({
         onCancelRequest={async (reason) => {
           try {
             await onCancelRequest?.(request.id, reason);
-            Alert.alert('Success', 'Cancellation request submitted');
+            onNotify?.('Cancellation request submitted', 'success');
           } catch (e: any) {
             Alert.alert('Error', e?.message || 'Failed to submit cancellation request');
           }

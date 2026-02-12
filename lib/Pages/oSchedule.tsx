@@ -122,8 +122,7 @@ export default function OSchedule({ navigation }: any) {
           {scheduleItems.map((item, index) => (
             <View key={index} style={styles.scheduleCard}>
               <View style={styles.scheduleColorBar} />
-              <View style={styles.scheduleCheckbox} />
-              <MapPin size={12} color="#000" style={tw`ml-3`} />
+              <MapPin size={12} color="#000" style={tw`ml-12`} />
               <View style={styles.scheduleInfo}>
                 <Text style={styles.scheduleLocation}>{item.location}</Text>
                 <Text style={styles.scheduleDate}>Status: {item.status}</Text>
@@ -264,15 +263,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 15,
     borderBottomLeftRadius: 15,
   },
-  scheduleCheckbox: {
-    width: 14,
-    height: 13,
-    borderWidth: 1,
-    borderColor: '#fff',
-    backgroundColor: '#AFC8AD',
-    marginLeft: 11,
-    marginRight: 8,
-  },
+
   scheduleLocation: {
     flex: 1,
     fontSize: 13,

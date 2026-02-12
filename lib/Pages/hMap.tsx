@@ -237,7 +237,10 @@ const HMap = () => {
   };
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-white`}>
+    <SafeAreaView
+      edges={['top', 'left', 'right']} // ✅ don't add bottom safe-area padding (bot nav already handles it)
+      style={tw`flex-1 bg-white`}
+    >
       {/* Header */}
       <View style={tw`px-5 pt-2 pb-3 border-b border-gray-200`}>
         <View style={tw`flex-row items-center justify-between mb-2`}>

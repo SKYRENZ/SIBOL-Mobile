@@ -19,6 +19,10 @@
     },
     "production": {
       "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_BASE_WEB": "http://localhost:5000/",
+        "EXPO_PUBLIC_API_BASE_MOBILE": "https://sibol-backend-i0i6.onrender.com/"
+      },
       "android": {
         "buildType": "apk"
       }

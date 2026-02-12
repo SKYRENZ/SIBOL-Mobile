@@ -28,7 +28,7 @@ export function useSignUp() {
     (async () => {
       const res = await fetchBarangays();
       if (cancelled) return;
-      setBarangays(res?.barangays ?? []);
+      setBarangays(Array.isArray(res) ? res : []);
     })();
 
     return () => {

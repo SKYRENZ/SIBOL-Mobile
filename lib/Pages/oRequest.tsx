@@ -1,16 +1,16 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet, Modal, TouchableWithoutFeedback } from 'react-native';
 import { Plus } from 'lucide-react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import RequestCard, { RequestItem } from '../components/maintenance/RequestCard';
-import Tabs from '../components/commons/Tabs';
 import RequestForm from '../components/maintenance/RequestForm';
+import SnackBar from '../components/commons/Snackbar';
 import { useMaintenance } from '../hooks/useMaintenance';
 import type { MaintenanceTicket } from '../types/maintenance.types';
 import { useRoute } from '@react-navigation/native'; // ✅ add
 
-type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
+type FilterTab = 'Requested' | 'Pending' | 'For Verification' | 'Completed' | 'Canceled' | 'Cancel Requested';
 
 type ORequestRouteParams = {
   initialTab?: FilterTab;
@@ -19,7 +19,17 @@ type ORequestRouteParams = {
 };
 
 export default function ORequest() {
+  const [snackVisible, setSnackVisible] = React.useState(false);
+  const [snackMsg, setSnackMsg] = React.useState('');
+  const [snackType, setSnackType] = React.useState<'success' | 'info' | 'error'>('success');
+  const notify = React.useCallback((message: string, type: 'success'|'info'|'error' = 'success') => {
+    setSnackType(type);
+    setSnackMsg(message);
+    setSnackVisible(true);
+  }, []);
+
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Pending');
+  const [filterOpen, setFilterOpen] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const [requestFormVisible, setRequestFormVisible] = useState(false);
 
@@ -88,7 +98,7 @@ export default function ORequest() {
     }
   }, [route.params]);
 
-  const filters: FilterTab[] = ['Pending', 'For review', 'Done', 'Canceled'];
+  const filters: FilterTab[] = ['Requested', 'Pending', 'For Verification', 'Completed', 'Cancel Requested','Canceled'];
 
   const formatRequestNumber = (ticket: MaintenanceTicket) => {
     const baseDate = ticket.Request_date ? new Date(ticket.Request_date) : new Date();
@@ -127,22 +137,36 @@ export default function ORequest() {
   );
 
   const getFilteredTickets = useCallback((): RequestItem[] => {
+    // combine all source arrays from the hook then convert once, avoid duplicates if hook already partitions
+    const allTickets = [...pendingTickets, ...forReviewTickets, ...doneTickets, ...canceledTickets];
+    const converted = allTickets.map(convertToRequestItem);
+
     switch (activeFilter) {
+      case 'Requested':
+        return converted.filter(t => t.status === 'Requested');
+
       case 'Pending':
-        return pendingTickets.map(convertToRequestItem);
+        return converted.filter(t => t.status === 'Pending');
 
-      case 'For review':
-        return forReviewTickets.map(convertToRequestItem);
+      case 'For Verification':
+        // Only include tickets with the backend "For Verification" status (mapped to 'For review' in RequestItem)
+        return converted.filter(t => t.status === 'For review');
 
-      case 'Done':
-        return doneTickets.map(convertToRequestItem);
+      case 'Cancel Requested':
+        return converted.filter(t => t.status === 'Cancel Requested');
+
+      case 'Completed':
+        // backend "Completed" is mapped to "Done" in convertToRequestItem
+        return converted.filter(t => t.status === 'Done');
 
       case 'Canceled':
-        return canceledTickets.map((t): RequestItem => ({
-          ...convertToRequestItem(t),
-          status: 'Canceled' as const,
-          cancelCutoffAt: t.CancelApprovedAt ?? null,
-        }));
+        return converted
+          .filter(t => t.status === 'Canceled')
+          .map((t) => {
+            // preserve cancelCutoffAt when coming from canceledTickets
+            const orig = canceledTickets.find(ct => String(ct.Request_Id) === t.id);
+            return orig ? { ...t, cancelCutoffAt: orig.CancelApprovedAt ?? null } : t;
+          });
 
       default:
         return [];
@@ -203,6 +227,7 @@ export default function ORequest() {
   const handleRequestFormSave = useCallback(() => {
     setRequestFormVisible(false);
     refresh();
+    notify('Request created', 'success');
   }, [refresh]);
 
   const filteredRequests = getFilteredTickets();
@@ -219,7 +244,41 @@ export default function ORequest() {
           <Text style={tw`text-text-gray text-center text-xl font-bold mb-6`}>Request</Text>
 
           <View style={tw`mb-8`}>
-            <Tabs tabs={filters} activeTab={activeFilter} onTabChange={(value) => handleFilterChange(value as FilterTab)} />
+            <View>
+              <TouchableOpacity
+                onPress={() => setFilterOpen(true)}
+                style={tw`bg-white border border-green-light rounded-lg px-4 flex-row justify-between items-center`}
+                activeOpacity={0.8}
+              >
+                <Text style={tw`text-text-gray text-sm`}>{activeFilter}</Text>
+                <Text style={[tw`text-text-gray`, { fontSize: 40 }]}>▾</Text>
+              </TouchableOpacity>
+
+              <Modal visible={filterOpen} transparent animationType="fade" onRequestClose={() => setFilterOpen(false)}>
+                <TouchableWithoutFeedback onPress={() => setFilterOpen(false)}>
+                  <View style={tw`flex-1 bg-black/40 justify-center items-center`}>
+                    <TouchableWithoutFeedback>
+                      <View style={tw`bg-white w-11/12 max-w-[320px] rounded-lg overflow-hidden`}>
+                        {filters.map((f) => (
+                          <TouchableOpacity
+                            key={f}
+                            onPress={() => {
+                              setFilterOpen(false);
+                              handleFilterChange(f);
+                            }}
+                            style={tw`px-4 py-3 border-b border-gray-100`}
+                          >
+                            <Text style={tw`${f === activeFilter ? 'font-bold text-[#2E523A]' : 'text-text-gray'} text-sm`}>
+                              {f}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
+              </Modal>
+            </View>
           </View>
 
           {error && (
@@ -256,6 +315,7 @@ export default function ORequest() {
                   onToggleExpand={toggleRequestExpanded}
                   onMarkDone={handleMarkDone}
                   onCancelRequest={handleCancelRequest}
+                  onNotify={notify}
                 />
               </View>
             ))
@@ -270,6 +330,12 @@ export default function ORequest() {
       <BottomNavbar currentPage="Request" onRefresh={handleRefresh} />
 
       <RequestForm visible={requestFormVisible} onClose={handleRequestFormClose} onSave={handleRequestFormSave} />
+      <SnackBar
+        visible={snackVisible}
+        message={snackMsg}
+        onDismiss={() => setSnackVisible(false)}
+        type={snackType}
+      />
     </View>
   );
 }

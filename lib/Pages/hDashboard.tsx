@@ -29,6 +29,8 @@ import Snackbar from '../components/commons/Snackbar'; // adjust path if needed
 import { useResponsiveContext } from '../utils/ResponsiveContext';
 import { DeviceEventEmitter } from 'react-native';
 
+import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ added
+
 export default function HDashboard(props: any) {
   const navigation = useNavigation<any>();
   const { isSm, isMd } = useResponsiveContext();
@@ -384,7 +386,7 @@ export default function HDashboard(props: any) {
           onClose={() => setShowQRMessage(false)}
         />
 
-        <ScrollView ref={scrollViewRef} showsVerticalScrollIndicator={false} contentContainerStyle={tw`pb-[80px]`}>
+        <ScrollView ref={scrollViewRef} showsVerticalScrollIndicator={false} contentContainerStyle={tw`pb-0`}> {/* changed from pb-[80px] */}
           <Leaderboard
             brgyName="Brgy. 176-E"
             entries={[
@@ -394,6 +396,9 @@ export default function HDashboard(props: any) {
             ]}
             userRank={1}
           />
+
+          {/* spacer so content can scroll above bottom nav */}
+          <BottomNavSpacer />
         </ScrollView>
       </View>
 
