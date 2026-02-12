@@ -4,6 +4,7 @@ export default {
   expo: {
     name: "SIBOL",
     slug: "SIBOL-mobile",
+    owner: "laira_027",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
@@ -44,7 +45,7 @@ export default {
     },
     extra: {
       eas: {
-        projectId: "b726f662-b79e-47cb-bae8-5f37e7c65663"
+        projectId: "8777f215-b2e9-4cb1-81d9-99bf195eebe1"
       },
 
       // ✅ New split base URLs

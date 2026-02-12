@@ -37,6 +37,7 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onNavigate?: (route: string) => void;
+  user?: any; // optional injected user from MenuProvider
 };
 
 const menuItems = [
@@ -47,7 +48,7 @@ const menuItems = [
   { id: 'chat', label: 'Chat Support', icon: MessageSquare, route: 'ChatSupport' },
 ];
 
-export default function HMenu({ visible, onClose, onNavigate }: Props) {
+export default function HMenu({ visible, onClose, onNavigate, user }: Props) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const translateX = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
@@ -55,10 +56,42 @@ export default function HMenu({ visible, onClose, onNavigate }: Props) {
   const [loggingOut, setLoggingOut] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [displayName, setDisplayName] = useState<string>('User');
-
-  // refresh displayName whenever menu opens
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [roleLabel, setRoleLabel] = useState<string>('User');
+ 
+  // prefer user prop for instant updates, fallback to AsyncStorage
   useEffect(() => {
     if (!visible) return;
+    if (user) {
+      try {
+        const u = user;
+        const first = u?.FirstName ?? u?.firstName ?? '';
+        const last = u?.LastName ?? u?.lastName ?? '';
+        const username = u?.Username ?? u?.username ?? '';
+        const email = u?.Email ?? u?.email ?? '';
+        const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
+        setDisplayName(name);
+        const img =
+          u?.Profile_image_path ??
+          u?.ProfileImage ??
+          u?.Image_path ??
+          u?.imagePath ??
+          u?.image_path ??
+          u?.profile_image_path ??
+          null;
+        setProfileImage(img || null);
+        const r = Number(u?.Roles ?? u?.role ?? NaN);
+        if (r === 1) setRoleLabel('Admin');
+        else if (r === 3) setRoleLabel('Operator');
+        else if (r === 4) setRoleLabel('Household');
+        else if (String(u?.role)?.toLowerCase?.() === 'operator') setRoleLabel('Operator');
+        else setRoleLabel('User');
+        return;
+      } catch (e) {
+        console.warn('[HMenu] using injected user failed', e);
+      }
+    }
+ 
     (async () => {
       try {
         const raw = await AsyncStorage.getItem('user');
@@ -70,11 +103,26 @@ export default function HMenu({ visible, onClose, onNavigate }: Props) {
         const email = u?.Email ?? u?.email ?? '';
         const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
         setDisplayName(name);
+        const img =
+          u?.Profile_image_path ??
+          u?.ProfileImage ??
+          u?.Image_path ??
+          u?.imagePath ??
+          u?.image_path ??
+          u?.profile_image_path ??
+          null;
+        setProfileImage(img || null);
+        const r = Number(u?.Roles ?? u?.role ?? NaN);
+        if (r === 1) setRoleLabel('Admin');
+        else if (r === 3) setRoleLabel('Operator');
+        else if (r === 4) setRoleLabel('Household');
+        else if (String(u?.role)?.toLowerCase?.() === 'operator') setRoleLabel('Operator');
+        else setRoleLabel('User');
       } catch (e) {
         console.warn('[HMenu] refresh failed', e);
       }
     })();
-  }, [visible]);
+  }, [visible, user]);
 
   useEffect(() => {
     if (visible) {
@@ -151,15 +199,23 @@ export default function HMenu({ visible, onClose, onNavigate }: Props) {
                 tw`bg-[#18472F]`,
               ]}
             >
-              {/* ✅ Header fills status bar/notch area */}
-              <View style={[tw`w-full bg-[#A6BCAF] px-5 py-4 flex-row justify-between items-center`, { paddingTop: insets.top + 12 }]}>
+              {/* ✅ Header fills status bar/notch area and is clickable */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => { navigation.navigate('HProfile' as never); onClose(); }}
+                style={[tw`w-full bg-[#A6BCAF] px-5 py-4 flex-row justify-between items-center`, { paddingTop: insets.top + 12 }]}
+              >
                 <View>
                   <Text style={tw`text-[16px] font-semibold text-[#18472F]`}>{displayName}</Text>
+                  <Text style={tw`text-[11px] text-[#18472F] mt-1`}>{roleLabel}</Text>
                 </View>
                 <View style={tw`w-10 h-10 rounded-full bg-[#E0E0E0] overflow-hidden`}>
-                  <Image source={{ uri: 'https://via.placeholder.com/40' }} style={tw`w-full h-full`} />
+                  <Image
+                    source={profileImage ? { uri: profileImage } : require('../../assets/profile.png')}
+                    style={tw`w-full h-full`}
+                  />
                 </View>
-              </View>
+              </TouchableOpacity>
 
               {/* Menu Items */}
               <View style={tw`py-2`}>

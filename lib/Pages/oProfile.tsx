@@ -182,6 +182,24 @@ export default function OProfile() {
 
       setProfileImageUrl(uploaded.imagePath);
 
+      // Persist profile image to stored user so menus pick it up immediately
+      try {
+        const raw = await AsyncStorage.getItem('user');
+        if (raw) {
+          const user = JSON.parse(raw);
+          const img = uploaded.imagePath;
+          user.Profile_image_path = img;
+          user.ProfileImage = img;
+          user.Image_path = img;
+          user.imagePath = img;
+          user.image_path = img;
+          user.profile_image_path = img;
+          await AsyncStorage.setItem('user', JSON.stringify(user));
+        }
+      } catch (err) {
+        console.debug('[oProfile] failed to persist profile image', err);
+      }
+
       // ✅ make restriction apply immediately (no reload needed)
       setProfileLastUpdated(new Date().toISOString());
 
@@ -229,6 +247,19 @@ export default function OProfile() {
     await updateMyProfile({ username: newUsername, currentPassword });
     setProfile((p) => ({ ...p, username: newUsername }));
     setUsernameLastUpdated(new Date().toISOString());
+
+    // Persist the username into AsyncStorage so global menus/readers pick it up immediately
+    try {
+      const raw = await AsyncStorage.getItem('user');
+      if (raw) {
+        const user = JSON.parse(raw);
+        user.Username = newUsername;
+        user.username = newUsername;
+        await AsyncStorage.setItem('user', JSON.stringify(user));
+      }
+    } catch (err) {
+      console.debug('[oProfile] failed to persist username update', err);
+    }
   };
 
   return (

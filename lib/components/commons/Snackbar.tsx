@@ -68,7 +68,9 @@ const Snackbar: React.FC<SnackbarProps> = ({
       }}
     >
       <IconComponent color="white" size={20} style={{ marginRight: 12 }} />
-      <Text style={{ color: 'white', flex: 1 }}>{message}</Text>
+      <Text style={{ color: 'white', flex: 1 }}>
+        {String(message || '')}
+      </Text>
       {actionLabel && onAction && (
         <TouchableOpacity onPress={onAction}>
           <Text style={{ color: '#FFD600', marginLeft: 16, fontWeight: 'bold' }}>{actionLabel}</Text>

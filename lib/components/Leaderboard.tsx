@@ -65,7 +65,7 @@ export default function Leaderboard({
     return (
       <View style={tw`bg-white rounded-2xl border border-gray-200 p-5 m-4 shadow`}>
         <View style={tw`items-center mb-4`}>
-          <Text style={[tw`text-2xl font-extrabold text-teal-900`, { color: '#2E523A' }]}>{brgyName} Leaderboard</Text>
+          <Text style={[tw`text-2xl font-extrabold text-teal-900`, { color: '#2E523A' }]}>Leaderboard</Text>
           <Text style={tw`text-sm font-semibold text-emerald-700`}>You're on the lead!</Text>
         </View>
         <View style={tw`py-8 items-center`}>
@@ -78,7 +78,7 @@ export default function Leaderboard({
   return (
     <View style={tw`bg-white rounded-2xl border border-gray-200 p-5 m-4 shadow`}>
       <View style={tw`items-center mb-4`}>
-        <Text style={[tw`text-2xl font-extrabold text-teal-900`, { color: '#2E523A' }]}>{brgyName} Leaderboard</Text>
+        <Text style={[tw`text-2xl font-extrabold text-teal-900`, { color: '#2E523A' }]}>Leaderboard</Text>
         <Text style={tw`text-sm font-semibold text-emerald-700`}>These are the Top Contributors!</Text>
       </View>
 

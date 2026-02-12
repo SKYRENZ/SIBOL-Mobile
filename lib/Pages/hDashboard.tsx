@@ -31,7 +31,7 @@ import { DeviceEventEmitter } from 'react-native';
 
 import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ added
 
-export default function HDashboard(props: any) {
+export default function HDashboard() {
   const navigation = useNavigation<any>();
   const { isSm, isMd } = useResponsiveContext();
 
@@ -222,7 +222,7 @@ export default function HDashboard(props: any) {
               <TouchableOpacity
                 style={tw`p-2 relative`}
                 accessibilityLabel="Notifications"
-                onPress={() => props.navigation.navigate('HNotifications')}
+                onPress={() => navigation.navigate('HNotifications')}
               >
                 <Bell color="#2E523A" size={22} />
                 {/* Unread notifications badge */}

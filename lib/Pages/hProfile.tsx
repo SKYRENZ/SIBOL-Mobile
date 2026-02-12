@@ -23,6 +23,7 @@ import { Edit, Award, Pencil } from 'lucide-react-native';
 import { getMyProfile, getMyPoints, updateMyProfile, uploadMyProfileImage } from '../services/profileService';
 import HProfileContributions from '../components/hProfile/hProfileContributions';
 import { HProfileEditForm, type HProfileEditData } from '../components/hProfile/hProfileEdit';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Added types to fix implicit any / unknown names
 type TabType = 'contributions' | 'profile';
@@ -197,6 +198,19 @@ export default function HProfile() {
     await updateMyProfile({ username: newUsername, currentPassword });
     setUserData((prev: UserDataState) => ({ ...prev, username: newUsername }));
     setUsernameLastUpdated(new Date().toISOString());
+
+    // Persist the username into AsyncStorage so global menus/readers pick it up immediately
+    try {
+      const raw = await AsyncStorage.getItem('user');
+      if (raw) {
+        const user = JSON.parse(raw);
+        user.Username = newUsername;
+        user.username = newUsername;
+        await AsyncStorage.setItem('user', JSON.stringify(user));
+      }
+    } catch (err) {
+      console.debug('[hProfile] failed to persist username update', err);
+    }
   };
 
   const handleSaveProfile = async (data: HProfileEditData) => {
@@ -271,6 +285,24 @@ export default function HProfile() {
       });
 
       setProfileImageUrl(uploaded.imagePath);
+
+      // Persist profile image to stored user so menus pick it up immediately
+      try {
+        const raw = await AsyncStorage.getItem('user');
+        if (raw) {
+          const user = JSON.parse(raw);
+          const img = uploaded.imagePath;
+          user.Profile_image_path = img;
+          user.ProfileImage = img;
+          user.Image_path = img;
+          user.imagePath = img;
+          user.image_path = img;
+          user.profile_image_path = img;
+          await AsyncStorage.setItem('user', JSON.stringify(user));
+        }
+      } catch (err) {
+        console.debug('[hProfile] failed to persist profile image', err);
+      }
 
       // ✅ Snackbar on success
       showSnack('Profile photo updated.', 'success');
