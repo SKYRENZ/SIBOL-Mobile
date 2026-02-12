@@ -7,6 +7,7 @@ import {
     Animated,
     Dimensions,
     Keyboard,
+    Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import tw from '../utils/tailwind';
@@ -23,9 +24,10 @@ type Props = {
     visible: boolean;
     onClose: () => void;
     onNavigate?: (route: string) => void;
+    user?: any;
 };
 
-export default function OMenu({ visible, onClose, onNavigate }: Props) {
+export default function OMenu({ visible, onClose, onNavigate, user }: Props) {
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
     const translateX = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
@@ -35,9 +37,41 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
 
     const [displayName, setDisplayName] = useState<string>('User');
     const [roleLabel, setRoleLabel] = useState<string>('Operator');
+    const [profileImage, setProfileImage] = useState<string | null>(null);
 
+    // prefer user prop for instant updates, fallback to AsyncStorage
     useEffect(() => {
         if (!visible) return;
+        if (user) {
+            try {
+                const u = user;
+                const first = u?.FirstName ?? u?.firstName ?? '';
+                const last = u?.LastName ?? u?.lastName ?? '';
+                const username = u?.Username ?? u?.username ?? '';
+                const email = u?.Email ?? u?.email ?? '';
+                const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
+                setDisplayName(name);
+                const img =
+                    u?.Profile_image_path ??
+                    u?.ProfileImage ??
+                    u?.Image_path ??
+                    u?.imagePath ??
+                    u?.image_path ??
+                    u?.profile_image_path ??
+                    null;
+                setProfileImage(img || null);
+                const r = Number(u?.Roles ?? u?.role ?? NaN);
+                if (r === 1) setRoleLabel('Admin');
+                else if (r === 3) setRoleLabel('Operator');
+                else if (r === 4) setRoleLabel('Household');
+                else if (String(u?.role)?.toLowerCase?.() === 'operator') setRoleLabel('Operator');
+                else setRoleLabel('User');
+                return;
+            } catch (e) {
+                console.warn('[OMenu] using injected user failed', e);
+            }
+        }
+
         (async () => {
             try {
                 const raw = await AsyncStorage.getItem('user');
@@ -49,6 +83,15 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
                 const email = u?.Email ?? u?.email ?? '';
                 const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
                 setDisplayName(name);
+                const img =
+                    u?.Profile_image_path ??
+                    u?.ProfileImage ??
+                    u?.Image_path ??
+                    u?.imagePath ??
+                    u?.image_path ??
+                    u?.profile_image_path ??
+                    null;
+                setProfileImage(img || null);
                 const r = Number(u?.Roles ?? u?.role ?? NaN);
                 if (r === 1) setRoleLabel('Admin');
                 else if (r === 3) setRoleLabel('Operator');
@@ -59,7 +102,7 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
                 console.warn('[OMenu] refresh failed', e);
             }
         })();
-    }, [visible]);
+    }, [visible, user]);
 
     useEffect(() => {
         if (visible) {
@@ -134,8 +177,11 @@ export default function OMenu({ visible, onClose, onNavigate }: Props) {
                                         <Text style={tw`text-[16px] font-semibold text-[#18472F]`}>{displayName}</Text>
                                         <Text style={tw`text-[11px] text-[#18472F] mt-1`}>{roleLabel}</Text>
                                     </View>
-                                    <View style={tw`w-10 h-10 rounded-full bg-[#E0E0E0] items-center justify-center`}>
-                                        <User color="#18472F" size={20} />
+                                    <View style={tw`w-10 h-10 rounded-full bg-[#E0E0E0] overflow-hidden`}>
+                                        <Image
+                                            source={profileImage ? { uri: profileImage } : require('../../assets/profile.png')}
+                                            style={tw`w-full h-full`}
+                                        />
                                     </View>
                                 </View>
                             </TouchableOpacity>

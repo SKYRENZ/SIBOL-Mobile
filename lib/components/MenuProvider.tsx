@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
 import HMenu from './hMenu';
 import OMenu from './oMenu';
 
@@ -20,6 +19,7 @@ const MenuContext = createContext<MenuContextValue | undefined>(undefined);
 export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [role, setRole] = useState<MenuRole>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [resolved, setResolved] = useState(false);
 
   useEffect(() => {
@@ -30,12 +30,16 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!raw) {
           console.debug('MenuProvider: no stored user found');
           setRole(null);
+          setUser(null);
           setResolved(false); // allow polling to run
           return;
         }
 
         const user = JSON.parse(raw);
         console.debug('MenuProvider: loaded user from storage', { user });
+
+        // store full user for menus to consume
+        setUser(user);
 
         const r = user?.Roles ?? user?.role ?? null;
         const rnum = Number(r);
@@ -50,6 +54,7 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (err) {
         console.warn('MenuProvider: failed to read user role', err);
         setRole(null);
+        setUser(null);
         setResolved(false);
       }
     })();
@@ -66,6 +71,8 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const raw = await AsyncStorage.getItem('user');
         if (raw) {
           const user = JSON.parse(raw);
+          // update stored user and role
+          setUser(user);
           const r = user?.Roles ?? user?.role ?? null;
           const rnum = Number(r);
           console.debug('MenuProvider: detected delayed user', { user, r });
@@ -101,6 +108,7 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const raw = await AsyncStorage.getItem('user');
       if (raw) {
         const user = JSON.parse(raw);
+        setUser(user);
         const r = user?.Roles ?? user?.role ?? null;
         const rnum = Number(r);
         if (!Number.isNaN(rnum)) setRole(rnum === 3 ? 'operator' : 'household');
@@ -109,6 +117,7 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setResolved(true);
       } else {
         setRole(null);
+        setUser(null);
       }
     } catch (err) {
       console.warn('MenuProvider: openMenu failed to read user', err);
@@ -125,26 +134,16 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const toggleMenu = () => setIsOpen(v => !v);
 
-  const navigation = useNavigation();
-
-  // Auto-close menu when navigation happens to avoid menu overlaying new screens
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', () => {
-      setIsOpen(false);
-    });
-    return unsubscribe;
-  }, [navigation]);
-
   return (
     <MenuContext.Provider value={{ openMenu, closeMenu, toggleMenu, isOpen, role, setRole }}>
       {children}
       {/* Render the correct menu globally based on role. Skip until resolved. */}
       {resolved && role === 'household' && (
-        <HMenu visible={isOpen} onClose={closeMenu} />
+        <HMenu visible={isOpen} onClose={closeMenu} user={user} />
       )}
 
       {resolved && role === 'operator' && (
-        <OMenu visible={isOpen} onClose={closeMenu} />
+        <OMenu visible={isOpen} onClose={closeMenu} user={user} />
       )}
     </MenuContext.Provider>
   );
