@@ -97,24 +97,16 @@ export default function OMaintenance() {
     try {
       // TODO: call your ESP32 provisioning function here
       // await provisionESP32Wifi(connectedDevice, ssid, password);
+      
+      // Simulate successful connection
+      await new Promise(resolve => setTimeout(resolve, 1000));
       setConnectModalVisible(false);
+    } catch (error) {
+      console.error('WiFi connection failed:', error);
     } finally {
       setWifiConnecting(false);
     }
   };
-
-  // pick whichever data you want; this is from develop
-  const maintenanceRequests: MaintenanceRequest[] = [
-    {
-      id: '1',
-      title: 'Change filters',
-      description: 'Change the stage 2 filters on SIBOL Machine 2',
-      requestNumber: '112103',
-      dateAssigned: 'August 10, 2025',
-      dueDate: 'August 10, 2025',
-      remarks: 'Change filter',
-    },
-  ];
 
   return (
     <View style={tw`flex-1 bg-white`}>
@@ -148,7 +140,7 @@ export default function OMaintenance() {
                 onPress={openDropdown}
               >
                 <Text style={tw`text-white font-semibold text-[11px] mr-1`}>
-                  {selectedMachine}
+                  {connectedDevice || selectedMachine}
                 </Text>
                 <MaterialIcons name="arrow-drop-down" size={14} color="white" />
               </TouchableOpacity>
@@ -197,53 +189,7 @@ export default function OMaintenance() {
             </View>
           ) : null}
 
-          {maintenanceRequests.map((request) => (
-            <View
-              key={request.id}
-              style={tw`border border-[#88AB8E] rounded-[10px] bg-white p-5 mb-4`}
-            >
-              <Text style={tw`text-primary font-bold text-[13px] mb-2`}>
-                {request.title}
-              </Text>
-              <Text style={tw`text-[#6C8770] font-semibold text-[10px] mb-3`}>
-                {request.description}
-              </Text>
-
-              <View
-                style={[
-                  tw`my-1`,
-                  {
-                    height: 1,
-                    width: '99%',
-                    backgroundColor: '#88AB8E',
-                    alignSelf: 'center',
-                  },
-                ]}
-              />
-
-              <View style={tw`mt-2`}>
-                <View style={tw`flex-row justify-between mb-2`}>
-                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>Request number:</Text>
-                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>{request.requestNumber}</Text>
-                </View>
-
-                <View style={tw`flex-row justify-between mb-2`}>
-                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>Date Assigned:</Text>
-                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>{request.dateAssigned}</Text>
-                </View>
-
-                <View style={tw`flex-row justify-between mb-2`}>
-                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>Due Date:</Text>
-                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>{request.dueDate}</Text>
-                </View>
-
-                <View style={tw`flex-row justify-between`}>
-                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>Remarks from brgy :</Text>
-                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>{request.remarks}</Text>
-                </View>
-              </View>
-            </View>
-          ))}
+           
         </View>
 
         {/* ✅ allow scroll past bottom nav */}
