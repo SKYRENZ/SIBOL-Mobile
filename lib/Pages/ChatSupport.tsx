@@ -75,7 +75,7 @@ export default function ChatSupport() {
   }, [cloud1, cloud2, cloud3, cloud4, cloud5, cloud6, cloud7, cloud8]);
 
   const handleContactPress = () => {
-    Linking.openURL('mailto:uccsibol@gmail.com');
+    Linking.openURL('mailto:sibolucc@gmail.com');
   };
 
   const handleChatPress = () => {
@@ -217,7 +217,7 @@ export default function ChatSupport() {
             onPress={handleContactPress}
           >
             Contact Us:{' '}
-            <Text style={[tw`underline font-inter`, { fontFamily: 'Inter' }]}>uccsibol@gmail.com</Text>
+            <Text style={[tw`underline font-inter`, { fontFamily: 'Inter' }]}>sibolucc@gmail.com</Text>
           </Text>
         </View>
 

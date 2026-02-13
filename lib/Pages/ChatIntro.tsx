@@ -8,17 +8,17 @@ import ChatHeader from '../components/commons/ChatHeader';
 import TypingIndicator from '../components/commons/TypingIndicator';
 import Svg, { Path } from 'react-native-svg';
 import { sendChatMessage } from '../services/chatAPI';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ChatIntro() {
   const insets = useSafeAreaInsets();
   const BOTTOM_INPUT_HEIGHT = 121;
 
   const [kavKey, setKavKey] = useState(0);
+  const [displayName, setDisplayName] = useState<string>('User');
 
   const [messageText, setMessageText] = useState('');
-  const [messages, setMessages] = useState<{ type: 'ai' | 'user'; text: string; translatedText?: string; showTranslation?: boolean }[]>([
-    { type: 'ai', text: 'Good day, User! How can I assist you today?' }
-  ]);
+  const [messages, setMessages] = useState<{ type: 'ai' | 'user'; text: string; translatedText?: string; showTranslation?: boolean }[]>([]);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [showFAQs, setShowFAQs] = useState(true);
@@ -28,6 +28,29 @@ export default function ChatIntro() {
   const cloudLeftAnim = useRef(new Animated.Value(400)).current;
   const cloudRightAnim = useRef(new Animated.Value(-100)).current;
   const scrollRef = useRef<any>(null);
+
+  // Fetch username on mount and set initial greeting
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('user');
+        if (!raw) {
+          setMessages([{ type: 'ai', text: 'Good day, User! How can I assist you today?' }]);
+          return;
+        }
+        const u = JSON.parse(raw);
+        const first = u?.FirstName ?? u?.firstName ?? '';
+        const last = u?.LastName ?? u?.lastName ?? '';
+        const username = u?.Username ?? u?.username ?? '';
+        const email = u?.Email ?? u?.email ?? '';
+        const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
+        setDisplayName(name);
+        setMessages([{ type: 'ai', text: `Good day, ${name}! How can I assist you today?` }]);
+      } catch (e) {
+        setMessages([{ type: 'ai', text: 'Good day, User! How can I assist you today?' }]);
+      }
+    })();
+  }, []);
 
   const faqItems: FAQItem[] = [
     {
@@ -44,7 +67,7 @@ export default function ChatIntro() {
     },
     {
       question: 'How do I contact support if I have issues?',
-      answer: 'You can reach our support team by emailing uccsibol@gmail.com or using the contact option in the chat header. We typically respond within 24 hours.',
+      answer: 'You can reach our support team by emailing sibolucc@gmail.com or using the contact option in the chat header. We typically respond within 24 hours.',
     },
   ];
 
