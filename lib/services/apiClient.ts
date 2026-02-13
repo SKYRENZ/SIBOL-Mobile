@@ -48,8 +48,8 @@ const platformEnvBase = Platform.OS === 'web' ? envApiBaseWeb : envApiBaseMobile
 // ✅ This is the *default* base (used when no runtime override is set)
 export const API_BASE_DEFAULT = normalizeUrl(
   platformEnvBase ??
-    envApiBaseLegacy ??
-    `${DEFAULT_HOST}:${DEFAULT_PORT}`
+  envApiBaseLegacy ??
+  `${DEFAULT_HOST}:${DEFAULT_PORT}`
 );
 
 // ✅ Keep existing export for compatibility
@@ -121,7 +121,7 @@ apiClient.interceptors.request.use(
     if (DEBUG_NET) {
       try {
         console.log('[mobile api] ->', config.method?.toUpperCase(), `${baseURL}${config.url}`);
-      } catch {}
+      } catch { }
     }
 
     try {
@@ -144,8 +144,16 @@ apiClient.interceptors.request.use(
 );
 
 apiClient.interceptors.response.use(
-  (res: any) => res,
+  (res: any) => {
+    if (DEBUG_NET) {
+      console.log('[mobile api] <-', res.status, res.config?.url, JSON.stringify(res.data).substring(0, 200));
+    }
+    return res;
+  },
   (error: any) => {
+    if (DEBUG_NET) {
+      console.log('[mobile api] <- ERROR', error.response?.status, error.config?.url, error.response?.data);
+    }
     if (isAxiosError(error)) {
       if (error.code === 'ECONNABORTED' || String(error.message || '').toLowerCase().includes('timeout')) {
         return Promise.reject(new Error('Request timed out. Please try again (or upload a smaller image).'));
@@ -203,7 +211,7 @@ const handleError = (error: any) => {
 // ✅ helper to call backend QR scan endpoint
 export async function scanQr(qr: string, weight: number): Promise<any> {
   // adjust path if your backend expects a different route
-  return post('/qr/scan', { qr, weight });
+  return post('/api/qr/scan', { qr, weight });
 }
 
 // NEW: fetch barangays helper used by mobile signup
