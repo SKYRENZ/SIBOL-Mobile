@@ -52,7 +52,7 @@ export default function ChatHeader() {
   }, [cloudLeftAnim, cloudRightAnim]);
 
   const handleContactPress = () => {
-    Linking.openURL('mailto:uccsibol@gmail.com');
+    Linking.openURL('mailto:sibolucc@gmail.com');
   };
 
   const handleClosePress = () => {
@@ -108,7 +108,7 @@ export default function ChatHeader() {
         <TouchableOpacity onPress={handleContactPress} style={tw`ml-8`}>
           <Text style={tw`text-white text-[10px] font-bold font-inter leading-tight`}>
             Contact Us:{'\n'}
-            <Text style={tw`underline`}>uccsibol@gmail.com</Text>
+            <Text style={tw`underline`}>sibolucc@gmail.com</Text>
           </Text>
         </TouchableOpacity>
 
