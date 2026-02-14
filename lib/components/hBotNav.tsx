@@ -12,9 +12,10 @@ interface BottomNavbarProps {
   onScan?: () => void;
   currentPage?: 'Menu' | 'Chat' | 'Home' | 'Scan' | 'Back';
   onRefresh?: () => void;
+  onBack?: () => Promise<boolean> | boolean;
 }
 
-export default function BottomNavbar({ onScan, currentPage, onRefresh }: BottomNavbarProps) {
+export default function BottomNavbar({ onScan, currentPage, onRefresh, onBack }: BottomNavbarProps) {
   const navigation = useNavigation<any>();
   const { openMenu } = useMenu();
   const { openScanner } = useScan();
@@ -22,46 +23,54 @@ export default function BottomNavbar({ onScan, currentPage, onRefresh }: BottomN
 
   const handleNavigation = async (page: string) => {
     if (page === currentPage) {
-      if (onRefresh) {
+      // Don't let onRefresh or onScan intercept the Back action — Back should always navigate
+      if (onRefresh && page !== 'Back') {
         onRefresh();
-      } else if (page === 'Scan') {
+        return;
+      } else if (page === 'Scan' && page !== 'Back') {
         if (onScan) onScan();
+        return;
       }
-    } else {
-      switch (page) {
-        case 'Menu':
-          openMenu();
-          break;
-        case 'Chat':
-          navigation.navigate('ChatSupport');
-          break;
-        case 'Home':
-          navigation.navigate('HDashboard' as never);
-          break;
-        case 'Scan':
-          if (onScan) onScan();
-          break;
-        case 'Back': {
-          // verify token first
-          const token = await AsyncStorage.getItem('token');
-          if (!token) {
-            // not authenticated — go to SignIn
-            navigation.navigate('SignIn' as never);
-            break;
-          }
-          // safe to navigate back if previous route is not an auth screen
-          const state = navigation.getState && navigation.getState();
-          const routes = state?.routes ?? [];
-          const idx = typeof state?.index === 'number' ? state.index : routes.length - 1;
-          const prev = routes[idx - 1];
-          const authScreens = ['SignIn', 'SignUp', 'Landing', 'VerifyEmail', 'ForgotPassword'];
-          if (prev && !authScreens.includes(prev.name)) {
-            navigation.goBack();
-          } else {
-            navigation.navigate('HDashboard' as never);
-          }
+    }
+
+    switch (page) {
+      case 'Menu':
+        openMenu();
+        break;
+      case 'Chat':
+        navigation.navigate('ChatSupport');
+        break;
+      case 'Home':
+        navigation.navigate('HDashboard' as never);
+        break;
+      case 'Scan':
+        if (onScan) onScan();
+        break;
+      case 'Back': {
+        // allow page to intercept Back (e.g., unwind local tab history)
+        if (onBack) {
+          const handled = await Promise.resolve(onBack());
+          if (handled) break;
+        }
+        // verify token first
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          // not authenticated — go to SignIn
+          navigation.navigate('SignIn' as never);
           break;
         }
+        // safe to navigate back if previous route is not an auth screen
+        const state = navigation.getState && navigation.getState();
+        const routes = state?.routes ?? [];
+        const idx = typeof state?.index === 'number' ? state.index : routes.length - 1;
+        const prev = routes[idx - 1];
+        const authScreens = ['SignIn', 'SignUp', 'Landing', 'VerifyEmail', 'ForgotPassword'];
+        if (prev && !authScreens.includes(prev.name)) {
+          navigation.goBack();
+        } else {
+          navigation.navigate('HDashboard' as never);
+        }
+        break;
       }
     }
   };
