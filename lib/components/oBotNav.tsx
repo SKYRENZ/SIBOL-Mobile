@@ -11,62 +11,72 @@ interface BottomNavbarProps {
   // allow 'Chat' as well so pages like ChatSupport can pass currentPage="Chat"
   currentPage?: 'Menu' | 'Request' | 'Home' | 'Map' | 'Back' | 'Chat';
   onRefresh?: () => void;
+  onBack?: () => Promise<boolean> | boolean;
 }
 
-export default function BottomNavbar({ currentPage, onRefresh }: BottomNavbarProps) {
+export default function BottomNavbar({ currentPage, onRefresh, onBack }: BottomNavbarProps) {
   const navigation = useNavigation();
   const { openMenu } = useMenu();
   const insets = useSafeAreaInsets();
 
   const handleNavigation = async (page: string) => {
     if (page === currentPage) {
-      if (onRefresh) {
+      // Allow onRefresh to trigger only for normal tabs — not for the Back action
+      if (onRefresh && page !== 'Back') {
         onRefresh();
+        return;
       } else {
         if (page === 'Home') {
           navigation.reset({
             index: 0,
             routes: [{ name: 'ODashboard' as never }],
           });
+          return;
         } else if (page === 'Request') {
           navigation.reset({
             index: 0,
             routes: [{ name: 'ORequest' as never }],
           });
+          return;
         }
       }
-    } else {
-      switch (page) {
-        case 'Menu':
-          openMenu();
-          break;
-        case 'Request':
-          navigation.navigate('ORequest' as never);
-          break;
-        case 'Home':
-          navigation.navigate('ODashboard' as never);
-          break;
-        case 'Map':
-          navigation.navigate('OMap' as never);
-          break;
-        case 'Back': {
-          const token = await AsyncStorage.getItem('token');
-          if (!token) {
-            navigation.navigate('SignIn' as never);
-            break;
-          }
-          const state = navigation.getState && navigation.getState();
-          const routes = state?.routes ?? [];
-          const idx = typeof state?.index === 'number' ? state.index : routes.length - 1;
-          const prev = routes[idx - 1];
-          const authScreens = ['SignIn', 'SignUp', 'Landing', 'VerifyEmail', 'ForgotPassword'];
-          if (prev && !authScreens.includes(prev.name)) {
-            navigation.goBack();
-          } else {
-            navigation.navigate('ODashboard' as never);
-          }
+    }
+
+    switch (page) {
+      case 'Menu':
+        openMenu();
+        break;
+      case 'Request':
+        navigation.navigate('ORequest' as never);
+        break;
+      case 'Home':
+        navigation.navigate('ODashboard' as never);
+        break;
+      case 'Map':
+        navigation.navigate('OMap' as never);
+        break;
+      case 'Back': {
+        // allow page to intercept Back (e.g., unwind local tab history)
+        if (onBack) {
+          const handled = await Promise.resolve(onBack());
+          if (handled) break;
+        }
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          navigation.navigate('SignIn' as never);
           break;
         }
+        const state = navigation.getState && navigation.getState();
+        const routes = state?.routes ?? [];
+        const idx = typeof state?.index === 'number' ? state.index : routes.length - 1;
+        const prev = routes[idx - 1];
+        const authScreens = ['SignIn', 'SignUp', 'Landing', 'VerifyEmail', 'ForgotPassword'];
+        if (prev && !authScreens.includes(prev.name)) {
+          navigation.goBack();
+        } else {
+          navigation.navigate('ODashboard' as never);
+        }
+        break;
       }
     }
   };
