@@ -34,6 +34,7 @@ export default function OMaintenance() {
   // --- merged: keep both dropdown + connection state
   const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 1');
   const [connectedDevice, setConnectedDevice] = useState<string | null>(null);
+  const [availableNetwork, setAvailableNetwork] = useState<string | null>(null);
 
   const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState<{ x: number; y: number; width: number; height: number }>({
@@ -46,17 +47,28 @@ export default function OMaintenance() {
 
   const [connectModalVisible, setConnectModalVisible] = useState(false);
   const [wifiConnecting, setWifiConnecting] = useState(false);
+  // status for the maintenance card; will show "Connected" after demo connect
+  const [cardStatus, setCardStatus] = useState<string>('');
 
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
   React.useEffect(() => {
     const ssid = route.params?.connectedNetwork;
+    const showConnected = route.params?.showConnected;
+    // Only mark as connected when the navigator explicitly indicates the connect button was used
     if (ssid) {
-      setSelectedMachine(String(ssid));
-      setConnectedDevice(String(ssid));
+      if (showConnected) {
+        setConnectedDevice(selectedMachine);
+        setCardStatus('Connected');
+        setAvailableNetwork(null); // Clear available network when connected
+      } else {
+        // Show as available network but not connected
+        setAvailableNetwork(ssid);
+        setCardStatus('');
+      }
     }
-  }, [route.params?.connectedNetwork]);
+  }, [route.params?.connectedNetwork, route.params?.showConnected]);
 
   const machineOptions = ['SIBOL Machine 1', 'SIBOL Machine 2', 'SIBOL Machine 3', 'SIBOL Machine 4', 'SIBOL Machine 5'];
 
@@ -91,30 +103,24 @@ export default function OMaintenance() {
   };
 
   const handleConnectWifiSubmit = async (ssid: string, password: string) => {
-    if (!connectedDevice) return;
-
+    // allow submitting even if there's no prior `connectedDevice`
     setWifiConnecting(true);
     try {
-      // TODO: call your ESP32 provisioning function here
-      // await provisionESP32Wifi(connectedDevice, ssid, password);
+      // simulate provisioning / network setup (replace with real provisioning call)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Mark the currently selected machine as connected and show badge
+      setConnectedDevice(selectedMachine);
+      setCardStatus('Connected');
+      setAvailableNetwork(null); // Clear available network when connected
+
       setConnectModalVisible(false);
+    } catch (error) {
+      console.error('WiFi connection failed:', error);
     } finally {
       setWifiConnecting(false);
     }
   };
-
-  // pick whichever data you want; this is from develop
-  const maintenanceRequests: MaintenanceRequest[] = [
-    {
-      id: '1',
-      title: 'Change filters',
-      description: 'Change the stage 2 filters on SIBOL Machine 2',
-      requestNumber: '112103',
-      dateAssigned: 'August 10, 2025',
-      dueDate: 'August 10, 2025',
-      remarks: 'Change filter',
-    },
-  ];
 
   return (
     <View style={tw`flex-1 bg-white`}>
@@ -148,7 +154,7 @@ export default function OMaintenance() {
                 onPress={openDropdown}
               >
                 <Text style={tw`text-white font-semibold text-[11px] mr-1`}>
-                  {selectedMachine}
+                  {connectedDevice || selectedMachine}
                 </Text>
                 <MaterialIcons name="arrow-drop-down" size={14} color="white" />
               </TouchableOpacity>
@@ -163,9 +169,50 @@ export default function OMaintenance() {
             </TouchableOpacity>
           </View>
 
+          {/* Available network display */}
+          {availableNetwork && !connectedDevice ? (
+            <View style={[tw`border border-[#88AB8E] rounded-[10px] bg-white p-4 mb-6`, { position: 'relative' }]}>
+              <Text style={tw`text-sm text-[#4F6853] font-semibold mb-1`}>Available Network</Text>
+              <Text style={tw`text-lg font-bold text-[#2E523A]`}>{availableNetwork}</Text>
+
+              <View style={{ height: 1, backgroundColor: '#E5E7EB', marginTop: 12, marginBottom: 12 }} />
+
+              <View style={tw`flex-row`}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setAvailableNetwork(null);
+                    setCardStatus('');
+                  }}
+                  disabled={wifiConnecting}
+                  style={[
+                    tw`flex-1 py-2 mr-2 rounded-lg items-center`,
+                    wifiConnecting ? tw`bg-gray-100 border border-gray-200` : tw`bg-white border border-[#E5E7EB]`,
+                  ]}
+                >
+                  <Text style={tw`text-[#4F6853]`}>Disconnect</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleConnect}
+                  disabled={wifiConnecting}
+                  style={[
+                    tw`flex-1 py-2 ml-2 rounded-lg items-center bg-[#4F6853]`,
+                    wifiConnecting ? tw`opacity-50` : null,
+                  ]}
+                >
+                  <Text style={tw`text-white`}>{wifiConnecting ? 'Connecting…' : 'Connect to Network'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : null}
+
           {/* Connected device display */}
           {connectedDevice ? (
-            <View style={tw`border border-[#88AB8E] rounded-[10px] bg-white p-4 mb-6`}>
+            <View style={[tw`border border-[#88AB8E] rounded-[10px] bg-white p-4 mb-6`, { position: 'relative' }]}>
+              {cardStatus === 'Connected' && (
+                <View style={tw`absolute top-3 right-3 bg-[#4F6853] rounded-full px-3 py-1`}>
+                  <Text style={tw`text-xs text-white font-semibold`}>Connected</Text>
+                </View>
+              )}
               <Text style={tw`text-sm text-[#4F6853] font-semibold mb-1`}>Connected Device</Text>
               <Text style={tw`text-lg font-bold text-[#2E523A]`}>{connectedDevice}</Text>
 
@@ -176,74 +223,17 @@ export default function OMaintenance() {
                   onPress={handleDisconnect}
                   disabled={!connectedDevice}
                   style={[
-                    tw`flex-1 py-2 mr-2 rounded-lg items-center`,
+                    tw`flex-1 py-2 rounded-lg items-center`,
                     !connectedDevice ? tw`bg-gray-100 border border-gray-200` : tw`bg-white border border-[#E5E7EB]`,
                   ]}
                 >
                   <Text style={tw`text-[#4F6853]`}>Disconnect</Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleConnect}
-                  disabled={wifiConnecting}
-                  style={[
-                    tw`flex-1 py-2 ml-2 rounded-lg items-center bg-[#4F6853]`,
-                    wifiConnecting ? tw`opacity-50` : null,
-                  ]}
-                >
-                  <Text style={tw`text-white`}>{wifiConnecting ? 'Connecting…' : 'Connect to network'}</Text>
-                </TouchableOpacity>
               </View>
             </View>
           ) : null}
 
-          {maintenanceRequests.map((request) => (
-            <View
-              key={request.id}
-              style={tw`border border-[#88AB8E] rounded-[10px] bg-white p-5 mb-4`}
-            >
-              <Text style={tw`text-primary font-bold text-[13px] mb-2`}>
-                {request.title}
-              </Text>
-              <Text style={tw`text-[#6C8770] font-semibold text-[10px] mb-3`}>
-                {request.description}
-              </Text>
-
-              <View
-                style={[
-                  tw`my-1`,
-                  {
-                    height: 1,
-                    width: '99%',
-                    backgroundColor: '#88AB8E',
-                    alignSelf: 'center',
-                  },
-                ]}
-              />
-
-              <View style={tw`mt-2`}>
-                <View style={tw`flex-row justify-between mb-2`}>
-                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>Request number:</Text>
-                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>{request.requestNumber}</Text>
-                </View>
-
-                <View style={tw`flex-row justify-between mb-2`}>
-                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>Date Assigned:</Text>
-                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>{request.dateAssigned}</Text>
-                </View>
-
-                <View style={tw`flex-row justify-between mb-2`}>
-                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>Due Date:</Text>
-                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>{request.dueDate}</Text>
-                </View>
-
-                <View style={tw`flex-row justify-between`}>
-                  <Text style={tw`text-[#4F6853] font-semibold text-[11px]`}>Remarks from brgy :</Text>
-                  <Text style={tw`text-[#6C8770] font-semibold text-[11px]`}>{request.remarks}</Text>
-                </View>
-              </View>
-            </View>
-          ))}
+           
         </View>
 
         {/* ✅ allow scroll past bottom nav */}
@@ -257,12 +247,11 @@ export default function OMaintenance() {
       {/* Connect Network Modal
           Note: props may differ in your component; `as any` avoids TS prop mismatch during merge cleanup. */}
       <ConnectNetworkModal
-        {...({
-          visible: connectModalVisible,
-          onClose: () => setConnectModalVisible(false),
-          onSubmit: handleConnectWifiSubmit,
-          loading: wifiConnecting,
-        } as any)}
+        visible={connectModalVisible}
+        onClose={() => setConnectModalVisible(false)}
+        // use the prop the modal actually expects; cast to any to avoid strict signature mismatch
+        onConnect={handleConnectWifiSubmit as any}
+        loading={wifiConnecting}
       />
 
       {/* Machine Dropdown Modal */}
