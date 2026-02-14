@@ -174,7 +174,7 @@ export default function OProcess() {
         );
 
       case 'Process Sensors and Alerts':
-        return <OProcessSensors />;
+        return <OProcessSensors machineId={selectedMachineId} />;
 
       case 'Process Details':
         return <OProcessDetails machineId={selectedMachineId} machineName={selectedMachine?.Name} />;
@@ -210,7 +210,7 @@ export default function OProcess() {
         </TouchableOpacity>
 
         {machineDropdownOpen && (
-          <View style={tw`bg-white border border-[#E5E7EB] rounded-lg px-2 py-2 mb-4 shadow`}> 
+          <View style={tw`bg-white border border-[#E5E7EB] rounded-lg px-2 py-2 mb-4 shadow`}>
             {machinesLoading ? (
               <Text style={tw`text-xs text-gray-500 px-2 py-1`}>Loading...</Text>
             ) : machines.length === 0 ? (
