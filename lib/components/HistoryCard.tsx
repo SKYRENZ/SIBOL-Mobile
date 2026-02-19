@@ -8,6 +8,7 @@ interface HistoryCardProps {
   pointsDelta: number;
   kgDelta?: number;
   code?: string | null;
+  status?: string | null; // NEW
   onViewCode?: (code: string) => void;
 }
 
@@ -18,13 +19,23 @@ export default function HistoryCard({
   pointsDelta,
   kgDelta = 0,
   code = null,
+  status = null,
   onViewCode,
 }: HistoryCardProps) {
   const isEarned = pointsDelta >= 0;
+  const isClaimed = String(status ?? '').toLowerCase() === 'claimed';
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{title}</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text style={styles.title}>{title}</Text>
+        {type === 'REWARD_CLAIM' && (
+          <View style={[styles.badge, isClaimed ? styles.badgeClaimed : styles.badgeUnclaimed]}>
+            <Text style={styles.badgeText}>{isClaimed ? 'Claimed' : 'Unclaimed'}</Text>
+          </View>
+        )}
+      </View>
+
       <Text style={styles.date}>{date}</Text>
 
       <View style={styles.row}>
@@ -89,7 +100,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#6B7280',
-    marginBottom: 12,
   },
   date: {
     fontSize: 13,
@@ -131,4 +141,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeClaimed: { backgroundColor: '#D1FAE5' },
+  badgeUnclaimed: { backgroundColor: '#F3F4F6' },
+  badgeText: { color: '#064E3B', fontWeight: '700', fontSize: 12 },
 });

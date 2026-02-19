@@ -11,6 +11,7 @@ import {
   Platform,
   Dimensions,
   ActivityIndicator,
+  DeviceEventEmitter, // added
 } from 'react-native';
 import { ArrowLeft, ChevronDown, X } from 'lucide-react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -74,7 +75,17 @@ export default function HHistory() {
 
   useFocusEffect(
     React.useCallback(() => {
+      // initial load when screen focused
       load();
+
+      // listen for explicit updates instead of polling
+      const sub = DeviceEventEmitter.addListener('historyUpdated', () => {
+        load();
+      });
+
+      return () => {
+        sub.remove();
+      };
     }, [])
   );
 
@@ -314,6 +325,7 @@ export default function HHistory() {
               pointsDelta={item.pointsDelta}
               kgDelta={item.kgDelta}
               code={item.code}
+              status={item.status} // pass status so card can show "Claimed"
               onViewCode={(code) => {
                 setSelectedCode(code);
                 setCodeModalVisible(true);
