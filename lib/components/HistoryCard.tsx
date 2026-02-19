@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import tw from '../utils/tailwind';
 
 interface HistoryCardProps {
   title: string;
@@ -26,127 +27,53 @@ export default function HistoryCard({
   const isClaimed = String(status ?? '').toLowerCase() === 'claimed';
 
   return (
-    <View style={styles.card}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={styles.title}>{title}</Text>
+    <View style={tw`bg-white rounded-xl p-4 mb-2 mx-4 border border-gray-200 border-l-4 border-l-[#2E523A] shadow-md`}>
+      <View style={tw`flex-row justify-between items-center`}>
+        <Text style={tw`text-sm font-semibold text-[#6B7280]`}>{type === 'REWARD_CLAIM' ? 'Reward Claim' : title}</Text>
         {type === 'REWARD_CLAIM' && (
-          <View style={[styles.badge, isClaimed ? styles.badgeClaimed : styles.badgeUnclaimed]}>
-            <Text style={styles.badgeText}>{isClaimed ? 'Claimed' : 'Unclaimed'}</Text>
+          <View style={tw`${isClaimed ? 'bg-[#D1FAE5]' : 'bg-[#F3F4F6]'} px-2 py-1 rounded-full`}>
+            <Text style={tw`text-[#064E3B] font-medium text-xs`}>{isClaimed ? 'Claimed' : 'Unclaimed'}</Text>
           </View>
         )}
       </View>
 
-      <Text style={styles.date}>{date}</Text>
+      <Text style={tw`text-sm text-[#9CA3AF] mb-6`}>{date}</Text>
 
-      <View style={styles.row}>
-        <Text style={styles.label}>{isEarned ? 'Points Earned' : 'Points Deducted'}</Text>
-        <Text
-          style={[styles.value, isEarned ? styles.pointsEarned : styles.pointsDeducted]}
-        >
+      <View style={tw`flex-row justify-between mb-3 items-center`}>
+        <Text style={tw`text-sm text-[#6B7280] font-medium`}>{isEarned ? 'Points Earned' : 'Points Deducted'}</Text>
+        <Text style={tw`${isEarned ? 'text-[#2E523A]' : 'text-[#B91C1C]'} text-sm font-semibold max-w-[60%] text-right`}>
           {isEarned ? `+${pointsDelta}` : `${pointsDelta}`} pts
         </Text>
       </View>
 
       {type === 'QR_SCAN' ? (
-        <View style={styles.row}>
-          <Text style={styles.label}>Contribution Added</Text>
-          <Text style={styles.value}>{kgDelta} kg</Text>
+        <View style={tw`flex-row justify-between mb-3 items-center`}>
+          <Text style={tw`text-sm text-[#6B7280] font-medium`}>Contribution Added</Text>
+          <Text style={tw`text-sm font-semibold text-[#111827] max-w-[60%] text-right`}>{kgDelta} kg</Text>
         </View>
       ) : null}
 
       {type === 'REWARD_CLAIM' ? (
-        <View style={styles.row}>
-          <Text style={styles.label}>Item Obtained</Text>
-          <Text style={styles.value} numberOfLines={1}>
+        <View style={tw`flex-row justify-between mb-3 items-center`}>
+          <Text style={tw`text-sm text-[#6B7280] font-medium`}>Item Obtained</Text>
+          <Text style={tw`text-sm font-semibold text-[#111827] max-w-[60%] text-right`} numberOfLines={1}>
             {title}
           </Text>
         </View>
       ) : null}
 
       {type === 'REWARD_CLAIM' && code ? (
-        <View style={styles.row}>
-          <Text style={styles.label}>Code</Text>
+        <View style={tw`flex-row justify-between items-center`}>
+          <Text style={tw`text-sm text-[#6B7280] font-medium`}>Code</Text>
           <TouchableOpacity
             onPress={() => onViewCode?.(code)}
-            style={styles.codeBtn}
+            style={tw`px-3 py-2 bg-[#2E523A] rounded-md`}
             activeOpacity={0.8}
           >
-            <Text style={styles.codeBtnText}>View</Text>
+            <Text style={tw`text-white text-xs font-semibold px-6`}>View</Text>
           </TouchableOpacity>
         </View>
       ) : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    marginHorizontal: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#2E523A',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  date: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    marginBottom: 14,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    alignItems: 'center',
-  },
-  label: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  value: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#111827',
-    maxWidth: '60%',
-    textAlign: 'right',
-  },
-  pointsEarned: {
-    color: '#2E523A',
-  },
-  pointsDeducted: {
-    color: '#B91C1C',
-  },
-  codeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#2E523A',
-    borderRadius: 8,
-  },
-  codeBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  badgeClaimed: { backgroundColor: '#D1FAE5' },
-  badgeUnclaimed: { backgroundColor: '#F3F4F6' },
-  badgeText: { color: '#064E3B', fontWeight: '700', fontSize: 12 },
-});

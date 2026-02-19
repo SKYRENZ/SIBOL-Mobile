@@ -20,6 +20,7 @@ import BottomNavbar from '../components/hBotNav';
 import { fetchMyHistory, type HistoryApiItem } from '../services/historyService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ already present
 import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ added
+import tw from '../utils/tailwind'; // <-- added
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -174,121 +175,36 @@ export default function HHistory() {
     return selectedFilter;
   };
 
-  const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 12,
-      backgroundColor: '#FFFFFF',
-    },
-    backButton: { padding: 4, marginRight: 12 },
-    headerTitle: {
-      flex: 1,
-      fontSize: 18,
-      fontWeight: '600',
-      color: '#111827',
-      textAlign: 'center',
-      marginRight: 40,
-    },
-    filterRow: {
-      paddingHorizontal: 16,
-      paddingBottom: 16,
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      zIndex: 1000,
-      elevation: 1000,
-    },
-    filterContainer: { position: 'relative', zIndex: 1000, elevation: 1000 },
-    filterButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      backgroundColor: '#2E523A',
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      minWidth: 100,
-    },
-    filterButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '500', marginRight: 6 },
-    dropdownContainer: {
-      position: 'absolute',
-      top: '100%',
-      right: 0,
-      backgroundColor: '#FFFFFF',
-      borderRadius: 8,
-      marginTop: 4,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 12,
-      elevation: 1000,
-      zIndex: 1000,
-      borderWidth: 1,
-      borderColor: '#E5E7EB',
-      minWidth: 140,
-    },
-    dropdownItem: {
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      borderBottomWidth: 1,
-      borderBottomColor: '#F3F4F6',
-    },
-    dropdownItemLast: { borderBottomWidth: 0 },
-    dropdownItemText: { fontSize: 14, color: '#374151' },
-    dropdownItemTextSelected: { color: '#2E523A', fontWeight: '600' },
-    scrollView: { flex: 1 },
-    scrollViewContent: {
-      paddingTop: 8,
-      paddingBottom: 16, // changed: remove NAV_HEIGHT + insets.bottom math — spacer handles bottom space
-    },
-    emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 40 },
-    emptyText: { fontSize: 16, color: '#6B7280', textAlign: 'center' },
-
-    calendarModalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center' },
-    calendarContainer: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, width: SCREEN_WIDTH * 0.9, maxWidth: 360 },
-    calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    calendarTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
-    calendarCloseButton: { padding: 4 },
-
-    codeOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-    codeBox: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 18, width: '100%', maxWidth: 360 },
-    codeTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 10 },
-    codeValue: { fontSize: 18, fontWeight: '800', color: '#2E523A', letterSpacing: 1.2, textAlign: 'center', paddingVertical: 10, backgroundColor: '#F3F4F6', borderRadius: 10 },
-    codeClose: { marginTop: 12, backgroundColor: '#2E523A', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-    codeCloseText: { color: '#FFFFFF', fontWeight: '700' },
-  });
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+    <SafeAreaView style={tw`flex-1 bg-white`}>
+      <View style={tw`flex-row items-center px-5 pt-5 pb-3 bg-white`}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={tw`p-1 mr-3`}>
           <ArrowLeft size={24} color="#2E523A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>History</Text>
+        <Text style={tw`flex-1 text-lg font-semibold text-gray-900 text-center mr-10`}>History</Text>
       </View>
 
-      <View style={styles.filterRow}>
-        <View style={styles.filterContainer}>
+      <View style={tw`px-4 pb-4 flex-row justify-end z-50`}>
+        <View style={tw`relative z-50`}>
           <TouchableOpacity
-            style={styles.filterButton}
+            style={tw`flex-row items-center justify-between bg-[#2E523A] rounded-lg px-3 py-2 min-w-[100px]`}
             onPress={() => setShowFilterDropdown(!showFilterDropdown)}
           >
-            <Text style={styles.filterButtonText}>{getFilterDisplayText()}</Text>
+            <Text style={tw`text-white text-[13px] font-medium mr-1`}>{getFilterDisplayText()}</Text>
             <ChevronDown size={18} color="#FFFFFF" />
           </TouchableOpacity>
 
           {showFilterDropdown && (
-            <View style={styles.dropdownContainer}>
+            <View style={tw`absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[140px]`}>
               {filterOptions.map((option, index) => (
                 <TouchableOpacity
                   key={option}
-                  style={[styles.dropdownItem, index === filterOptions.length - 1 && styles.dropdownItemLast]}
+                  style={[
+                    index !== filterOptions.length - 1 ? tw`px-4 py-3 border-b border-gray-100` : tw`px-4 py-3`,
+                  ]}
                   onPress={() => handleFilterSelect(option)}
                 >
-                  <Text style={[styles.dropdownItemText, selectedFilter === option && styles.dropdownItemTextSelected]}>
+                  <Text style={ selectedFilter === option ? tw`text-[#2E523A] font-semibold` : tw`text-gray-700 text-[14px]`}>
                     {option}
                   </Text>
                 </TouchableOpacity>
@@ -299,20 +215,20 @@ export default function HHistory() {
       </View>
 
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollViewContent}
+        style={tw`flex-1`}
+        contentContainerStyle={tw`pt-2 pb-4`}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         {loading ? (
-          <View style={styles.emptyState}>
+          <View style={tw`items-center justify-center py-16 px-10`}>
             <ActivityIndicator size="large" color="#2E523A" />
           </View>
         ) : error ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>{error}</Text>
-            <TouchableOpacity onPress={load} style={{ marginTop: 12 }}>
-              <Text style={{ color: '#2E523A', fontWeight: '700' }}>Retry</Text>
+          <View style={tw`items-center justify-center py-16 px-10`}>
+            <Text style={tw`text-gray-500 text-base text-center`}>{error}</Text>
+            <TouchableOpacity onPress={load} style={tw`mt-3`}>
+              <Text style={tw`text-[#2E523A] font-bold`}>Retry</Text>
             </TouchableOpacity>
           </View>
         ) : filteredData.length > 0 ? (
@@ -333,8 +249,8 @@ export default function HHistory() {
             />
           ))
         ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No history records found for this period</Text>
+          <View style={tw`items-center justify-center py-16 px-10`}>
+            <Text style={tw`text-gray-500 text-base text-center`}>No history records found for this period</Text>
           </View>
         )}
 
@@ -342,13 +258,13 @@ export default function HHistory() {
         <BottomNavSpacer />
       </ScrollView>
 
-      {/* Calendar Modal (unchanged) */}
+      {/* Calendar Modal (unchanged layout but tailwind'd) */}
       <Modal visible={showCalendar} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, width: SCREEN_WIDTH * 0.9, maxWidth: 360 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={{ fontSize: 18, fontWeight: '600', color: '#111827' }}>Select Date Range</Text>
-              <TouchableOpacity style={{ padding: 4 }} onPress={() => setShowCalendar(false)}>
+        <View style={tw`flex-1 bg-[rgba(0,0,0,0.5)] justify-center items-center`}>
+          <View style={tw`bg-white rounded-2xl p-5 w-[90%] max-w-[360px]`}>
+            <View style={tw`flex-row justify-between items-center mb-4`}>
+              <Text style={tw`text-lg font-semibold text-gray-900`}>Select Date Range</Text>
+              <TouchableOpacity style={tw`p-1`} onPress={() => setShowCalendar(false)}>
                 <X size={24} color="#6B7280" />
               </TouchableOpacity>
             </View>
@@ -365,18 +281,18 @@ export default function HHistory() {
 
       {/* Code Modal */}
       <Modal visible={codeModalVisible} transparent animationType="fade" onRequestClose={() => setCodeModalVisible(false)}>
-        <View style={styles.codeOverlay}>
-          <View style={styles.codeBox}>
-            <Text style={styles.codeTitle}>Reward Code</Text>
-            <Text style={styles.codeValue}>{selectedCode}</Text>
-            <TouchableOpacity style={styles.codeClose} onPress={() => setCodeModalVisible(false)}>
-              <Text style={styles.codeCloseText}>Close</Text>
+        <View style={tw`flex-1 bg-[rgba(0,0,0,0.5)] justify-center items-center p-5`}>
+          <View style={tw`bg-white rounded-xl p-4 w-full max-w-[360px]`}>
+            <Text style={tw`text-base font-bold text-gray-900 mb-2`}>Reward Code</Text>
+            <Text style={tw`text-xl font-medium text-[#2E523A] tracking-wider text-center py-2 bg-[#F3F4F6] rounded-md`}>{selectedCode}</Text>
+            <TouchableOpacity style={tw`mt-3 bg-[#2E523A] rounded-md py-3 items-center`} onPress={() => setCodeModalVisible(false)}>
+              <Text style={tw`text-white font-bold`}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
+      <View style={tw`absolute inset-x-0 bottom-0`}>
         <BottomNavbar />
       </View>
     </SafeAreaView>
