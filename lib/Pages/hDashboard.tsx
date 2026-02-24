@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   Text,
@@ -30,10 +31,31 @@ import { useResponsiveContext } from '../utils/ResponsiveContext';
 import { DeviceEventEmitter } from 'react-native';
 
 import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ added
+import {
+  TourGuideProvider,
+  TourGuideZone,
+  useTourGuideController,
+} from 'rn-tourguide';
+;
+import CustomTooltip from '../components/commons/CustomTooltip';
 
 export default function HDashboard() {
+  return (
+    <TourGuideProvider
+      tooltipComponent={CustomTooltip}
+      verticalOffset={-3}   // 👈 reduce tooltip gap
+      backdropColor="rgba(0,0,0,0.5)"
+      androidStatusBarVisible={true}   // 👈 keep this
+    >
+      <HDashboardContent />
+    </TourGuideProvider>
+  );
+}
+
+function HDashboardContent() {
   const navigation = useNavigation<any>();
   const { isSm, isMd } = useResponsiveContext();
+  const { start } = useTourGuideController();
 
   const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<{ awarded: number; totalPoints: number } | null>(null);
@@ -53,6 +75,20 @@ export default function HDashboard() {
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
 
   const cameraRef = useRef<any>(null);
+
+    useEffect(() => {
+    (async () => {
+      try {
+        const seen = await AsyncStorage.getItem('tourSeen');
+        if (!seen) {
+          setTimeout(() => {
+            start();
+          }, 800);
+          await AsyncStorage.setItem('tourSeen', 'true');
+        }
+      } catch (e) {}
+    })();
+  }, []);
 
   const handleOpenScanner = async () => {
     // Request camera permission on Android
@@ -211,6 +247,7 @@ export default function HDashboard() {
           {/* Header */}
           <View style={[isSm ? tw`mx-4 mb-4` : tw`mx-6 mb-6`]}>
             <View style={tw`flex-row justify-between items-center`}>
+             
               <View>
                 <Text style={[tw`font-bold text-[#2E523A]`, isSm ? tw`text-[14px] mb-[2px]` : tw`text-[22px] mb-1`]}>
                   Hi, {displayName}!
@@ -219,23 +256,47 @@ export default function HDashboard() {
                   Welcome to SIBOL Community.
                 </Text>
               </View>
-              <TouchableOpacity
-                style={tw`p-2 relative`}
-                accessibilityLabel="Notifications"
-                onPress={() => navigation.navigate('HNotifications')}
-              >
-                <Bell color="#2E523A" size={22} />
-                {/* Unread notifications badge */}
-                {unreadNotifications > 0 && (
-                  <View style={tw`absolute top-0 right-0 bg-[#2E8B57] rounded-full min-w-[20px] h-[20px] items-center justify-center`}>
-                    <Text style={tw`text-white text-[11px] font-bold`}>
-                      {unreadNotifications}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+               {/* HELP BUTTON */}
+              <View style={tw`flex-row items-center`}>
+                <TourGuideZone
+  zone={1}
+  text="Tap here anytime to view this guide again."
+  shape="circle"
+  borderRadius={15}
+>
+  <TouchableOpacity
+    style={tw`w-8 h-8 mr-[6%] items-center justify-center rounded-full`}
+    onPress={() => start()}
+  >
+    <Text style={tw`text-lg text-[#2E523A] font-bold`}>?</Text>
+  </TouchableOpacity>
+</TourGuideZone>
+
+                <TourGuideZone
+  zone={2}
+  text="This bell shows important updates and announcements."
+  shape="circle"
+  borderRadius={15}
+>
+  <TouchableOpacity
+    style={tw`p-1.5 rounded-full relative`}
+    onPress={() => navigation.navigate('HNotifications')}
+  >
+    <Bell color="#2E523A" size={20} />
+ 
+
+                      {/* Unread notifications badge */}
+                      {unreadNotifications > 0 && (
+                        <View style={tw`absolute top-0 right-0 bg-[#2E8B57] rounded-full min-w-[20px] h-[20px] items-center justify-center`}>
+                          <Text style={tw`text-white text-[11px] font-bold`}>{unreadNotifications}</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+</TourGuideZone>
+              </View>
+
+    </View>
+  </View>
 
           {/* Banner */}
           <View
@@ -268,75 +329,186 @@ export default function HDashboard() {
           {/* View Map card */}
           <View
             style={[
-              tw`bg-white rounded-[15px] border border-black/25 flex-row justify-between items-center shadow-md`,
-              isSm ? tw`p-2.5 mx-4 mb-4` : tw`p-4 mx-6 mb-4`,
+              isSm ? tw`mx-4 mb-4` : tw`mx-6 mb-4`,
             ]}
           >
-            <Text style={[tw`font-semibold text-[#6C8770] flex-1`, isSm ? tw`text-[14px]` : tw`text-[16px]`]}>
-              View the waste containers near you
-            </Text>
-
-            <TouchableOpacity
-              style={[tw`bg-[#2E523A] rounded-lg self-end`, isSm ? tw`py-2 px-2.5` : tw`py-2.5 px-3`]}
-              onPress={() => navigation.navigate('HMap')}
+            <TourGuideZone
+              zone={3}
+              text="Tap here to see the nearest waste bins on the map."
+              borderRadius={5}
             >
-              <Text style={tw`text-[11px] font-semibold text-white font-inter`}>View Map</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Stats */}
-          <View style={[tw`flex-row justify-around items-center`, isSm ? tw`gap-4 mx-4 mb-1` : tw`gap-4 mx-6 mb-1`]}>
-            <View style={[tw`flex-1 bg-white rounded-[15px] items-center justify-center shadow-sm`, isSm ? tw`min-h-[110px] p-3` : tw`min-h-[130px] p-4`]}>
-              <View style={[tw`flex-row justify-center items-center`, isSm ? tw`gap-2` : tw`gap-3`]}>
-                <View style={[tw`justify-center items-center overflow-hidden`, isSm ? tw`w-[30px] h-[30px] rounded-lg` : tw`w-[40px] h-[40px] rounded-[10px]`]}>
-                  <View style={tw`w-full h-full rounded-lg bg-green-light justify-center items-center`}>
-                    <Image
-                      source={require('../../assets/sibol-points.png')}
-                      resizeMode="contain"
-                      style={isSm ? tw`w-[18px] h-[18px]` : tw`w-[22px] h-[22px]`}
-                    />
-                  </View>
-                </View>
-
-                {pointsLoading ? (
-                  <ActivityIndicator size="small" color="#2E523A" />
-                ) : (
-                  <Text style={[tw`font-bold text-[#2E523A]`, isSm ? tw`text-[28px] leading-[28px]` : tw`text-[38px] leading-[38px]`]}>
-                    {formatKg(totalKg)}
+              <View
+                style={[
+                  tw`bg-white rounded-[15px] border border-black/25 flex-row justify-between items-center shadow-md`,
+                  isSm ? tw`p-2 mb-2` : tw`p-4 mb-2`,
+                ]}
+              >
+                <View style={tw`flex-row items-center justify-between w-full`}> 
+                  <Text style={[tw`font-semibold text-[#6C8770] flex-1`, isSm ? tw`text-[14px]` : tw`text-[16px]`]}> 
+                    View the waste containers near you
                   </Text>
-                )}
-              </View>
 
-              <Text style={[tw`text-[#2E523A] text-center font-medium`, isSm ? tw`text-[11px] leading-[14px] mt-2.5` : tw`text-[12px] leading-[16px] mt-3`]}>
-                Your total contribution
-              </Text>
-            </View>
-
-            <View style={[tw`flex-1 bg-white rounded-[15px] items-center justify-center shadow-sm`, isSm ? tw`min-h-[110px] p-3` : tw`min-h-[130px] p-4`]}>
-              <View style={[tw`flex-row justify-center items-center`, isSm ? tw`gap-2` : tw`gap-3`]}>
-                <View style={[tw`justify-center items-center overflow-hidden`, isSm ? tw`w-[30px] h-[30px] rounded-lg` : tw`w-[40px] h-[40px] rounded-[10px]`]}>
-                  <View style={tw`w-full h-full rounded-lg bg-green-light justify-center items-center`}>
-                    <Image
-                      source={require('../../assets/contributions.png')}
-                      resizeMode="contain"
-                      style={isSm ? tw`w-[18px] h-[18px]` : tw`w-[22px] h-[22px]`}
-                    />
-                  </View>
+                  <TouchableOpacity
+                    style={[tw`bg-[#2E523A] rounded-lg`, isSm ? tw`py-2 px-2.5 ml-3` : tw`py-2.5 px-3 ml-3`]}
+                    onPress={() => navigation.navigate('HMap')}
+                  >
+                    <Text style={tw`text-[11px] font-semibold text-white font-inter`}>View Map</Text>
+                  </TouchableOpacity>
                 </View>
-
-                <Text style={[tw`font-bold text-[#2E523A]`, isSm ? tw`text-[28px] leading-[28px]` : tw`text-[38px] leading-[38px]`]}>
-                  {rewardPoints}
-                </Text>
               </View>
+            </TourGuideZone>
+          </View>
 
-              <Text style={[tw`text-[#2E523A] text-center font-medium`, isSm ? tw`text-[11px] leading-[14px] mt-2.5` : tw`text-[12px] leading-[16px] mt-3`]}>
-                Your reward points
-              </Text>
+    
+
+{/* Stats */}
+<View
+  style={[
+    tw`flex-row justify-around items-center`,
+    isSm ? tw`gap-4 mx-4 mb-1` : tw`gap-4 mx-6 mb-1`,
+  ]}
+>
+
+  {/* ✅ ORDER 4 — TOTAL CONTRIBUTION */}
+ <TourGuideZone
+  zone={4}
+  text="This shows how many kilograms of food waste you have donated."
+  borderRadius={15}
+>
+      <View
+        style={[
+          tw`bg-white rounded-[15px] items-center justify-center shadow-sm`,
+          isSm ? tw`min-h-[110px] p-3` : tw`min-h-[130px] p-4`,
+        ]}
+      >
+        <View
+          style={[
+            tw`flex-row justify-center items-center`,
+            isSm ? tw`gap-2` : tw`gap-3`,
+          ]}
+        >
+          <View
+            style={[
+              tw`justify-center items-center overflow-hidden`,
+              isSm ? tw`w-[30px] h-[30px] rounded-lg`
+                : tw`w-[40px] h-[40px] rounded-[10px]`,
+            ]}
+          >
+            <View
+              style={tw`w-full h-full rounded-lg bg-green-light justify-center items-center`}
+            >
+              <Image
+                source={require('../../assets/sibol-points.png')}
+                resizeMode="contain"
+                style={isSm ? tw`w-[18px] h-[18px]` : tw`w-[22px] h-[22px]`}
+              />
             </View>
           </View>
 
-          <View style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-6 mt-4`} />
-        </Container>
+          {pointsLoading ? (
+            <ActivityIndicator size="small" color="#2E523A" />
+          ) : (
+            <Text
+              style={[
+                tw`font-bold text-[#2E523A]`,
+                isSm
+                  ? tw`text-[22px] leading-[28px]`
+                  : tw`text-[32px] leading-[38px]`,
+                { maxWidth: isSm ? 90 : 120, textAlign: 'center', flexShrink: 1 },
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}
+            >
+              {formatKg(totalKg)}
+            </Text>
+          )}
+        </View>
+
+        <Text
+          style={[
+            tw`text-[#2E523A] text-center font-medium`,
+            isSm
+              ? tw`text-[11px] leading-[14px] mt-2.5`
+              : tw`text-[12px] leading-[16px] mt-3`,
+          ]}
+        >
+          Your total contribution
+        </Text>
+      </View>
+    </TourGuideZone>
+
+  {/* REWARD POINTS */}
+  <TourGuideZone
+  zone={5}
+  text="Each donation gives you reward points."
+  borderRadius={15}
+>
+      <View
+        style={[
+          tw`bg-white rounded-[15px] items-center justify-center shadow-sm`,
+          isSm ? tw`min-h-[110px] p-3` : tw`min-h-[130px] p-4`,
+        ]}
+      >
+        <View
+          style={[
+            tw`flex-row justify-center items-center`,
+            isSm ? tw`gap-2` : tw`gap-3`,
+          ]}
+        >
+          <View
+            style={[
+              tw`justify-center items-center overflow-hidden`,
+              isSm ? tw`w-[30px] h-[30px] rounded-lg`
+                : tw`w-[40px] h-[40px] rounded-[10px]`,
+            ]}
+          >
+            <View
+              style={tw`w-full h-full rounded-lg bg-green-light justify-center items-center`}
+            >
+              <Image
+                source={require('../../assets/contributions.png')}
+                resizeMode="contain"
+                style={isSm ? tw`w-[18px] h-[18px]` : tw`w-[22px] h-[22px]`}
+              />
+            </View>
+          </View>
+
+          <Text
+            style={[
+              tw`font-bold text-[#2E523A]`,
+              isSm
+                ? tw`text-[22px] leading-[28px]`
+                : tw`text-[32px] leading-[38px]`,
+              { maxWidth: isSm ? 90 : 120, textAlign: 'center', flexShrink: 1 },
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.5}
+          >
+            {rewardPoints}
+          </Text>
+        </View>
+
+        <Text
+          style={[
+            tw`text-[#2E523A] text-center font-medium`,
+            isSm
+              ? tw`text-[11px] leading-[14px] mt-2.5`
+              : tw`text-[12px] leading-[16px] mt-3`,
+          ]}
+        >
+          Your reward points
+        </Text>
+      </View>
+    </TourGuideZone>
+
+</View>
+
+<View
+  style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-6 mt-4`}
+/>
+</Container>
 
         {/* ✅ Refresh overlay */}
         {isRefreshing && (
@@ -387,15 +559,17 @@ export default function HDashboard() {
         />
 
         <ScrollView ref={scrollViewRef} showsVerticalScrollIndicator={false} contentContainerStyle={tw`pb-0`}> {/* changed from pb-[80px] */}
-          <Leaderboard
-            brgyName="Brgy. 176-E"
-            entries={[
-              { rank: 1, name: 'Jacelyn Caratao', points: 120 },
-              { rank: 2, name: 'Laurenz Listangco', points: 100 },
-              { rank: 3, name: 'Karl Miranda', points: 95 },
-            ]}
-            userRank={1}
-          />
+          <TourGuideZone zone={6} text="See your overall ranking among household users." borderRadius={15}>
+              <Leaderboard
+                brgyName="Brgy. 176-E"
+                entries={[
+                  { rank: 1, name: 'Jacelyn Caratao', points: 120 },
+                  { rank: 2, name: 'Laurenz Listangco', points: 100 },
+                  { rank: 3, name: 'Karl Miranda', points: 95 },
+                ]}
+                userRank={1}
+              />
+          </TourGuideZone>
 
           {/* spacer so content can scroll above bottom nav */}
           <BottomNavSpacer />
