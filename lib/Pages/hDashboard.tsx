@@ -28,6 +28,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snackbar from '../components/commons/Snackbar'; // adjust path if needed
 import { useResponsiveContext } from '../utils/ResponsiveContext';
 import { DeviceEventEmitter } from 'react-native';
+import * as notificationService from '../services/notificationService';
 
 import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ added
 
@@ -203,6 +204,25 @@ export default function HDashboard() {
     });
     return () => sub.remove();
   }, []);
+
+  // Fetch unread notifications count on focus
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      const load = async () => {
+        try {
+          const cnt = await notificationService.fetchUnreadCount();
+          if (mounted) setUnreadNotifications(cnt);
+        } catch (e) {
+          // ignore
+        }
+      };
+      load();
+      return () => {
+        mounted = false;
+      };
+    }, [])
+  );
 
   return (
     <SafeAreaView style={[tw`flex-1 bg-white`, isSm ? tw`pt-[55px]` : tw`pt-[70px]`]}>
