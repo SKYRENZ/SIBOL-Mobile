@@ -46,6 +46,7 @@ export default function HDashboard() {
       verticalOffset={-3}   // 👈 reduce tooltip gap
       backdropColor="rgba(0,0,0,0.5)"
       androidStatusBarVisible={true}   // 👈 keep this
+      preventOutsideInteraction={true}
     >
       <HDashboardContent />
     </TourGuideProvider>

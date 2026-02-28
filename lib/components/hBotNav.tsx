@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMenu } from './MenuProvider';
 import { useScan } from './ScanProvider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { TourGuideZone } from 'rn-tourguide';
 
 interface BottomNavbarProps {
   onScan?: () => void;
@@ -27,7 +28,7 @@ export default function BottomNavbar({ onScan, currentPage, onRefresh, onBack }:
       if (onRefresh && page !== 'Back') {
         onRefresh();
         return;
-      } else if (page === 'Scan' && page !== 'Back') {
+      } else if (page === 'Scan') {
         if (onScan) onScan();
         return;
       }
@@ -82,41 +83,100 @@ export default function BottomNavbar({ onScan, currentPage, onRefresh, onBack }:
   const labelStyle = tw`text-[10px] font-semibold text-white mt-1`;
 
   return (
-    // ✅ Safe-area space is just background
-    <View style={[tw`bg-primary`, { paddingBottom: insets.bottom }]}>
-      {/* ✅ Match oBotNav layout */}
-      <View style={tw`h-20 flex-row justify-around items-center px-2 pt-2`}>
-        <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Menu')}>
-          <Menu color="white" size={22} />
-          <Text style={labelStyle}>Menu</Text>
-        </TouchableOpacity>
+  <View style={[tw`bg-primary`, { paddingBottom: insets.bottom }]}>
+    <View style={tw`h-20 flex-row justify-around items-center px-2 pt-2`}>
 
-        <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Chat')}>
-          <MessageSquare color="white" size={22} />
-          <Text style={labelStyle}>Chat Support</Text>
-        </TouchableOpacity>
+      {/* MENU */}
+      <TouchableOpacity
+        style={tw`items-center flex-1`}
+        onPress={() => handleNavigation('Menu')}
+      >
+        <TourGuideZone
+          zone={7}
+          text="This is the Menu button. Tap here to open the hamburger menu and access other pages in the app."
+          shape="circle"
+          borderRadius={10}
+        >
+          <View style={tw`items-center`}>
+            <Menu color="white" size={22} />
+            <Text style={labelStyle}>Menu</Text>
+          </View>
+        </TourGuideZone>
+      </TouchableOpacity>
 
-        {/* ✅ Home button: same size + not too high */}
-        <View style={tw`items-center -mt-7`}>
+      {/* CHAT SUPPORT */}
+      <TouchableOpacity
+        style={tw`items-center flex-1`}
+        onPress={() => handleNavigation('Chat')}
+      >
+        <TourGuideZone
+          zone={8}
+          text="This is Chat Support. Our mascot Lili is here to guide and assist you whenever you need help."
+          shape="circle"
+          borderRadius={10}
+        >
+          <View style={tw`items-center`}>
+            <MessageSquare color="white" size={22} />
+            <Text style={labelStyle}>Chat Support</Text>
+          </View>
+        </TourGuideZone>
+      </TouchableOpacity>
+
+      {/* HOME */}
+      <View style={tw`items-center -mt-7`}> 
+        <TourGuideZone
+          zone={9}
+          text="This is the Home button. Tap here anytime to return to your dashboard."
+          shape="circle"
+          borderRadius={40}
+        >
           <TouchableOpacity
             style={tw`w-16 h-16 rounded-full bg-primary border-2 border-white items-center justify-center`}
             onPress={() => handleNavigation('Home')}
           >
             <HomeIcon color="white" size={24} />
           </TouchableOpacity>
-          <Text style={labelStyle}>Home</Text>
-        </View>
-
-        <TouchableOpacity style={tw`items-center flex-1`} onPress={handleScanPress}>
-          <QrCode color="white" size={22} />
-          <Text style={labelStyle}>Scan QR</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Back')}>
-          <ArrowLeft color="white" size={22} />
-          <Text style={labelStyle}>Back</Text>
-        </TouchableOpacity>
+        </TourGuideZone>
+        <Text style={labelStyle}>Home</Text>
       </View>
+
+      {/* SCAN QR */}
+      <TouchableOpacity
+        style={tw`items-center flex-1`}
+        onPress={handleScanPress}
+      >
+        <TourGuideZone
+          zone={10}
+          text="Tap here to scan a QR code whenever you donate food waste. You will receive reward points based on the weight of your donation."
+          shape="circle"
+          borderRadius={10}
+        >
+          <View style={tw`items-center`}>
+            <QrCode color="white" size={22} />
+            <Text style={labelStyle}>Scan QR</Text>
+          </View>
+        </TourGuideZone>
+      </TouchableOpacity>
+
+      {/* BACK */}
+      <TouchableOpacity
+        style={tw`items-center flex-1`}
+        onPress={() => handleNavigation('Back')}
+      >
+        <TourGuideZone
+          zone={11}
+          text="This is the Back button. Tap here to return to the previous page."
+          shape="circle"
+          borderRadius={10}
+        >
+          <View style={tw`items-center`}>
+            <ArrowLeft color="white" size={22} />
+            <Text style={labelStyle}>Back</Text>
+          </View>
+        </TourGuideZone>
+      </TouchableOpacity>
+
     </View>
-  );
+  </View>
+);
 }
