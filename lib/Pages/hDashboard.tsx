@@ -578,7 +578,7 @@ function HDashboardContent() {
       </View>
 
       <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
-        <BottomNavbar onScan={handleOpenScanner} currentPage="Home" onRefresh={handleRefresh} />
+        <BottomNavbar onScan={handleOpenScanner} currentPage="Home" onRefresh={handleRefresh} enableTour={true} />
       </View>
 
       <ChangePasswordModal visible={showChangePassword} onClose={() => setShowChangePassword(false)} requireChange={isFirstLogin} />
