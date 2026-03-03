@@ -11,7 +11,16 @@ export type MobileNotification = {
 
 function fmtTime(ts?: string) {
   if (!ts) return '';
-  try { return new Date(ts).toLocaleString(); } catch { return String(ts); }
+  try {
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return String(ts);
+    // date like "July 24, 2026" and time without seconds
+    const datePart = d.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+    const timePart = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return `${datePart} • ${timePart}`;
+  } catch {
+    return String(ts);
+  }
 }
 
 function mapRowToMobile(row: any): MobileNotification {
@@ -63,8 +72,13 @@ export async function fetchNotifications(opts: { limit?: number; offset?: number
 }
 
 export async function fetchUnreadCount() {
-  const rows = await fetchNotifications({ limit: 100, unreadOnly: true });
-  return rows.length;
+  try {
+    const rows = await fetchNotifications({ limit: 100, unreadOnly: true });
+    return rows.length;
+  } catch (e) {
+    console.warn('[notificationService] fetchUnreadCount failed', e);
+    return 0;
+  }
 }
 
 export async function markAsRead(id: string, type: string) {

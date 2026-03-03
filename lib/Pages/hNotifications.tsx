@@ -8,7 +8,7 @@ import * as notificationService from '../services/notificationService';
 import type { MobileNotification } from '../services/notificationService';
 import { useFocusEffect } from '@react-navigation/native';
 
-type TabType = 'Read' | 'Unread' | 'Rewards';
+type TabType = 'Read' | 'Unread';
 type FilterOption = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
 export default function HNotifications(props: any) {
@@ -70,10 +70,7 @@ export default function HNotifications(props: any) {
         // show all notifications that are unread (any type)
         filtered = notifications.filter((n) => !n.isRead);
         break;
-      case 'Rewards':
-        // show reward-related notifications (both read and unread)
-        filtered = notifications.filter((n) => n.type === 'reward_claimed' || n.type === 'reward_processing');
-        break;
+      
       default:
         filtered = [];
     }
@@ -144,23 +141,7 @@ export default function HNotifications(props: any) {
               )}
             </TouchableOpacity>
 
-            {/* Rewards Tab */}
-            <TouchableOpacity
-              onPress={() => changeTab('Rewards')}
-              style={tw.style(
-                `flex-1 justify-center items-center rounded-[15px]`,
-                activeTab === 'Rewards' && 'bg-[#88AB8E] border border-[#88AB8E]'
-              )}
-            >
-              <Text
-                style={tw.style(
-                  `text-[15px] font-semibold`,
-                  activeTab === 'Rewards' ? 'text-white' : 'text-[#6C8770]'
-                )}
-              >
-                Rewards
-              </Text>
-            </TouchableOpacity>
+            {/* (Rewards tab removed) */}
           </View>
         </View>
 

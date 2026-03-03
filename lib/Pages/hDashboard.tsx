@@ -205,14 +205,26 @@ export default function HDashboard() {
     return () => sub.remove();
   }, []);
 
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('sibol:notificationsUpdated', (payload: any) => {
+      if (payload?.unreadCount != null) {
+        setUnreadNotifications(Number(payload.unreadCount));
+      } else if (Array.isArray(payload?.rows)) {
+        setUnreadNotifications(payload.rows.length);
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   // Fetch unread notifications count on focus
   useFocusEffect(
     useCallback(() => {
       let mounted = true;
       const load = async () => {
         try {
-          const cnt = await notificationService.fetchUnreadCount();
-          if (mounted) setUnreadNotifications(cnt);
+          // load system notifications and count unread locally to match HNotifications
+          const rows = await notificationService.fetchNotifications({ limit: 200, unreadOnly: false });
+          if (mounted) setUnreadNotifications(rows.filter((r: any) => !r.isRead).length);
         } catch (e) {
           // ignore
         }
@@ -245,9 +257,9 @@ export default function HDashboard() {
                 onPress={() => navigation.navigate('HNotifications')}
               >
                 <Bell color="#2E523A" size={22} />
-                {/* Unread notifications badge */}
+                {/* Unread notifications badge (top-left, red circle) */}
                 {unreadNotifications > 0 && (
-                  <View style={tw`absolute top-0 right-0 bg-[#2E8B57] rounded-full min-w-[20px] h-[20px] items-center justify-center`}>
+                  <View style={tw`absolute top-0 left-0 bg-[#ef4444] rounded-full min-w-[20px] h-[20px] items-center justify-center px-1`}>
                     <Text style={tw`text-white text-[11px] font-bold`}>
                       {unreadNotifications}
                     </Text>
