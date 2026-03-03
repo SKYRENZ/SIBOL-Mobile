@@ -26,17 +26,19 @@ export default function HNotifications(props: any) {
       (async () => {
         try {
           const rows = await notificationService.fetchNotifications({ limit: 200 });
-          if (!mounted) return;
-          setNotifications(
-            rows.map((r: MobileNotification) => ({
-              id: r.id,
-              type: r.type,
-              title: r.title,
-              message: r.message,
-              time: r.time,
-              isRead: r.isRead,
-            }))
-          );
+          if (mounted) {
+            setNotifications(
+              rows.map((r: MobileNotification) => ({
+                id: r.id,
+                type: r.type,
+                title: r.title,
+                message: r.message,
+                time: r.time,
+                isRead: r.isRead,
+                timestampISO: r.timestampISO,
+              }))
+            );
+          }
         } catch (err) {
           console.error('load notifications failed', err);
         }
@@ -59,25 +61,44 @@ export default function HNotifications(props: any) {
 
   // Filter notifications based on active tab and date filter
   const getFilteredNotifications = () => {
-    let filtered: NotificationData[] = [];
+    // base by tab
+    let filtered: NotificationData[] =
+      activeTab === 'Read'
+        ? notifications.filter((n) => n.isRead)
+        : notifications.filter((n) => !n.isRead);
 
-    switch (activeTab) {
-      case 'Read':
-        // show all notifications that are marked read (any type)
-        filtered = notifications.filter((n) => n.isRead);
-        break;
-      case 'Unread':
-        // show all notifications that are unread (any type)
-        filtered = notifications.filter((n) => !n.isRead);
-        break;
-      
-      default:
-        filtered = [];
-    }
+    if (!filterValue || filterValue === 'all') return filtered;
 
-    // Apply date filter if not 'all'
-    // Note: In a real app, you would filter by actual dates
-    // For now, this is a placeholder structure
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfYesterday = new Date(startOfToday); startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const parseDate = (n: NotificationData) => {
+      const s = n.timestampISO ?? n.time;
+      const d = new Date(String(s));
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    filtered = filtered.filter((n) => {
+      const d = parseDate(n);
+      if (!d) return false;
+      switch (filterValue) {
+        case 'today':
+          return d >= startOfToday;
+        case 'yesterday':
+          return d >= startOfYesterday && d < startOfToday;
+        case 'week':
+          return d >= weekAgo;
+        case 'month':
+          return d >= monthAgo;
+        case 'custom':
+        default:
+          return true;
+      }
+    });
+
     return filtered;
   };
 

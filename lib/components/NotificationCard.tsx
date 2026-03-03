@@ -9,6 +9,8 @@ export interface NotificationData {
   message: string;
   time: string;
   isRead: boolean;
+  // optional raw timestamp passed from service
+  timestampISO?: string;
 }
 
 interface NotificationCardProps {

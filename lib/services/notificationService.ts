@@ -7,6 +7,8 @@ export type MobileNotification = {
   message: string;
   time: string;
   isRead: boolean;
+  // raw ISO timestamp for robust filtering
+  timestampISO?: string;
 };
 
 function fmtTime(ts?: string) {
@@ -44,6 +46,7 @@ function mapRowToMobile(row: any): MobileNotification {
     message: row.message ?? row.description ?? '',
     time: fmtTime(row.timestamp ?? row.created_at ?? row.createdAt),
     isRead: Boolean(row.read ?? row.read_flag),
+    timestampISO: (row.timestamp ?? row.created_at ?? row.createdAt) ? String(row.timestamp ?? row.created_at ?? row.createdAt) : undefined,
   };
 }
 
