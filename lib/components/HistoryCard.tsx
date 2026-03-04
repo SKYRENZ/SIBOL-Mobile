@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { TourGuideZone } from 'rn-tourguide';
 
 interface HistoryCardProps {
   title: string;
@@ -9,6 +10,7 @@ interface HistoryCardProps {
   kgDelta?: number;
   code?: string | null;
   onViewCode?: (code: string) => void;
+  isFirstCard?: boolean;
 }
 
 export default function HistoryCard({
@@ -19,8 +21,36 @@ export default function HistoryCard({
   kgDelta = 0,
   code = null,
   onViewCode,
+  isFirstCard = false,
 }: HistoryCardProps) {
   const isEarned = pointsDelta >= 0;
+
+  const renderViewButton = () => {
+    const button = (
+      <TouchableOpacity
+        onPress={() => onViewCode?.(code!)}
+        style={styles.codeBtn}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.codeBtnText}>View</Text>
+      </TouchableOpacity>
+    );
+
+    if (isFirstCard && code) {
+      return (
+        <TourGuideZone
+          zone={23}
+          text="Tap 'View' to see the code you used to claim your reward."
+          shape="rectangle"
+          borderRadius={8}
+        >
+          {button}
+        </TourGuideZone>
+      );
+    }
+
+    return button;
+  };
 
   return (
     <View style={styles.card}>
@@ -55,13 +85,7 @@ export default function HistoryCard({
       {type === 'REWARD_CLAIM' && code ? (
         <View style={styles.row}>
           <Text style={styles.label}>Code</Text>
-          <TouchableOpacity
-            onPress={() => onViewCode?.(code)}
-            style={styles.codeBtn}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.codeBtnText}>View</Text>
-          </TouchableOpacity>
+          {renderViewButton()}
         </View>
       ) : null}
     </View>

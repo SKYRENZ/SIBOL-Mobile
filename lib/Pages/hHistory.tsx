@@ -12,7 +12,9 @@ import {
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
-import { ArrowLeft, ChevronDown, X } from 'lucide-react-native';
+import { ChevronDown, X, HelpCircle } from 'lucide-react-native';
+import { TourGuideProvider, TourGuideZone, useTourGuideController } from 'rn-tourguide';
+import CustomTooltip from '../components/commons/CustomTooltip';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import HistoryCard from '../components/HistoryCard';
 import BottomNavbar from '../components/hBotNav';
@@ -29,9 +31,10 @@ type UiHistoryItem = HistoryApiItem & {
   dateLabel: string;
 };
 
-export default function HHistory() {
+function HHistoryContent() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets(); // ✅ add
+  const { start, canStart, getCurrentStep } = useTourGuideController();
 
   const NAV_HEIGHT = 72; // adjust to match your BottomNavbar height
 
@@ -48,6 +51,8 @@ export default function HHistory() {
 
   const [codeModalVisible, setCodeModalVisible] = useState(false);
   const [selectedCode, setSelectedCode] = useState<string>('');
+
+  const [isTourActive, setIsTourActive] = useState(false);
 
   const filterOptions: FilterOption[] = ['All', 'This Week', 'This Month', 'Custom'];
 
@@ -77,6 +82,25 @@ export default function HHistory() {
       load();
     }, [])
   );
+
+  // Track tour state and close dropdown when tour starts
+  useEffect(() => {
+    const checkTourState = () => {
+      const isActive = getCurrentStep() !== undefined;
+      setIsTourActive(isActive);
+      if (isActive) {
+        setShowFilterDropdown(false);
+      }
+    };
+
+    // Check initially
+    checkTourState();
+
+    // Check periodically (tour guide updates)
+    const interval = setInterval(checkTourState, 100);
+
+    return () => clearInterval(interval);
+  }, [getCurrentStep]);
 
   const filteredData = useMemo(() => {
     const now = new Date();
@@ -168,29 +192,34 @@ export default function HHistory() {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       paddingHorizontal: 20,
       paddingTop: 20,
       paddingBottom: 12,
       backgroundColor: '#FFFFFF',
     },
-    backButton: { padding: 4, marginRight: 12 },
     headerTitle: {
       flex: 1,
       fontSize: 18,
       fontWeight: '600',
       color: '#111827',
       textAlign: 'center',
-      marginRight: 40,
+    },
+    helpButton: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     filterRow: {
       paddingHorizontal: 16,
       paddingBottom: 16,
       flexDirection: 'row',
       justifyContent: 'flex-end',
-      zIndex: 1000,
-      elevation: 1000,
+      zIndex: isTourActive ? 0 : 1000,
+      elevation: isTourActive ? 0 : 1000,
     },
-    filterContainer: { position: 'relative', zIndex: 1000, elevation: 1000 },
+    filterContainer: { position: 'relative', zIndex: isTourActive ? 0 : 1000, elevation: isTourActive ? 0 : 1000 },
     filterButton: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -213,8 +242,8 @@ export default function HHistory() {
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.15,
       shadowRadius: 12,
-      elevation: 1000,
-      zIndex: 1000,
+      elevation: isTourActive ? 0 : 1000,
+      zIndex: isTourActive ? 0 : 1000,
       borderWidth: 1,
       borderColor: '#E5E7EB',
       minWidth: 140,
@@ -253,21 +282,41 @@ export default function HHistory() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <ArrowLeft size={24} color="#2E523A" />
-        </TouchableOpacity>
+        <View style={{ width: 40 }} />
         <Text style={styles.headerTitle}>History</Text>
+        <View style={{ width: 40, alignItems: 'center', justifyContent: 'center' }}>
+          <TourGuideZone
+            zone={20}
+            text="Tap here anytime to view this guide again."
+            shape="circle"
+            borderRadius={15}
+          >
+            <TouchableOpacity
+              style={styles.helpButton}
+              onPress={() => canStart && start()}
+            >
+              <HelpCircle size={24} color="#2E523A" />
+            </TouchableOpacity>
+          </TourGuideZone>
+        </View>
       </View>
 
       <View style={styles.filterRow}>
         <View style={styles.filterContainer}>
-          <TouchableOpacity
-            style={styles.filterButton}
-            onPress={() => setShowFilterDropdown(!showFilterDropdown)}
+          <TourGuideZone
+            zone={22}
+            text="Use this filter to view history by All, This Week, This Month, or a custom date range."
+            shape="rectangle"
+            borderRadius={8}
           >
-            <Text style={styles.filterButtonText}>{getFilterDisplayText()}</Text>
-            <ChevronDown size={18} color="#FFFFFF" />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.filterButton}
+              onPress={() => setShowFilterDropdown(!showFilterDropdown)}
+            >
+              <Text style={styles.filterButtonText}>{getFilterDisplayText()}</Text>
+              <ChevronDown size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          </TourGuideZone>
 
           {showFilterDropdown && (
             <View style={styles.dropdownContainer}>
@@ -305,20 +354,45 @@ export default function HHistory() {
             </TouchableOpacity>
           </View>
         ) : filteredData.length > 0 ? (
-          filteredData.map((item) => (
-            <HistoryCard
-              key={item.id}
-              title={item.type === 'QR_SCAN' ? 'QR Scan' : item.title}
-              date={item.dateLabel}
-              type={item.type}
-              pointsDelta={item.pointsDelta}
-              kgDelta={item.kgDelta}
-              code={item.code}
-              onViewCode={(code) => {
-                setSelectedCode(code);
-                setCodeModalVisible(true);
-              }}
-            />
+          filteredData.map((item, index) => (
+            <View key={item.id}>
+              {index === 0 ? (
+                <TourGuideZone
+                  zone={21}
+                  text="This shows your past records of claimed rewards and QR scans with points earned or deducted."
+                  shape="rectangle"
+                  borderRadius={12}
+                >
+                  <HistoryCard
+                    title={item.type === 'QR_SCAN' ? 'QR Scan' : item.title}
+                    date={item.dateLabel}
+                    type={item.type}
+                    pointsDelta={item.pointsDelta}
+                    kgDelta={item.kgDelta}
+                    code={item.code}
+                    onViewCode={(code) => {
+                      setSelectedCode(code);
+                      setCodeModalVisible(true);
+                    }}
+                    isFirstCard={true}
+                  />
+                </TourGuideZone>
+              ) : (
+                <HistoryCard
+                  title={item.type === 'QR_SCAN' ? 'QR Scan' : item.title}
+                  date={item.dateLabel}
+                  type={item.type}
+                  pointsDelta={item.pointsDelta}
+                  kgDelta={item.kgDelta}
+                  code={item.code}
+                  onViewCode={(code) => {
+                    setSelectedCode(code);
+                    setCodeModalVisible(true);
+                  }}
+                  isFirstCard={false}
+                />
+              )}
+            </View>
           ))
         ) : (
           <View style={styles.emptyState}>
@@ -368,5 +442,18 @@ export default function HHistory() {
         <BottomNavbar />
       </View>
     </SafeAreaView>
+  );
+}
+
+export default function HHistory() {
+  return (
+    <TourGuideProvider
+      tooltipComponent={CustomTooltip}
+      androidStatusBarVisible={true}
+      backdropColor="rgba(0,0,0,0.5)"
+      preventOutsideInteraction={true}
+    >
+      <HHistoryContent />
+    </TourGuideProvider>
   );
 }
