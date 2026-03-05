@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import tw from '../utils/tailwind';
 import { Gift, Mail, Medal } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 
 export interface NotificationData {
   id: string;
@@ -20,6 +21,8 @@ interface NotificationCardProps {
 }
 
 export default function NotificationCard({ notification, onPress }: NotificationCardProps) {
+  const navigation = useNavigation<any>();
+
   const getIcon = () => {
     // try to detect more specific reward/leaderboard events from title/message
     const text = `${notification.title ?? ''} ${notification.message ?? ''}`.toUpperCase();
@@ -46,11 +49,44 @@ export default function NotificationCard({ notification, onPress }: Notification
     return null;
   };
 
+  const handlePress = useCallback(() => {
+    try {
+      // first perform parent onPress (mark as read / local state update)
+      if (typeof onPress === 'function') onPress();
+    } catch (e) {
+      /* ignore */
+    }
+
+    // determine navigation target based on event text / type
+    const text = `${notification.title ?? ''} ${notification.message ?? ''}`.toUpperCase();
+
+    // Reward claimed / unclaimed -> history
+    if (text.includes('REWARD_CLAIMED') || text.includes('REWARD_UNCLAIMED') || notification.type === 'reward_claimed') {
+      navigation.navigate('HHistory');
+      return;
+    }
+
+    // Reward restocked / updated / eligible -> rewards screen
+    if (text.includes('REWARD_RESTOCKED') || text.includes('REWARD_UPDATED') || text.includes('REWARD_ELIGIBLE') || notification.type === 'reward_processing') {
+      navigation.navigate('HRewards');
+      return;
+    }
+
+    // Leaderboard -> dashboard and request scroll to leaderboard
+    if (notification.type === 'leaderboard' || text.includes('LEADERBOARD')) {
+      navigation.navigate('HDashboard', { focusLeaderboard: true });
+      return;
+    }
+
+    // fallback: open notifications list (stay)
+    navigation.navigate('HNotifications' as any);
+  }, [notification, onPress, navigation]);
+
   const icon = getIcon();
 
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={handlePress}
       style={tw`bg-white border-b border-[#CAD3CA] px-4 py-4 flex-row items-start`}
       activeOpacity={0.7}
     >
