@@ -194,7 +194,7 @@ function HHistoryContent() {
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 20,
-      paddingTop: 20,
+      paddingTop: 32,
       paddingBottom: 12,
       backgroundColor: '#FFFFFF',
     },
@@ -292,10 +292,10 @@ function HHistoryContent() {
             borderRadius={15}
           >
             <TouchableOpacity
-              style={styles.helpButton}
-              onPress={() => canStart && start()}
+              style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: 'transparent' }}
+              onPress={() => start()}
             >
-              <HelpCircle size={24} color="#2E523A" />
+              <Text style={{ fontSize: 18, color: '#111827', fontWeight: '700' }}>?</Text>
             </TouchableOpacity>
           </TourGuideZone>
         </View>

@@ -353,11 +353,10 @@ function HProfileContent() {
           borderRadius={15}
         >
           <TouchableOpacity
+            style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: 'transparent' }}
             onPress={() => start()}
-            style={tw`w-10 h-10 items-center justify-center`}
-            activeOpacity={0.7}
           >
-            <HelpCircle size={28} color="white" />
+            <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: '700' }}>?</Text>
           </TouchableOpacity>
         </TourGuideZone>
       </View>
@@ -365,7 +364,7 @@ function HProfileContent() {
       <View style={tw`flex-row items-center`}>
         <View style={tw`mr-[18px]`}>
           <View style={tw`relative`}>
-            <View style={tw`w-[118px] h-[107px] rounded-[15px] border-2 border-green-300 bg-white overflow-hidden`}>
+            <View style={tw`w-[118px] h-[107px] rounded-[15px] border-2 border-white bg-white overflow-hidden`}>
               <Image
                 source={profileImageUrl ? { uri: profileImageUrl } : require('../../assets/profile.png')}
                 style={tw`w-full h-full`}
@@ -387,7 +386,7 @@ function HProfileContent() {
               disabled={uploadingAvatar || profileEditing}
               activeOpacity={0.8}
             >
-              <Pencil color="#26cf5f" size={24} />
+              <Pencil color="white" size={24} />
             </TouchableOpacity>
           </View>
         </View>
