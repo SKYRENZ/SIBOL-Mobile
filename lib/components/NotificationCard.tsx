@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import tw from '../utils/tailwind';
+import { Gift, Mail, Medal } from 'lucide-react-native';
 
 export interface NotificationData {
   id: string;
@@ -20,22 +21,29 @@ interface NotificationCardProps {
 
 export default function NotificationCard({ notification, onPress }: NotificationCardProps) {
   const getIcon = () => {
-    switch (notification.type) {
-      case 'reward_claimed':
-      case 'reward_processing':
-      case 'points':
-        return require('../../assets/reward.png');
-      case 'leaderboard':
-        // add a leaderboard icon at assets/leaderboard.png if desired; fallback to reward icon
-        try {
-          return require('../../assets/leaderboard.png');
-        } catch {
-          return require('../../assets/reward.png');
-        }
-      case 'schedule':
-      default:
-        return null;
+    // try to detect more specific reward/leaderboard events from title/message
+    const text = `${notification.title ?? ''} ${notification.message ?? ''}`.toUpperCase();
+
+    // Gift for claimed / unclaimed
+    if (text.includes('REWARD_CLAIMED') || text.includes('REWARD_UNCLAIMED')) {
+      return <Gift color="#6C8770" size={20} />;
     }
+
+    // Mail for restocked / updated / eligible notifications
+    if (text.includes('REWARD_RESTOCKED') || text.includes('REWARD_UPDATED') || text.includes('REWARD_ELIGIBLE')) {
+      return <Mail color="#6C8770" size={20} />;
+    }
+
+    // Medal for leaderboard events
+    if (notification.type === 'leaderboard' || text.includes('LEADERBOARD')) {
+      return <Medal color="#6C8770" size={20} />;
+    }
+
+    // fallback: gift for reward_claimed, mail for reward_processing, simple dot otherwise
+    if (notification.type === 'reward_claimed') return <Gift color="#6C8770" size={20} />;
+    if (notification.type === 'reward_processing') return <Mail color="#6C8770" size={20} />;
+
+    return null;
   };
 
   const icon = getIcon();
@@ -47,12 +55,8 @@ export default function NotificationCard({ notification, onPress }: Notification
       activeOpacity={0.7}
     >
       {icon && (
-        <View style={tw`mr-3 mt-1`}>
-          <Image
-            source={icon}
-            style={tw`w-8 h-8`}
-            resizeMode="contain"
-          />
+        <View style={tw`mr-3 mt-1 w-8 h-8 items-center justify-center`}>
+          {icon}
         </View>
       )}
       
