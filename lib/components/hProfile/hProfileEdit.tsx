@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { TourGuideZone } from 'rn-tourguide';
 import tw from '../../utils/tailwind';
 import Button from '../commons/Button';
 import ChangePasswordModal from '../ChangePasswordModal';
@@ -189,23 +190,37 @@ export function HProfileEditForm({
             />
           </View>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            disabled={lockOtherButtons}
-            onPress={tryOpenUsername} // ✅ changed
-            style={tw.style(`px-4 py-3 rounded-xl border border-[#6C8770] bg-white`, lockOtherButtons && 'opacity-50')}
+          <TourGuideZone
+            zone={7}
+            text="Click here to change your username."
+            shape="rectangle"
+            borderRadius={12}
           >
-            <Text style={tw`text-[#2E523A] font-semibold text-center`}>Change Username</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              disabled={lockOtherButtons}
+              onPress={tryOpenUsername} // ✅ changed
+              style={tw.style(`px-4 py-3 rounded-xl border border-[#6C8770] bg-white`, lockOtherButtons && 'opacity-50')}
+            >
+              <Text style={tw`text-[#2E523A] font-semibold text-center`}>Change Username</Text>
+            </TouchableOpacity>
+          </TourGuideZone>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            disabled={lockOtherButtons}
-            onPress={tryOpenPassword} // ✅ changed
-            style={tw.style(`px-4 py-3 rounded-xl bg-[#2E523A]`, lockOtherButtons && 'opacity-50')}
+          <TourGuideZone
+            zone={8}
+            text="Click here to change your password."
+            shape="rectangle"
+            borderRadius={12}
           >
-            <Text style={tw`text-white font-semibold text-center`}>Change Password</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              disabled={lockOtherButtons}
+              onPress={tryOpenPassword} // ✅ changed
+              style={tw.style(`px-4 py-3 rounded-xl bg-[#2E523A]`, lockOtherButtons && 'opacity-50')}
+            >
+              <Text style={tw`text-white font-semibold text-center`}>Change Password</Text>
+            </TouchableOpacity>
+          </TourGuideZone>
 
           {editingProfile ? (
             <Text style={tw`text-[#6C8770] text-xs`}>
@@ -220,19 +235,26 @@ export function HProfileEditForm({
         <View style={tw`flex-row items-center justify-between mb-4`}>
           <Text style={tw`text-[#2E523A] text-base font-bold`}>Profile Details</Text>
 
-          <TouchableOpacity
-            onPress={handleToggleEditProfile}
-            disabled={loading || (!editingProfile && !canStartProfileEdit)} // ✅ disable when restricted
-            activeOpacity={0.8}
-            style={tw.style(
-              `px-3 py-2 rounded-xl border border-[#6C8770] bg-white`,
-              (loading || (!editingProfile && !canStartProfileEdit)) && 'opacity-50'
-            )}
+          <TourGuideZone
+            zone={9}
+            text="Click here when you want to edit or change your profile details."
+            shape="rectangle"
+            borderRadius={12}
           >
-            <Text style={tw`text-[#2E523A] font-semibold text-sm`}>
-              {editingProfile ? 'Cancel' : 'Edit Profile'}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleToggleEditProfile}
+              disabled={loading || (!editingProfile && !canStartProfileEdit)} // ✅ disable when restricted
+              activeOpacity={0.8}
+              style={tw.style(
+                `px-3 py-2 rounded-xl border border-[#6C8770] bg-white`,
+                (loading || (!editingProfile && !canStartProfileEdit)) && 'opacity-50'
+              )}
+            >
+              <Text style={tw`text-[#2E523A] font-semibold text-sm`}>
+                {editingProfile ? 'Cancel' : 'Edit Profile'}
+              </Text>
+            </TouchableOpacity>
+          </TourGuideZone>
         </View>
 
         {!editingProfile && !canStartProfileEdit ? (

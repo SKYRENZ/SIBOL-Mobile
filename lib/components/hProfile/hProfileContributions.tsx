@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Animated, ActivityIndicator } from 'react-native';
+import { TourGuideZone } from 'rn-tourguide';
 import { fetchLeaderboard } from '../../services/leaderboardService';
 
 export type HContributionItem = {
@@ -70,34 +71,55 @@ export default function HProfileContributions({
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       {/* Total Points */}
-      <View style={styles.bigCard}>
-        <Text style={styles.cardLabel}>Total Points</Text>
-        <Text style={styles.cardValue}>{points} points</Text>
-      </View>
+      <TourGuideZone
+        zone={3}
+        text="This shows your total accumulated points from all your contributions."
+        shape="rectangle"
+        borderRadius={14}
+      >
+        <View style={styles.bigCard}>
+          <Text style={styles.cardLabel}>Total Points</Text>
+          <Text style={styles.cardValue}>{points} points</Text>
+        </View>
+      </TourGuideZone>
 
       {/* Contributions */}
-      <View style={styles.bigCard}>
-        <Text style={styles.cardLabel}>Contributions</Text>
-        <Text style={styles.cardValue}>{totalContributions} kg</Text>
-      </View>
+      <TourGuideZone
+        zone={4}
+        text="This shows the total kilograms of food waste you've collected overall."
+        shape="rectangle"
+        borderRadius={14}
+      >
+        <View style={styles.bigCard}>
+          <Text style={styles.cardLabel}>Contributions</Text>
+          <Text style={styles.cardValue}>{totalContributions} kg</Text>
+        </View>
+      </TourGuideZone>
 
       {/* Placement */}
-      <View style={styles.bigCard}>
-        <Text style={styles.cardLabel}>Placement</Text>
+      <TourGuideZone
+        zone={5}
+        text="This shows your overall ranking in the leaderboard amongst other household users."
+        shape="rectangle"
+        borderRadius={14}
+      >
+        <View style={styles.bigCard}>
+          <Text style={styles.cardLabel}>Placement</Text>
 
-        {placementLoading ? (
-          <View style={styles.placementRow}>
-            <ActivityIndicator />
-            <Text style={styles.placementHint}>Loading…</Text>
-          </View>
-        ) : (
-          <Text style={styles.cardValue}>{placementText}</Text>
-        )}
+          {placementLoading ? (
+            <View style={styles.placementRow}>
+              <ActivityIndicator />
+              <Text style={styles.placementHint}>Loading…</Text>
+            </View>
+          ) : (
+            <Text style={styles.cardValue}>{placementText}</Text>
+          )}
 
-        <Text style={styles.placementSub}>
-          Based on current leaderboard.
-        </Text>
-      </View>
+          <Text style={styles.placementSub}>
+            Based on current leaderboard.
+          </Text>
+        </View>
+      </TourGuideZone>
     </Animated.View>
   );
 }
