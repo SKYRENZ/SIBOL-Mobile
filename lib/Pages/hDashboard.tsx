@@ -37,7 +37,7 @@ import {
   useTourGuideController,
 } from 'rn-tourguide';
 ;
-import CustomTooltip from '../components/commons/CustomTooltip';
+import CustomTooltip from '../components/commons/CustomTooltipSimple';
 
 export default function HDashboard() {
   return (
