@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -10,15 +10,18 @@ import {
   Modal,
   TouchableWithoutFeedback,
   Animated,
+  Image,
 } from 'react-native';
 import tw from '../utils/tailwind';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Droplet, Bell } from 'lucide-react-native';
+import { Droplet, Bell, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import BottomNavbar from '../components/oBotNav';
 import ResponsiveTaskCard from '../components/primitives/ResponsiveTaskCard';
 import ResponsiveImage from '../components/primitives/ResponsiveImage';
 import CreateFeedstockModal from '../components/CreateFeedstockModal';
+import Stage3Panel from '../components/Stage3Panel';
+import Stage4Panel from '../components/Stage4Panel';
 import { useResponsiveStyle, useResponsiveFontSize } from '../utils/responsiveStyles';
 import { useResponsiveContext } from '../utils/ResponsiveContext';
 import { useNavigation } from '@react-navigation/native';
@@ -130,6 +133,8 @@ export default function ODashboard() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
+  const [currentStage, setCurrentStage] = useState<3 | 4>(3);
+  const panelAnim = useRef(new Animated.Value(1)).current;
   const [displayName, setDisplayName] = useState<string>('User');
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -238,6 +243,17 @@ export default function ODashboard() {
       height: isTallScreen ? 'auto' : undefined,
     }
   }));
+
+  const switchStage = useCallback((newStage: 3 | 4) => {
+    panelAnim.setValue(0);
+    setCurrentStage(newStage);
+    Animated.spring(panelAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 10,
+    }).start();
+  }, [panelAnim]);
 
   const handleSeeAll = useCallback(() => {
     navigation.navigate('ORequest', {
@@ -376,43 +392,43 @@ export default function ODashboard() {
               <View style={tw`px-5 mb-4`}>
                 <View style={tw`flex-row justify-between items-center w-full`}>
                   <Text style={[tw`text-[#2E523A]`, { fontSize: styles.sectionTitle.fontSize, fontWeight: 'bold' }]}>
-                    SIBOL Machines
+                    Process Panels
                   </Text>
-                  <View style={tw`flex-row gap-2`}>
+                  <View style={tw`flex-row items-center gap-2`}>
                     <TouchableOpacity
                       onPress={() => setShowCreateFeedstockModal(true)}
                       style={tw`bg-primary p-2 rounded-full`}
                     >
-                      <Droplet size={24} color="white" fill="white" />
+                      <Droplet size={20} color="white" fill="white" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => setShowActivatePopup(true)}
                       style={tw`bg-primary p-2 rounded-full`}
                     >
-                      <MaterialIcons name="add" size={24} color="white" />
+                      <MaterialIcons name="add" size={20} color="white" />
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
-
-              <View style={tw`px-5 pt-4`}>
-                <View style={tw`items-center mb-3`}>
+                {/* Move machine filter below the section title for clearer layout */}
+                <View style={tw`mt-2`}>
                   <MachineStatusDropdown selectedMachine={selectedMachine} onSelect={setSelectedMachine} />
                 </View>
+              </View>
 
-                <View style={styles.machineImageContainer}>
-                  <ResponsiveImage
-                    source={require('../../assets/sibol-process.png')}
-                    aspectRatio={1}
-                    adaptToDeviceSize={true}
-                  />
-                </View>
+              <View style={tw`px-4 pt-4 pb-6`}>
+                {/* Process Panel Card */}
+                <Animated.View style={[tw`border-2 border-[#AFC8AD] rounded-[15px] bg-white overflow-hidden`, {
+                  opacity: panelAnim,
+                  transform: [{ scale: panelAnim.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }],
+                }]}>
 
-                <Text style={styles.machineStatusText}>
-                  {selectedMachine} is in Stage 2: Anaerobic Digester. No problems found.
-                </Text>
+                  {currentStage === 3 ? (
+                    <Stage3Panel onNavigate={() => switchStage(4)} />
+                  ) : (
+                    <Stage4Panel onNavigate={() => switchStage(3)} />
+                  )}
 
-                <View style={tw`h-24`} />
+                </Animated.View>
               </View>
             </View>
           </>
