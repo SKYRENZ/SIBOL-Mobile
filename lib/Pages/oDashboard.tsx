@@ -320,7 +320,7 @@ export default function ODashboard() {
     <SafeAreaView style={tw`flex-1 bg-white`}>
       <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
         {/* Light green background section for header and tasks */}
-        <View style={tw`bg-[#8FBB8F] px-5 pt-12 pb-6`}>
+        <View style={tw`bg-[#8FBB8F] px-5 pt-8 pb-4`}>
           <View style={tw`flex-row justify-between items-start`}>
             <View style={tw`flex-1`}>
               <Text style={[tw`text-left text-white`, { fontSize: styles.heading.fontSize, fontWeight: 'bold' }]}>
@@ -402,9 +402,9 @@ export default function ODashboard() {
               </ScrollView>
             </View>
 
-            <View style={tw`w-full h-6 bg-white rounded-t-3xl`} />
+            <View style={tw`w-full h-4 bg-white rounded-t-3xl`} />
 
-            <View style={tw`bg-white pt-6 rounded-t-3xl self-center w-[94%]`}>
+            <View style={tw`bg-white pt-2 rounded-t-3xl self-center w-[94%]`}>
               <View style={tw`px-5 mb-4`}>
                 <View style={tw`flex-row justify-between items-center w-full`}>
                   <Text style={[tw`text-[#2E523A]`, { fontSize: styles.sectionTitle.fontSize, fontWeight: 'bold' }]}>
@@ -426,12 +426,12 @@ export default function ODashboard() {
                   </View>
                 </View>
                 {/* Move machine filter below the section title for clearer layout */}
-                <View style={tw`mt-2`}>
+                <View style={tw`mt-1`}>
                   <MachineStatusDropdown selectedMachine={selectedMachine} onSelect={setSelectedMachine} />
                 </View>
               </View>
 
-              <View style={tw`px-4 pt-4 pb-6`}>
+              <View style={tw`px-4 pt-2 pb-6`}>
                 {/* Process Panel Card */}
                 <View style={tw`border-2 border-[#AFC8AD] rounded-[15px] bg-white overflow-hidden`}>
                   <PulsePanel key={currentStage}>
