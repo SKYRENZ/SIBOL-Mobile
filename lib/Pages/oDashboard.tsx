@@ -123,6 +123,33 @@ const MachineStatusDropdown: React.FC<MachineStatusDropdownProps> = ({ selectedM
   );
 };
 
+/** Pulse-panel wrapper – animates children on mount with a subtle pulse */
+function PulsePanel({ children }: { children: React.ReactNode }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    anim.setValue(0);
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 420,
+      useNativeDriver: true,
+    }).start();
+  }, [anim]);
+
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+  const scale = anim.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0.96, 1.03, 1] });
+
+  return (
+    <Animated.View
+      style={{
+        opacity,
+        transform: [{ scale }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 export default function ODashboard() {
   const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 2');
   const { isSm, isMd, isLg } = useResponsiveContext();
@@ -134,8 +161,8 @@ export default function ODashboard() {
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
   const [currentStage, setCurrentStage] = useState<3 | 4>(3);
-  const panelAnim = useRef(new Animated.Value(1)).current;
   const [displayName, setDisplayName] = useState<string>('User');
+
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // ✅ Load real tickets
@@ -243,17 +270,6 @@ export default function ODashboard() {
       height: isTallScreen ? 'auto' : undefined,
     }
   }));
-
-  const switchStage = useCallback((newStage: 3 | 4) => {
-    panelAnim.setValue(0);
-    setCurrentStage(newStage);
-    Animated.spring(panelAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      tension: 80,
-      friction: 10,
-    }).start();
-  }, [panelAnim]);
 
   const handleSeeAll = useCallback(() => {
     navigation.navigate('ORequest', {
@@ -417,18 +433,15 @@ export default function ODashboard() {
 
               <View style={tw`px-4 pt-4 pb-6`}>
                 {/* Process Panel Card */}
-                <Animated.View style={[tw`border-2 border-[#AFC8AD] rounded-[15px] bg-white overflow-hidden`, {
-                  opacity: panelAnim,
-                  transform: [{ scale: panelAnim.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }],
-                }]}>
-
-                  {currentStage === 3 ? (
-                    <Stage3Panel onNavigate={() => switchStage(4)} />
-                  ) : (
-                    <Stage4Panel onNavigate={() => switchStage(3)} />
-                  )}
-
-                </Animated.View>
+                <View style={tw`border-2 border-[#AFC8AD] rounded-[15px] bg-white overflow-hidden`}>
+                  <PulsePanel key={currentStage}>
+                    {currentStage === 3 ? (
+                      <Stage3Panel onNavigate={() => setCurrentStage(4)} />
+                    ) : (
+                      <Stage4Panel onNavigate={() => setCurrentStage(3)} />
+                    )}
+                  </PulsePanel>
+                </View>
               </View>
             </View>
           </>
