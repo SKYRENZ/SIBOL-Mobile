@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Animated, Dimensions, StyleSheet } from 'react-native';
 import tw from 'twrnc';
-import { ArrowRight, ArrowLeft, X, Sparkles } from 'lucide-react-native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface TooltipProps {
   isFirstStep?: boolean;
@@ -23,7 +22,6 @@ export default function CustomTooltip({
   handleNext,
   handlePrev,
   handleStop,
-  ...rest
 }: TooltipProps) {
   const [fadeAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(0.8));
@@ -31,7 +29,6 @@ export default function CustomTooltip({
 
   if (!currentStep) return null;
 
-  // Provide default no-op functions if handlers are not passed
   const onNext = handleNext ?? (() => {});
   const onPrev = handlePrev ?? (() => {});
   const onStop = handleStop ?? (() => {});
@@ -52,17 +49,17 @@ export default function CustomTooltip({
       }),
     ]).start();
 
-    // Pulse animation for emphasis
+    // Pulse animation for spotlight
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 1000,
+          toValue: 1.1,
+          duration: 800,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1000,
+          duration: 800,
           useNativeDriver: true,
         }),
       ])
@@ -72,72 +69,59 @@ export default function CustomTooltip({
     return () => pulse.stop();
   }, [fadeAnim, scaleAnim, pulseAnim]);
 
-  const getTooltipPosition = () => {
-    // Smart positioning based on available screen space
-    const defaultPosition = {
-      top: currentStep?.target?.y ? currentStep.target.y - 80 : '50%',
-      left: currentStep?.target?.x ? Math.min(currentStep.target.x, SCREEN_WIDTH - 280) : '50%',
-      right: 'auto',
-      bottom: 'auto',
-    };
-
-    // Adjust if tooltip would go off screen
-    if (currentStep?.target?.x && currentStep.target.x > SCREEN_WIDTH - 280) {
-      return {
-        ...defaultPosition,
-        left: 'auto',
-        right: 20,
-      };
-    }
-
-    return defaultPosition;
-  };
-
-  const position = getTooltipPosition();
-
   return (
-    <Animated.View
-      style={[
-        styles.tooltipContainer,
-        {
-          opacity: fadeAnim,
-          transform: [{ scale: scaleAnim }],
-          ...position,
-        },
-      ]}
-    >
-      {/* Highlighting overlay */}
+    <>
+      {/* Spotlight Overlay */}
+      <Animated.View 
+        style={[
+          styles.spotlightOverlay,
+          {
+            opacity: fadeAnim,
+          }
+        ]}
+      />
+      
+      {/* Highlight Ring */}
       <Animated.View
         style={[
           styles.highlightRing,
           {
             transform: [{ scale: pulseAnim }],
-            top: currentStep?.target?.y ? -currentStep.target.y - 20 : -100,
-            left: currentStep?.target?.x ? -currentStep.target.x - 20 : -100,
+            opacity: fadeAnim,
+            left: currentStep?.target?.x ? currentStep.target.x - 40 : SCREEN_WIDTH / 2 - 40,
+            top: currentStep?.target?.y ? currentStep.target.y - 40 : SCREEN_HEIGHT / 2 - 40,
           },
         ]}
       />
-      
-      {/* Main tooltip content */}
-      <View style={styles.tooltipContent}>
-        {/* Header with icon */}
+
+      {/* Main Tooltip */}
+      <Animated.View
+        style={[
+          styles.tooltipContainer,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }],
+            left: currentStep?.target?.x ? Math.min(currentStep.target.x, SCREEN_WIDTH - 320) : SCREEN_WIDTH / 2 - 160,
+            top: currentStep?.target?.y ? currentStep.target.y - 120 : SCREEN_HEIGHT / 2 - 100,
+          },
+        ]}
+      >
+        {/* Header */}
         <View style={styles.tooltipHeader}>
           <View style={styles.iconContainer}>
-            <Sparkles size={16} color="#2E523A" />
+            <Text style={styles.iconText}>✨</Text>
           </View>
           <Text style={styles.stepIndicator}>
             Step {currentStep?.order || 1} of {currentStep?.totalSteps || 6}
           </Text>
         </View>
 
-        {/* Main message */}
-        <View style={styles.messageContainer}>
-          <Text style={styles.messageText}>
-            {currentStep.text}
-          </Text>
-        </View>
+        {/* Message */}
+        <Text style={styles.messageText}>
+          {currentStep.text}
+        </Text>
 
-        {/* Action buttons */}
+        {/* Buttons */}
         <View style={styles.buttonContainer}>
           {!isFirstStep && (
             <TouchableOpacity
@@ -145,10 +129,7 @@ export default function CustomTooltip({
               onPress={onPrev}
               activeOpacity={0.8}
             >
-              <ArrowLeft size={14} color="#6C8770" />
-              <Text style={styles.previousText}>
-                {labels?.back ?? 'Previous'}
-              </Text>
+              <Text style={styles.previousText}>← {labels?.back ?? 'Previous'}</Text>
             </TouchableOpacity>
           )}
 
@@ -158,10 +139,7 @@ export default function CustomTooltip({
               onPress={onStop}
               activeOpacity={0.8}
             >
-              <X size={14} color="#9CA3AF" />
-              <Text style={styles.skipText}>
-                {labels?.skip ?? 'Skip'}
-              </Text>
+              <Text style={styles.skipText}>{labels?.skip ?? 'Skip'}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -170,55 +148,56 @@ export default function CustomTooltip({
               activeOpacity={0.9}
             >
               <Text style={styles.nextText}>
-                {isLastStep ? (labels?.finish ?? 'Finish') : (labels?.next ?? 'Next')}
+                {isLastStep ? (labels?.finish ?? 'Finish') : (labels?.next ?? 'Next')} →
               </Text>
-              {!isLastStep && <ArrowRight size={14} color="#FFFFFF" />}
             </TouchableOpacity>
           </View>
         </View>
-      </View>
-
-      {/* Pointer arrow */}
-      <View style={[
-        styles.arrow,
-        currentStep?.target?.x > SCREEN_WIDTH - 280 ? styles.arrowRight : styles.arrowLeft
-      ]} />
-    </Animated.View>
+      </Animated.View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  tooltipContainer: {
+  spotlightOverlay: {
     position: 'absolute',
-    zIndex: 9999,
-    minWidth: 280,
-    maxWidth: 320,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    zIndex: 9998,
   },
   highlightRing: {
     position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 3,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 4,
     borderColor: '#2E523A',
-    backgroundColor: 'rgba(46, 82, 58, 0.1)',
+    backgroundColor: 'rgba(46, 82, 58, 0.2)',
     shadowColor: '#2E523A',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 15,
+    zIndex: 9999,
   },
-  tooltipContent: {
+  tooltipContainer: {
+    position: 'absolute',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 25,
+    elevation: 12,
     borderWidth: 1,
-    borderColor: 'rgba(46, 82, 58, 0.1)',
+    borderColor: 'rgba(46, 82, 58, 0.15)',
+    minWidth: 300,
+    maxWidth: 350,
+    zIndex: 10000,
   },
   tooltipHeader: {
     flexDirection: 'row',
@@ -234,20 +213,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
   },
+  iconText: {
+    fontSize: 14,
+  },
   stepIndicator: {
     fontSize: 12,
     color: '#6C8770',
     fontWeight: '500',
-  },
-  messageContainer: {
-    marginBottom: 16,
-    paddingRight: 8,
   },
   messageText: {
     fontSize: 15,
     color: '#1F2937',
     lineHeight: 22,
     fontWeight: '500',
+    marginBottom: 16,
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -263,61 +242,39 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   previousButton: {
-    backgroundColor: 'rgba(108, 135, 112, 0.1)',
+    backgroundColor: 'rgba(108, 135, 112, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(108, 135, 112, 0.2)',
+    borderColor: 'rgba(108, 135, 112, 0.3)',
   },
   previousText: {
     fontSize: 13,
     color: '#6C8770',
     fontWeight: '500',
-    marginLeft: 6,
   },
   rightButtons: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   skipButton: {
-    backgroundColor: 'rgba(156, 163, 175, 0.1)',
+    backgroundColor: 'rgba(156, 163, 175, 0.15)',
     marginRight: 8,
   },
   skipText: {
     fontSize: 13,
     color: '#9CA3AF',
     fontWeight: '500',
-    marginLeft: 6,
   },
   nextButton: {
     backgroundColor: '#2E523A',
     shadowColor: '#2E523A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   nextText: {
     fontSize: 13,
     color: '#FFFFFF',
     fontWeight: '600',
-    marginRight: 6,
-  },
-  arrow: {
-    position: 'absolute',
-    width: 0,
-    height: 0,
-    borderLeftWidth: 12,
-    borderRightWidth: 12,
-    borderTopWidth: 12,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: '#FFFFFF',
-  },
-  arrowLeft: {
-    bottom: -11,
-    left: 30,
-  },
-  arrowRight: {
-    bottom: -11,
-    right: 30,
   },
 });
