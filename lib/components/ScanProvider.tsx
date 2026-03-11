@@ -7,6 +7,7 @@ import Snackbar from './commons/Snackbar';
 import QRMessage from './QRMessage';
 import { decodeQrFromImage } from '../utils/qrDecoder';
 import { scanQr } from '../services/apiClient';
+import * as notificationService from '../services/notificationService';
 
 type ScanResultPayload = {
   awarded?: number;
@@ -111,6 +112,15 @@ export default function ScanProvider({ children }: { children: React.ReactNode }
 
       // Let screens update their UI if they want (dashboard points, etc.)
       DeviceEventEmitter.emit('sibol:scanSuccess', result);
+
+      // NEW: refresh notifications so mobile sees POINTS_/REWARD_ system events immediately
+      try {
+        const unreadCount = await notificationService.fetchUnreadCount();
+        const rows = await notificationService.fetchNotifications({ limit: 20, unreadOnly: true });
+        DeviceEventEmitter.emit('sibol:notificationsUpdated', { unreadCount, rows });
+      } catch (e) {
+        console.warn('[ScanProvider] refresh notifications failed', e);
+      }
 
       // close scanner on success
       setIsOpen(false);

@@ -4,8 +4,11 @@ import tw from '../utils/tailwind';
 import NotificationCard, { NotificationData } from '../components/NotificationCard';
 import BottomNavbar from '../components/hBotNav';
 import HistoryFilter from '../components/HistoryFilter';
+import * as notificationService from '../services/notificationService';
+import type { MobileNotification } from '../services/notificationService';
+import { useFocusEffect } from '@react-navigation/native';
 
-type TabType = 'Read' | 'Unread' | 'Rewards';
+type TabType = 'Read' | 'Unread';
 type FilterOption = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
 export default function HNotifications(props: any) {
@@ -13,88 +16,89 @@ export default function HNotifications(props: any) {
   const [tabHistory, setTabHistory] = useState<TabType[]>([]);
   const [filterValue, setFilterValue] = useState<FilterOption>('all');
   
-  // Sample notification data - in a real app, this would come from an API or state management
-  const [notifications, setNotifications] = useState<NotificationData[]>([
-    {
-      id: '1',
-      type: 'schedule',
-      title: 'You missed your schedule',
-      message: 'You can reschedule or alert your waste collector to collect your waste',
-      time: '9:00 A.M',
-      isRead: false,
-    },
-    {
-      id: '2',
-      type: 'schedule',
-      title: 'You missed your schedule',
-      message: 'You can reschedule or alert your waste collector to collect your waste',
-      time: '9:00 A.M',
-      isRead: false,
-    },
-    {
-      id: '3',
-      type: 'schedule',
-      title: 'You missed your schedule',
-      message: 'You can reschedule or alert your waste collector to collect your waste',
-      time: '9:00 A.M',
-      isRead: false,
-    },
-    {
-      id: '4',
-      type: 'reward_claimed',
-      title: 'Reward Claimed!',
-      message: 'Congratulations! You can now collect your reward.',
-      time: '9:00 A.M',
-      isRead: true,
-    },
-    {
-      id: '5',
-      type: 'reward_claimed',
-      title: 'Reward Claimed!',
-      message: 'Congratulations! You can now collect your reward.',
-      time: '9:00 A.M',
-      isRead: true,
-    },
-    {
-      id: '6',
-      type: 'reward_processing',
-      title: 'Reward in process',
-      message: 'Please standby, your reward is being processed.',
-      time: '9:00 A.M',
-      isRead: true,
-    },
-  ]);
+  // Replace sample state with fetched notifications
+  const [notifications, setNotifications] = useState<NotificationData[]>([]);
 
-  // Handle notification click - move from Unread to Read
-  const handleNotificationPress = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((notif) =>
-        notif.id === id ? { ...notif, isRead: true } : notif
-      )
-    );
+  // load notifications on focus
+  useFocusEffect(
+    React.useCallback(() => {
+      let mounted = true;
+      (async () => {
+        try {
+          const rows = await notificationService.fetchNotifications({ limit: 200 });
+          if (mounted) {
+            setNotifications(
+              rows.map((r: MobileNotification) => ({
+                id: r.id,
+                type: r.type,
+                title: r.title,
+                message: r.message,
+                time: r.time,
+                isRead: r.isRead,
+                timestampISO: r.timestampISO,
+              }))
+            );
+          }
+        } catch (err) {
+          console.error('load notifications failed', err);
+        }
+      })();
+      return () => { mounted = false; };
+    }, [])
+  );
+
+  // update unread count and mark read locally when pressed
+  const handleNotificationPress = async (id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    try {
+      const item = notifications.find((n) => n.id === id);
+      // only call backend if it wasn't already read
+      if (item && !item.isRead) {
+        await notificationService.markAsRead(id, 'system');
+      }
+    } catch (e) { /* ignore */ }
   };
 
   // Filter notifications based on active tab and date filter
   const getFilteredNotifications = () => {
-    let filtered: NotificationData[];
-    
-    switch (activeTab) {
-      case 'Read':
-        filtered = notifications.filter((n) => n.isRead && (n.type === 'schedule'));
-        break;
-      case 'Unread':
-        filtered = notifications.filter((n) => !n.isRead);
-        break;
-      case 'Rewards':
-        filtered = notifications.filter((n) => n.type === 'reward_claimed' || n.type === 'reward_processing');
-        break;
-      default:
-        filtered = [];
-    }
+    // base by tab
+    let filtered: NotificationData[] =
+      activeTab === 'Read'
+        ? notifications.filter((n) => n.isRead)
+        : notifications.filter((n) => !n.isRead);
 
-    // Apply date filter if not 'all'
-    // Note: In a real app, you would filter by actual dates
-    // For now, this is a placeholder structure
+    if (!filterValue || filterValue === 'all') return filtered;
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfYesterday = new Date(startOfToday); startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const parseDate = (n: NotificationData) => {
+      const s = n.timestampISO ?? n.time;
+      const d = new Date(String(s));
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    filtered = filtered.filter((n) => {
+      const d = parseDate(n);
+      if (!d) return false;
+      switch (filterValue) {
+        case 'today':
+          return d >= startOfToday;
+        case 'yesterday':
+          return d >= startOfYesterday && d < startOfToday;
+        case 'week':
+          return d >= weekAgo;
+        case 'month':
+          return d >= monthAgo;
+        case 'custom':
+        default:
+          return true;
+      }
+    });
+
     return filtered;
   };
 
@@ -158,23 +162,7 @@ export default function HNotifications(props: any) {
               )}
             </TouchableOpacity>
 
-            {/* Rewards Tab */}
-            <TouchableOpacity
-              onPress={() => changeTab('Rewards')}
-              style={tw.style(
-                `flex-1 justify-center items-center rounded-[15px]`,
-                activeTab === 'Rewards' && 'bg-[#88AB8E] border border-[#88AB8E]'
-              )}
-            >
-              <Text
-                style={tw.style(
-                  `text-[15px] font-semibold`,
-                  activeTab === 'Rewards' ? 'text-white' : 'text-[#6C8770]'
-                )}
-              >
-                Rewards
-              </Text>
-            </TouchableOpacity>
+            {/* (Rewards tab removed) */}
           </View>
         </View>
 
