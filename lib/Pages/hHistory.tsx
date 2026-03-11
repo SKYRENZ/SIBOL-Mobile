@@ -11,6 +11,7 @@ import {
   Platform,
   Dimensions,
   ActivityIndicator,
+  DeviceEventEmitter, // added
 } from 'react-native';
 import { ChevronDown, X, HelpCircle } from 'lucide-react-native';
 import { TourGuideProvider, TourGuideZone, useTourGuideController } from 'rn-tourguide';
@@ -21,6 +22,7 @@ import BottomNavbar from '../components/hBotNav';
 import { fetchMyHistory, type HistoryApiItem } from '../services/historyService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ already present
 import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ added
+import tw from '../utils/tailwind'; // <-- added
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -79,7 +81,17 @@ function HHistoryContent() {
 
   useFocusEffect(
     React.useCallback(() => {
+      // initial load when screen focused
       load();
+
+      // listen for explicit updates instead of polling
+      const sub = DeviceEventEmitter.addListener('historyUpdated', () => {
+        load();
+      });
+
+      return () => {
+        sub.remove();
+      };
     }, [])
   );
 
@@ -317,16 +329,36 @@ function HHistoryContent() {
               <ChevronDown size={18} color="#FFFFFF" />
             </TouchableOpacity>
           </TourGuideZone>
+  return (
+    <SafeAreaView style={tw`flex-1 bg-white`}>
+      <View style={tw`flex-row items-center px-5 pt-5 pb-3 bg-white`}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={tw`p-1 mr-3`}>
+          <ArrowLeft size={24} color="#2E523A" />
+        </TouchableOpacity>
+        <Text style={tw`flex-1 text-lg font-semibold text-gray-900 text-center mr-10`}>History</Text>
+      </View>
+
+      <View style={tw`px-4 pb-4 flex-row justify-end z-50`}>
+        <View style={tw`relative z-50`}>
+          <TouchableOpacity
+            style={tw`flex-row items-center justify-between bg-[#2E523A] rounded-lg px-3 py-2 min-w-[100px]`}
+            onPress={() => setShowFilterDropdown(!showFilterDropdown)}
+          >
+            <Text style={tw`text-white text-[13px] font-medium mr-1`}>{getFilterDisplayText()}</Text>
+            <ChevronDown size={18} color="#FFFFFF" />
+          </TouchableOpacity>
 
           {showFilterDropdown && (
-            <View style={styles.dropdownContainer}>
+            <View style={tw`absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[140px]`}>
               {filterOptions.map((option, index) => (
                 <TouchableOpacity
                   key={option}
-                  style={[styles.dropdownItem, index === filterOptions.length - 1 && styles.dropdownItemLast]}
+                  style={[
+                    index !== filterOptions.length - 1 ? tw`px-4 py-3 border-b border-gray-100` : tw`px-4 py-3`,
+                  ]}
                   onPress={() => handleFilterSelect(option)}
                 >
-                  <Text style={[styles.dropdownItemText, selectedFilter === option && styles.dropdownItemTextSelected]}>
+                  <Text style={ selectedFilter === option ? tw`text-[#2E523A] font-semibold` : tw`text-gray-700 text-[14px]`}>
                     {option}
                   </Text>
                 </TouchableOpacity>
@@ -337,20 +369,20 @@ function HHistoryContent() {
       </View>
 
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollViewContent}
+        style={tw`flex-1`}
+        contentContainerStyle={tw`pt-2 pb-4`}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         {loading ? (
-          <View style={styles.emptyState}>
+          <View style={tw`items-center justify-center py-16 px-10`}>
             <ActivityIndicator size="large" color="#2E523A" />
           </View>
         ) : error ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>{error}</Text>
-            <TouchableOpacity onPress={load} style={{ marginTop: 12 }}>
-              <Text style={{ color: '#2E523A', fontWeight: '700' }}>Retry</Text>
+          <View style={tw`items-center justify-center py-16 px-10`}>
+            <Text style={tw`text-gray-500 text-base text-center`}>{error}</Text>
+            <TouchableOpacity onPress={load} style={tw`mt-3`}>
+              <Text style={tw`text-[#2E523A] font-bold`}>Retry</Text>
             </TouchableOpacity>
           </View>
         ) : filteredData.length > 0 ? (
@@ -393,10 +425,25 @@ function HHistoryContent() {
                 />
               )}
             </View>
+          filteredData.map((item) => (
+            <HistoryCard
+              key={item.id}
+              title={item.type === 'QR_SCAN' ? 'QR Scan' : item.title}
+              date={item.dateLabel}
+              type={item.type}
+              pointsDelta={item.pointsDelta}
+              kgDelta={item.kgDelta}
+              code={item.code}
+              status={item.status} // pass status so card can show "Claimed"
+              onViewCode={(code) => {
+                setSelectedCode(code);
+                setCodeModalVisible(true);
+              }}
+            />
           ))
         ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No history records found for this period</Text>
+          <View style={tw`items-center justify-center py-16 px-10`}>
+            <Text style={tw`text-gray-500 text-base text-center`}>No history records found for this period</Text>
           </View>
         )}
 
@@ -404,13 +451,13 @@ function HHistoryContent() {
         <BottomNavSpacer />
       </ScrollView>
 
-      {/* Calendar Modal (unchanged) */}
+      {/* Calendar Modal (unchanged layout but tailwind'd) */}
       <Modal visible={showCalendar} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, width: SCREEN_WIDTH * 0.9, maxWidth: 360 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={{ fontSize: 18, fontWeight: '600', color: '#111827' }}>Select Date Range</Text>
-              <TouchableOpacity style={{ padding: 4 }} onPress={() => setShowCalendar(false)}>
+        <View style={tw`flex-1 bg-[rgba(0,0,0,0.5)] justify-center items-center`}>
+          <View style={tw`bg-white rounded-2xl p-5 w-[90%] max-w-[360px]`}>
+            <View style={tw`flex-row justify-between items-center mb-4`}>
+              <Text style={tw`text-lg font-semibold text-gray-900`}>Select Date Range</Text>
+              <TouchableOpacity style={tw`p-1`} onPress={() => setShowCalendar(false)}>
                 <X size={24} color="#6B7280" />
               </TouchableOpacity>
             </View>
@@ -427,18 +474,18 @@ function HHistoryContent() {
 
       {/* Code Modal */}
       <Modal visible={codeModalVisible} transparent animationType="fade" onRequestClose={() => setCodeModalVisible(false)}>
-        <View style={styles.codeOverlay}>
-          <View style={styles.codeBox}>
-            <Text style={styles.codeTitle}>Reward Code</Text>
-            <Text style={styles.codeValue}>{selectedCode}</Text>
-            <TouchableOpacity style={styles.codeClose} onPress={() => setCodeModalVisible(false)}>
-              <Text style={styles.codeCloseText}>Close</Text>
+        <View style={tw`flex-1 bg-[rgba(0,0,0,0.5)] justify-center items-center p-5`}>
+          <View style={tw`bg-white rounded-xl p-4 w-full max-w-[360px]`}>
+            <Text style={tw`text-base font-bold text-gray-900 mb-2`}>Reward Code</Text>
+            <Text style={tw`text-xl font-medium text-[#2E523A] tracking-wider text-center py-2 bg-[#F3F4F6] rounded-md`}>{selectedCode}</Text>
+            <TouchableOpacity style={tw`mt-3 bg-[#2E523A] rounded-md py-3 items-center`} onPress={() => setCodeModalVisible(false)}>
+              <Text style={tw`text-white font-bold`}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
+      <View style={tw`absolute inset-x-0 bottom-0`}>
         <BottomNavbar />
       </View>
     </SafeAreaView>

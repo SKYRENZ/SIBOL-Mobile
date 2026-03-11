@@ -41,21 +41,38 @@ export async function analyzeWaterAPI(foodWasteKg: number) {
   const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
   const url = `${normalizedBase}/api/ai/analyze-water`;
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      food_waste_kg: foodWasteKg,
-    }),
-  });
+  // Log URL and base for easier debugging in production builds
+  console.log('[analyzeWaterAPI] base=', base, 'normalizedBase=', normalizedBase, 'url=', url);
 
-  if (!response.ok) {
-    throw new Error('Failed to analyze water');
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        food_waste_kg: foodWasteKg,
+      }),
+    });
+
+    if (!response.ok) {
+      // attempt to read body for diagnostics
+      let text = '';
+      try {
+        text = await response.text();
+      } catch (e) {
+        text = '<unreadable response body>';
+      }
+      console.error('[analyzeWaterAPI] non-OK response', response.status, response.statusText, text);
+      throw new Error(`Failed to analyze water (status ${response.status})`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (err: any) {
+    console.error('[analyzeWaterAPI] network/error', err?.message || err);
+    throw err;
   }
-
-  return response.json();
 }
 
 

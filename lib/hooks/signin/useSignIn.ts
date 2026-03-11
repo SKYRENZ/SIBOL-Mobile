@@ -100,7 +100,11 @@ export function useSignIn(navigation: any) {
       let dest = 'HDashboard';
       if (roleVal === ROLE_OPERATOR) dest = 'ODashboard';
 
-      navigation.navigate(dest);
+      // Replace navigation stack so the user cannot go back to SignIn with hardware Back
+      navigation.reset({
+        index: 0,
+        routes: [{ name: dest }],
+      });
     } catch (err: any) {
       const platformMsg = 'Your account does not have access to this platform.';
       if (

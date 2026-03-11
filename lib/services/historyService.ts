@@ -8,6 +8,8 @@ export type HistoryApiItem = {
   kgDelta: number; // + kg for QR scan, 0 for rewards
   title: string; // "QR Scan" or reward item title
   code: string | null; // redemption code (reward claim)
+  status?: string | null; // NEW: Claimed | Unclaimed
+  redeemedAt?: string | null; // NEW: redeemed timestamp
 };
 
 export async function fetchMyHistory(opts?: {

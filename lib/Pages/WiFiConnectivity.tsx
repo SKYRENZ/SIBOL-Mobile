@@ -48,7 +48,11 @@ export default function WiFiConnectivity() {
     try {
       await connectToESP32(selectedNetwork, pwd);
       setIsConnected(true);
-      navigation.navigate('OMaintenance' as any, { connectedNetwork: selectedNetwork });
+      // Pass network info without connected status initially
+      navigation.navigate('OMaintenance' as any, { 
+        connectedNetwork: selectedNetwork,
+        showConnected: false  // Don't show as connected initially
+      });
     } catch (e: any) {
       setScanError(e?.message ?? String(e));
     } finally {
