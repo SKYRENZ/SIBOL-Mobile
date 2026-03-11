@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { TourGuideZone } from 'rn-tourguide';
 import tw from '../utils/tailwind';
 
@@ -55,6 +55,21 @@ export default function HistoryCard({
     return button;
   };
   const isClaimed = String(status ?? '').toLowerCase() === 'claimed';
+
+  const styles = StyleSheet.create({
+    codeBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      backgroundColor: '#2E523A',
+      borderRadius: 8,
+    },
+    codeBtnText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '700',
+      paddingHorizontal: 12,
+    },
+  });
 
   return (
     <View style={tw`bg-white rounded-xl p-4 mb-2 mx-4 border border-gray-200 border-l-4 border-l-[#2E523A] shadow-md`}>
