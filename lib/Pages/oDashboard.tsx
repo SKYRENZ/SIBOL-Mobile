@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -10,15 +10,18 @@ import {
   Modal,
   TouchableWithoutFeedback,
   Animated,
+  Image,
 } from 'react-native';
 import tw from '../utils/tailwind';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Droplet, Bell } from 'lucide-react-native';
+import { Droplet, Bell, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import BottomNavbar from '../components/oBotNav';
 import ResponsiveTaskCard from '../components/primitives/ResponsiveTaskCard';
 import ResponsiveImage from '../components/primitives/ResponsiveImage';
 import CreateFeedstockModal from '../components/CreateFeedstockModal';
+import Stage3Panel from '../components/Stage3Panel';
+import Stage4Panel from '../components/Stage4Panel';
 import { useResponsiveStyle, useResponsiveFontSize } from '../utils/responsiveStyles';
 import { useResponsiveContext } from '../utils/ResponsiveContext';
 import { useNavigation } from '@react-navigation/native';
@@ -120,6 +123,33 @@ const MachineStatusDropdown: React.FC<MachineStatusDropdownProps> = ({ selectedM
   );
 };
 
+/** Pulse-panel wrapper – animates children on mount with a subtle pulse */
+function PulsePanel({ children }: { children: React.ReactNode }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    anim.setValue(0);
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 420,
+      useNativeDriver: true,
+    }).start();
+  }, [anim]);
+
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+  const scale = anim.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0.96, 1.03, 1] });
+
+  return (
+    <Animated.View
+      style={{
+        opacity,
+        transform: [{ scale }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 export default function ODashboard() {
   const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 2');
   const { isSm, isMd, isLg } = useResponsiveContext();
@@ -130,7 +160,9 @@ export default function ODashboard() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
+  const [currentStage, setCurrentStage] = useState<3 | 4>(3);
   const [displayName, setDisplayName] = useState<string>('User');
+
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // ✅ Load real tickets
@@ -288,7 +320,7 @@ export default function ODashboard() {
     <SafeAreaView style={tw`flex-1 bg-white`}>
       <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
         {/* Light green background section for header and tasks */}
-        <View style={tw`bg-[#8FBB8F] px-5 pt-12 pb-6`}>
+        <View style={tw`bg-[#8FBB8F] px-5 pt-8 pb-4`}>
           <View style={tw`flex-row justify-between items-start`}>
             <View style={tw`flex-1`}>
               <Text style={[tw`text-left text-white`, { fontSize: styles.heading.fontSize, fontWeight: 'bold' }]}>
@@ -370,49 +402,46 @@ export default function ODashboard() {
               </ScrollView>
             </View>
 
-            <View style={tw`w-full h-6 bg-white rounded-t-3xl`} />
+            <View style={tw`w-full h-4 bg-white rounded-t-3xl`} />
 
-            <View style={tw`bg-white pt-6 rounded-t-3xl self-center w-[94%]`}>
+            <View style={tw`bg-white pt-2 rounded-t-3xl self-center w-[94%]`}>
               <View style={tw`px-5 mb-4`}>
                 <View style={tw`flex-row justify-between items-center w-full`}>
                   <Text style={[tw`text-[#2E523A]`, { fontSize: styles.sectionTitle.fontSize, fontWeight: 'bold' }]}>
-                    SIBOL Machines
+                    Process Panels
                   </Text>
-                  <View style={tw`flex-row gap-2`}>
+                  <View style={tw`flex-row items-center gap-2`}>
                     <TouchableOpacity
                       onPress={() => setShowCreateFeedstockModal(true)}
                       style={tw`bg-primary p-2 rounded-full`}
                     >
-                      <Droplet size={24} color="white" fill="white" />
+                      <Droplet size={20} color="white" fill="white" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => setShowActivatePopup(true)}
                       style={tw`bg-primary p-2 rounded-full`}
                     >
-                      <MaterialIcons name="add" size={24} color="white" />
+                      <MaterialIcons name="add" size={20} color="white" />
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
-
-              <View style={tw`px-5 pt-4`}>
-                <View style={tw`items-center mb-3`}>
+                {/* Move machine filter below the section title for clearer layout */}
+                <View style={tw`mt-1`}>
                   <MachineStatusDropdown selectedMachine={selectedMachine} onSelect={setSelectedMachine} />
                 </View>
+              </View>
 
-                <View style={styles.machineImageContainer}>
-                  <ResponsiveImage
-                    source={require('../../assets/sibol-process.png')}
-                    aspectRatio={1}
-                    adaptToDeviceSize={true}
-                  />
+              <View style={tw`px-4 pt-2 pb-6`}>
+                {/* Process Panel Card */}
+                <View style={tw`border-2 border-[#AFC8AD] rounded-[15px] bg-white overflow-hidden`}>
+                  <PulsePanel key={currentStage}>
+                    {currentStage === 3 ? (
+                      <Stage3Panel onNavigate={() => setCurrentStage(4)} />
+                    ) : (
+                      <Stage4Panel onNavigate={() => setCurrentStage(3)} />
+                    )}
+                  </PulsePanel>
                 </View>
-
-                <Text style={styles.machineStatusText}>
-                  {selectedMachine} is in Stage 2: Anaerobic Digester. No problems found.
-                </Text>
-
-                <View style={tw`h-24`} />
               </View>
             </View>
           </>
