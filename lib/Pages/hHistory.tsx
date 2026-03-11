@@ -4,23 +4,24 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
   SafeAreaView,
   Modal,
   Platform,
   Dimensions,
   ActivityIndicator,
-  DeviceEventEmitter, // added
+  DeviceEventEmitter,
 } from 'react-native';
-import { ArrowLeft, ChevronDown, X } from 'lucide-react-native';
+import { ChevronDown, X, ArrowLeft } from 'lucide-react-native';
+import { TourGuideProvider, TourGuideZone, useTourGuideController } from 'rn-tourguide';
+import CustomTooltip from '../components/commons/CustomTooltip';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import HistoryCard from '../components/HistoryCard';
 import BottomNavbar from '../components/hBotNav';
 import { fetchMyHistory, type HistoryApiItem } from '../services/historyService';
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ already present
-import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ added
-import tw from '../utils/tailwind'; // <-- added
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import BottomNavSpacer from '../components/commons/BottomNavSpacer';
+import tw from '../utils/tailwind';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -31,11 +32,10 @@ type UiHistoryItem = HistoryApiItem & {
   dateLabel: string;
 };
 
-export default function HHistory() {
+function HHistoryContent() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets(); // ✅ add
-
-  const NAV_HEIGHT = 72; // adjust to match your BottomNavbar height
+  const insets = useSafeAreaInsets();
+  const { start, getCurrentStep } = useTourGuideController();
 
   const [selectedFilter, setSelectedFilter] = useState<FilterOption>('All');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -51,6 +51,8 @@ export default function HHistory() {
   const [codeModalVisible, setCodeModalVisible] = useState(false);
   const [selectedCode, setSelectedCode] = useState<string>('');
 
+  const [isTourActive, setIsTourActive] = useState(false);
+
   const filterOptions: FilterOption[] = ['All', 'This Week', 'This Month', 'Custom'];
 
   const load = async () => {
@@ -58,13 +60,11 @@ export default function HHistory() {
     setError(null);
     try {
       const rows = await fetchMyHistory({ limit: 100 });
-
       const mapped: UiHistoryItem[] = rows.map((r) => {
         const d = new Date(r.createdAt);
         const label = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
         return { ...r, dateObj: d, dateLabel: label };
       });
-
       setItems(mapped);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load history');
@@ -76,56 +76,51 @@ export default function HHistory() {
 
   useFocusEffect(
     React.useCallback(() => {
-      // initial load when screen focused
       load();
-
-      // listen for explicit updates instead of polling
       const sub = DeviceEventEmitter.addListener('historyUpdated', () => {
         load();
       });
-
-      return () => {
-        sub.remove();
-      };
+      return () => sub.remove();
     }, [])
   );
 
+  useEffect(() => {
+    const checkTourState = () => {
+      const isActive = getCurrentStep() !== undefined;
+      setIsTourActive(isActive);
+      if (isActive) setShowFilterDropdown(false);
+    };
+    checkTourState();
+    const interval = setInterval(checkTourState, 100);
+    return () => clearInterval(interval);
+  }, [getCurrentStep]);
+
   const filteredData = useMemo(() => {
     const now = new Date();
-
     switch (selectedFilter) {
       case 'All':
         return items;
-
       case 'This Week': {
         const startOfWeek = new Date(now);
         startOfWeek.setDate(now.getDate() - now.getDay());
         startOfWeek.setHours(0, 0, 0, 0);
-
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 6);
         endOfWeek.setHours(23, 59, 59, 999);
-
         return items.filter((item) => item.dateObj >= startOfWeek && item.dateObj <= endOfWeek);
       }
-
       case 'This Month': {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-
         return items.filter((item) => item.dateObj >= startOfMonth && item.dateObj <= endOfMonth);
       }
-
       case 'Custom': {
         const start = new Date(customStartDate);
         start.setHours(0, 0, 0, 0);
-
         const end = new Date(customEndDate);
         end.setHours(23, 59, 59, 999);
-
         return items.filter((item) => item.dateObj >= start && item.dateObj <= end);
       }
-
       default:
         return items;
     }
@@ -144,18 +139,15 @@ export default function HHistory() {
 
   const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS === 'android') {
-      if (event.type === 'dismissed') {
+      if ((event as any).type === 'dismissed') {
         setShowCalendar(false);
         return;
       }
     }
-
     if (date) {
       if (selectingDateType === 'start') {
         setCustomStartDate(date);
-        if (Platform.OS === 'android') {
-          setSelectingDateType('end');
-        }
+        if (Platform.OS === 'android') setSelectingDateType('end');
       } else {
         setCustomEndDate(date);
         if (Platform.OS === 'android') {
@@ -182,26 +174,46 @@ export default function HHistory() {
           <ArrowLeft size={24} color="#2E523A" />
         </TouchableOpacity>
         <Text style={tw`flex-1 text-lg font-semibold text-gray-900 text-center mr-10`}>History</Text>
+        <View style={tw`absolute right-4` }>
+          <TourGuideZone
+            zone={20}
+            text="Tap here anytime to view this guide again."
+            shape="circle"
+            borderRadius={15}
+          >
+            <TouchableOpacity
+              style={tw`w-8 h-8 items-center justify-center rounded-full`}
+              onPress={() => start()}
+            >
+              <Text style={tw`text-lg text-gray-900 font-bold`}>?</Text>
+            </TouchableOpacity>
+          </TourGuideZone>
+        </View>
       </View>
 
       <View style={tw`px-4 pb-4 flex-row justify-end z-50`}>
         <View style={tw`relative z-50`}>
-          <TouchableOpacity
-            style={tw`flex-row items-center justify-between bg-[#2E523A] rounded-lg px-3 py-2 min-w-[100px]`}
-            onPress={() => setShowFilterDropdown(!showFilterDropdown)}
+          <TourGuideZone
+            zone={22}
+            text="Use this filter to view history by All, This Week, This Month, or a custom date range."
+            shape="rectangle"
+            borderRadius={8}
           >
-            <Text style={tw`text-white text-[13px] font-medium mr-1`}>{getFilterDisplayText()}</Text>
-            <ChevronDown size={18} color="#FFFFFF" />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={tw`flex-row items-center justify-between bg-[#2E523A] rounded-lg px-3 py-2 min-w-[100px]`}
+              onPress={() => setShowFilterDropdown(!showFilterDropdown)}
+            >
+              <Text style={tw`text-white text-[13px] font-medium mr-1`}>{getFilterDisplayText()}</Text>
+              <ChevronDown size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          </TourGuideZone>
 
           {showFilterDropdown && (
             <View style={tw`absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[140px]`}>
               {filterOptions.map((option, index) => (
                 <TouchableOpacity
                   key={option}
-                  style={[
-                    index !== filterOptions.length - 1 ? tw`px-4 py-3 border-b border-gray-100` : tw`px-4 py-3`,
-                  ]}
+                  style={index !== filterOptions.length - 1 ? tw`px-4 py-3 border-b border-gray-100` : tw`px-4 py-3`}
                   onPress={() => handleFilterSelect(option)}
                 >
                   <Text style={ selectedFilter === option ? tw`text-[#2E523A] font-semibold` : tw`text-gray-700 text-[14px]`}>
@@ -214,12 +226,7 @@ export default function HHistory() {
         </View>
       </View>
 
-      <ScrollView
-        style={tw`flex-1`}
-        contentContainerStyle={tw`pt-2 pb-4`}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pt-2 pb-4`} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {loading ? (
           <View style={tw`items-center justify-center py-16 px-10`}>
             <ActivityIndicator size="large" color="#2E523A" />
@@ -232,21 +239,47 @@ export default function HHistory() {
             </TouchableOpacity>
           </View>
         ) : filteredData.length > 0 ? (
-          filteredData.map((item) => (
-            <HistoryCard
-              key={item.id}
-              title={item.type === 'QR_SCAN' ? 'QR Scan' : item.title}
-              date={item.dateLabel}
-              type={item.type}
-              pointsDelta={item.pointsDelta}
-              kgDelta={item.kgDelta}
-              code={item.code}
-              status={item.status} // pass status so card can show "Claimed"
-              onViewCode={(code) => {
-                setSelectedCode(code);
-                setCodeModalVisible(true);
-              }}
-            />
+          filteredData.map((item, index) => (
+            <View key={item.id}>
+              {index === 0 ? (
+                <TourGuideZone
+                  zone={21}
+                  text="This shows your past records of claimed rewards and QR scans with points earned or deducted."
+                  shape="rectangle"
+                  borderRadius={12}
+                >
+                  <HistoryCard
+                    title={item.type === 'QR_SCAN' ? 'QR Scan' : item.title}
+                    date={item.dateLabel}
+                    type={item.type}
+                    pointsDelta={item.pointsDelta}
+                    kgDelta={item.kgDelta}
+                    code={item.code}
+                    status={item.status}
+                    onViewCode={(code) => {
+                      setSelectedCode(code);
+                      setCodeModalVisible(true);
+                    }}
+                    isFirstCard={true}
+                  />
+                </TourGuideZone>
+              ) : (
+                <HistoryCard
+                  title={item.type === 'QR_SCAN' ? 'QR Scan' : item.title}
+                  date={item.dateLabel}
+                  type={item.type}
+                  pointsDelta={item.pointsDelta}
+                  kgDelta={item.kgDelta}
+                  code={item.code}
+                  status={item.status}
+                  onViewCode={(code) => {
+                    setSelectedCode(code);
+                    setCodeModalVisible(true);
+                  }}
+                  isFirstCard={false}
+                />
+              )}
+            </View>
           ))
         ) : (
           <View style={tw`items-center justify-center py-16 px-10`}>
@@ -254,11 +287,9 @@ export default function HHistory() {
           </View>
         )}
 
-        {/* spacer so content can scroll above bottom nav */}
         <BottomNavSpacer />
       </ScrollView>
 
-      {/* Calendar Modal (unchanged layout but tailwind'd) */}
       <Modal visible={showCalendar} transparent animationType="fade">
         <View style={tw`flex-1 bg-[rgba(0,0,0,0.5)] justify-center items-center`}>
           <View style={tw`bg-white rounded-2xl p-5 w-[90%] max-w-[360px]`}>
@@ -269,17 +300,11 @@ export default function HHistory() {
               </TouchableOpacity>
             </View>
 
-            <DateTimePicker
-              value={selectingDateType === 'start' ? customStartDate : customEndDate}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleDateChange}
-            />
+            <DateTimePicker value={selectingDateType === 'start' ? customStartDate : customEndDate} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={handleDateChange} />
           </View>
         </View>
       </Modal>
 
-      {/* Code Modal */}
       <Modal visible={codeModalVisible} transparent animationType="fade" onRequestClose={() => setCodeModalVisible(false)}>
         <View style={tw`flex-1 bg-[rgba(0,0,0,0.5)] justify-center items-center p-5`}>
           <View style={tw`bg-white rounded-xl p-4 w-full max-w-[360px]`}>
@@ -296,5 +321,18 @@ export default function HHistory() {
         <BottomNavbar />
       </View>
     </SafeAreaView>
+  );
+}
+
+export default function HHistory() {
+  return (
+    <TourGuideProvider
+      tooltipComponent={CustomTooltip}
+      androidStatusBarVisible={true}
+      backdropColor="rgba(0,0,0,0.5)"
+      preventOutsideInteraction={true}
+    >
+      <HHistoryContent />
+    </TourGuideProvider>
   );
 }

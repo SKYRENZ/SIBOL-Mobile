@@ -16,7 +16,9 @@ import {
   Share,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft, Gift } from 'lucide-react-native';
+import { Gift } from 'lucide-react-native';
+import { TourGuideZone, TourGuideProvider, useTourGuideController } from 'rn-tourguide';
+import CustomTooltip from '../components/commons/CustomTooltip';
 import useRewards from '../hooks/useRewards';
 import RedemptionModal from '../components/RedemptionModal';
 import { getMyPoints } from '../services/profileService';
@@ -36,7 +38,21 @@ interface Reward {
 }
 
 export default function HRewards() {
+  return (
+    <TourGuideProvider
+      tooltipComponent={CustomTooltip}
+      androidStatusBarVisible={true}
+      backdropColor="rgba(0,0,0,0.5)"
+      preventOutsideInteraction={true}
+    >
+      <HRewardsContent />
+    </TourGuideProvider>
+  );
+}
+
+function HRewardsContent() {
   const navigation = useNavigation();
+  const { start } = useTourGuideController();
   const [availablePoints, setAvailablePoints] = React.useState(82);
   const [showClaimModal, setShowClaimModal] = React.useState(false);
   const [selectedReward, setSelectedReward] = React.useState<Reward | null>(null);
@@ -130,17 +146,17 @@ export default function HRewards() {
     scrollView: { flex: 1 },
     scrollViewContent: { paddingBottom: 120 },
     container: { flex: 1, backgroundColor: '#FFFFFF' },
-    header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingBottom: 0, backgroundColor: 'transparent', position: 'relative', zIndex: 10 },
+    header: { flexDirection: 'row', alignItems: 'center', paddingTop: 32, paddingHorizontal: 20, paddingBottom: 0, backgroundColor: 'transparent', position: 'relative', zIndex: 10 },
     backButton: { padding: 4, marginRight: 12 },
-    headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: '#111827', textAlign: 'center', marginRight: 40 },
-    pointsContainer: { marginHorizontal: 20, marginTop: 16, marginBottom: 32, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 5, borderWidth: 1, borderColor: '#E5E7EB' },
+    headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: '#111827', textAlign: 'center' },
+    pointsContainer: { marginHorizontal: 20, marginTop: 32, marginBottom: 32, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 5, borderWidth: 1, borderColor: '#E5E7EB' },
     pointsContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     pointsInfo: { flex: 1 },
     pointsLabel: { fontSize: 14, color: '#6B7280', fontWeight: '500', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
     pointsValue: { fontSize: 32, fontWeight: '700', color: '#2E523A', marginBottom: 4 },
     pointsText: { fontSize: 14, color: '#6B7280' },
     pointsIcon: { width: 60, height: 60, borderRadius: 12, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginLeft: 16 },
-    content: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 40, position: 'relative', zIndex: 5 },
+    content: { paddingHorizontal: 16, paddingTop: 40, paddingBottom: 40, position: 'relative', zIndex: 5 },
     sectionTitle: { fontSize: 18, fontWeight: '600', color: '#111827', marginBottom: 8 },
     sectionSubtitle: { fontSize: 14, color: '#6B7280', marginBottom: 24 },
     rewardsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingBottom: 24 },
@@ -189,47 +205,86 @@ export default function HRewards() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <ArrowLeft size={24} color="#2E523A" />
-          </TouchableOpacity>
+          <View style={{ width: 40 }} />
           <Text style={styles.headerTitle}>Rewards</Text>
+
+          {/* right control spacer + question mark trigger (vertically centered) */}
+          <View style={{ width: 40, alignItems: 'center', justifyContent: 'center' }}>
+            <TourGuideZone
+              zone={20}
+              text="Tap here anytime to view this guide again."
+              shape="circle"
+              borderRadius={15}
+            >
+              <TouchableOpacity
+                style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: 'transparent' }}
+                onPress={() => start()}
+              >
+                <Text style={{ fontSize: 18, color: '#111827', fontWeight: '700' }}>?</Text>
+              </TouchableOpacity>
+            </TourGuideZone>
+          </View>
         </View>
 
         <View style={styles.pointsContainer}>
-          <View style={styles.pointsContent}>
-            <View style={styles.pointsInfo}>
-              <Text style={styles.pointsLabel}>Your Points</Text>
-              <Text style={styles.pointsValue}>{availablePoints}</Text>
-              <Text style={styles.pointsText}>Available to redeem</Text>
+          <TourGuideZone
+            zone={21}
+            text="This is your current points balance available to redeem for rewards."
+            shape="rectangle"
+            borderRadius={12}
+          >
+            <View style={styles.pointsContent}>
+              <View style={styles.pointsInfo}>
+                <Text style={styles.pointsLabel}>Your Points</Text>
+                <Text style={styles.pointsValue}>{availablePoints}</Text>
+                <Text style={styles.pointsText}>Available to redeem</Text>
+              </View>
+              <View style={styles.pointsIcon}>
+                <Gift size={32} color="#2E523A" />
+              </View>
             </View>
-            <View style={styles.pointsIcon}>
-              <Gift size={32} color="#2E523A" />
-            </View>
-          </View>
+          </TourGuideZone>
         </View>
 
         <View style={styles.content}>
-          <Text style={styles.sectionTitle}>Claim your rewards</Text>
-          <Text style={styles.sectionSubtitle}>Exchange your reward points for amazing items</Text>
+          <TourGuideZone
+            zone={22}
+            text="Browse rewards here — tap a reward to view details and claim."
+            shape="rectangle"
+            borderRadius={8}
+          >
+            <View>
+              <Text style={styles.sectionTitle}>Claim your rewards</Text>
+              <Text style={styles.sectionSubtitle}>Exchange your reward points for amazing items</Text>
 
-          <View style={styles.rewardsGrid}>
-            {rewards.map((reward) => {
-              const isAvailable = isRewardAvailable(reward.points || 0);
-              return (
-                <View key={reward.id} style={[styles.rewardCard, !isAvailable && styles.rewardCardUnavailable]}>
-                  <Image source={{ uri: reward.image || 'https://via.placeholder.com/300/2E523A/FFFFFF?text=No+Image' }} style={styles.rewardImage} resizeMode="cover" />
-                  <View style={styles.rewardContent}>
-                    <Text style={styles.rewardTitle} numberOfLines={1}>{reward.title}</Text>
-                    <Text style={styles.rewardPoints}>{reward.points} Reward Points</Text>
-                    <TouchableOpacity style={[styles.claimButton, !isAvailable && styles.claimButtonUnavailable]} onPress={() => handleClaimPress(reward as Reward)}>
-                      <Text style={[styles.claimButtonText, !isAvailable && { color: '#6B7280' }]}>{isAvailable ? 'Claim Now' : 'Not Enough Points'}</Text>
-                    </TouchableOpacity>
-                    {!isAvailable && <Text style={styles.unavailableText}>Insufficient points</Text>}
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+              <View style={styles.rewardsGrid}>
+                {rewards.map((reward, idx) => {
+                  const isAvailable = isRewardAvailable(reward.points || 0);
+                  return (
+                    <View key={reward.id} style={[styles.rewardCard, !isAvailable && styles.rewardCardUnavailable]}>
+                      <Image source={{ uri: reward.image || 'https://via.placeholder.com/300/2E523A/FFFFFF?text=No+Image' }} style={styles.rewardImage} resizeMode="cover" />
+                      <View style={styles.rewardContent}>
+                        <Text style={styles.rewardTitle} numberOfLines={1}>{reward.title}</Text>
+                        <Text style={styles.rewardPoints}>{reward.points} Reward Points</Text>
+                        {idx === 0 ? (
+                          <TourGuideZone zone={23} text="Tap here to claim this reward." shape="rectangle" borderRadius={8}>
+                            <TouchableOpacity style={[styles.claimButton, !isAvailable && styles.claimButtonUnavailable]} onPress={() => handleClaimPress(reward as Reward)}>
+                              <Text style={[styles.claimButtonText, !isAvailable && { color: '#6B7280' }]}>{isAvailable ? 'Claim Now' : 'Not Enough Points'}</Text>
+                            </TouchableOpacity>
+                          </TourGuideZone>
+                        ) : (
+                          <TouchableOpacity style={[styles.claimButton, !isAvailable && styles.claimButtonUnavailable]} onPress={() => handleClaimPress(reward as Reward)}>
+                            <Text style={[styles.claimButtonText, !isAvailable && { color: '#6B7280' }]}>{isAvailable ? 'Claim Now' : 'Not Enough Points'}</Text>
+                          </TouchableOpacity>
+                        )}
+                        {!isAvailable && <Text style={styles.unavailableText}>Insufficient points</Text>}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          </TourGuideZone>
         </View>
       </ScrollView>
 

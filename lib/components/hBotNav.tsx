@@ -7,15 +7,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMenu } from './MenuProvider';
 import { useScan } from './ScanProvider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { TourGuideZone } from 'rn-tourguide';
 
 interface BottomNavbarProps {
   onScan?: () => void;
   currentPage?: 'Menu' | 'Chat' | 'Home' | 'Scan' | 'Back';
   onRefresh?: () => void;
   onBack?: () => Promise<boolean> | boolean;
+  enableTour?: boolean; // ✅ NEW PROP
 }
 
-export default function BottomNavbar({ onScan, currentPage, onRefresh, onBack }: BottomNavbarProps) {
+export default function BottomNavbar({
+  onScan,
+  currentPage,
+  onRefresh,
+  onBack,
+  enableTour = false, // ✅ default FALSE
+}: BottomNavbarProps) {
+
   const navigation = useNavigation<any>();
   const { openMenu } = useMenu();
   const { openScanner } = useScan();
@@ -23,11 +32,10 @@ export default function BottomNavbar({ onScan, currentPage, onRefresh, onBack }:
 
   const handleNavigation = async (page: string) => {
     if (page === currentPage) {
-      // Don't let onRefresh or onScan intercept the Back action — Back should always navigate
       if (onRefresh && page !== 'Back') {
         onRefresh();
         return;
-      } else if (page === 'Scan' && page !== 'Back') {
+      } else if (page === 'Scan') {
         if (onScan) onScan();
         return;
       }
@@ -37,39 +45,50 @@ export default function BottomNavbar({ onScan, currentPage, onRefresh, onBack }:
       case 'Menu':
         openMenu();
         break;
+
       case 'Chat':
         navigation.navigate('ChatSupport');
         break;
+
       case 'Home':
         navigation.navigate('HDashboard' as never);
         break;
+
       case 'Scan':
         if (onScan) onScan();
         break;
+
       case 'Back': {
-        // allow page to intercept Back (e.g., unwind local tab history)
         if (onBack) {
           const handled = await Promise.resolve(onBack());
           if (handled) break;
         }
-        // verify token first
+
         const token = await AsyncStorage.getItem('token');
         if (!token) {
-          // not authenticated — go to SignIn
           navigation.navigate('SignIn' as never);
           break;
         }
-        // safe to navigate back if previous route is not an auth screen
+
         const state = navigation.getState && navigation.getState();
         const routes = state?.routes ?? [];
         const idx = typeof state?.index === 'number' ? state.index : routes.length - 1;
         const prev = routes[idx - 1];
-        const authScreens = ['SignIn', 'SignUp', 'Landing', 'VerifyEmail', 'ForgotPassword'];
+
+        const authScreens = [
+          'SignIn',
+          'SignUp',
+          'Landing',
+          'VerifyEmail',
+          'ForgotPassword',
+        ];
+
         if (prev && !authScreens.includes(prev.name)) {
           navigation.goBack();
         } else {
           navigation.navigate('HDashboard' as never);
         }
+
         break;
       }
     }
@@ -81,41 +100,114 @@ export default function BottomNavbar({ onScan, currentPage, onRefresh, onBack }:
 
   const labelStyle = tw`text-[10px] font-semibold text-white mt-1`;
 
+  /**
+   * Helper function
+   * Wraps children in TourGuideZone ONLY if enableTour === true
+   */
+  const maybeWrapTour = (
+    zone: number,
+    text: string,
+    borderRadius: number,
+    children: React.ReactNode
+  ) => {
+    if (!enableTour) return children;
+
+    return (
+      <TourGuideZone
+        zone={zone}
+        text={text}
+        shape="circle"
+        borderRadius={borderRadius}
+      >
+        {children}
+      </TourGuideZone>
+    );
+  };
+
   return (
-    // ✅ Safe-area space is just background
     <View style={[tw`bg-primary`, { paddingBottom: insets.bottom }]}>
-      {/* ✅ Match oBotNav layout */}
       <View style={tw`h-20 flex-row justify-around items-center px-2 pt-2`}>
-        <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Menu')}>
-          <Menu color="white" size={22} />
-          <Text style={labelStyle}>Menu</Text>
+
+        {/* MENU */}
+        <TouchableOpacity
+          style={tw`items-center flex-1`}
+          onPress={() => handleNavigation('Menu')}
+        >
+          {maybeWrapTour(
+            7,
+            "This is the Menu button. Tap here to open the hamburger menu and access other pages in the app.",
+            10,
+            <View style={tw`items-center`}>
+              <Menu color="white" size={22} />
+              <Text style={labelStyle}>Menu</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Chat')}>
-          <MessageSquare color="white" size={22} />
-          <Text style={labelStyle}>Chat Support</Text>
+        {/* CHAT SUPPORT */}
+        <TouchableOpacity
+          style={tw`items-center flex-1`}
+          onPress={() => handleNavigation('Chat')}
+        >
+          {maybeWrapTour(
+            8,
+            "This is Chat Support. Our mascot Lili is here to guide and assist you whenever you need help.",
+            10,
+            <View style={tw`items-center`}>
+              <MessageSquare color="white" size={22} />
+              <Text style={labelStyle}>Chat Support</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
-        {/* ✅ Home button: same size + not too high */}
+        {/* HOME */}
         <View style={tw`items-center -mt-7`}>
-          <TouchableOpacity
-            style={tw`w-16 h-16 rounded-full bg-primary border-2 border-white items-center justify-center`}
-            onPress={() => handleNavigation('Home')}
-          >
-            <HomeIcon color="white" size={24} />
-          </TouchableOpacity>
+          {maybeWrapTour(
+            9,
+            "This is the Home button. Tap here anytime to return to your dashboard.",
+            40,
+            <TouchableOpacity
+              style={tw`w-16 h-16 rounded-full bg-primary border-2 border-white items-center justify-center`}
+              onPress={() => handleNavigation('Home')}
+            >
+              <HomeIcon color="white" size={24} />
+            </TouchableOpacity>
+          )}
           <Text style={labelStyle}>Home</Text>
         </View>
 
-        <TouchableOpacity style={tw`items-center flex-1`} onPress={handleScanPress}>
-          <QrCode color="white" size={22} />
-          <Text style={labelStyle}>Scan QR</Text>
+        {/* SCAN QR */}
+        <TouchableOpacity
+          style={tw`items-center flex-1`}
+          onPress={handleScanPress}
+        >
+          {maybeWrapTour(
+            10,
+            "Tap here to scan a QR code whenever you donate food waste. You will receive reward points based on the weight of your donation.",
+            10,
+            <View style={tw`items-center`}>
+              <QrCode color="white" size={22} />
+              <Text style={labelStyle}>Scan QR</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Back')}>
-          <ArrowLeft color="white" size={22} />
-          <Text style={labelStyle}>Back</Text>
+        {/* BACK */}
+        <TouchableOpacity
+          style={tw`items-center flex-1`}
+          onPress={() => handleNavigation('Back')}
+        >
+          {maybeWrapTour(
+            11,
+            "This is the Back button. Tap here to return to the previous page.",
+            10,
+            <View style={tw`items-center`}>
+              <ArrowLeft color="white" size={22} />
+              <Text style={labelStyle}>Back</Text>
+            </View>
+          )}
         </TouchableOpacity>
+
       </View>
     </View>
   );

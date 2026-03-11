@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { TourGuideZone } from 'rn-tourguide';
 import tw from '../utils/tailwind';
 
 interface HistoryCardProps {
@@ -11,6 +12,7 @@ interface HistoryCardProps {
   code?: string | null;
   status?: string | null; // NEW
   onViewCode?: (code: string) => void;
+  isFirstCard?: boolean;
 }
 
 export default function HistoryCard({
@@ -22,9 +24,52 @@ export default function HistoryCard({
   code = null,
   status = null,
   onViewCode,
+  isFirstCard = false,
 }: HistoryCardProps) {
   const isEarned = pointsDelta >= 0;
+
+  const renderViewButton = () => {
+    const button = (
+      <TouchableOpacity
+        onPress={() => onViewCode?.(code!)}
+        style={styles.codeBtn}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.codeBtnText}>View</Text>
+      </TouchableOpacity>
+    );
+
+    if (isFirstCard && code) {
+      return (
+        <TourGuideZone
+          zone={23}
+          text="Tap 'View' to see the code you used to claim your reward."
+          shape="rectangle"
+          borderRadius={8}
+        >
+          {button}
+        </TourGuideZone>
+      );
+    }
+
+    return button;
+  };
   const isClaimed = String(status ?? '').toLowerCase() === 'claimed';
+
+  const styles = StyleSheet.create({
+    codeBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      backgroundColor: '#2E523A',
+      borderRadius: 8,
+    },
+    codeBtnText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '700',
+      paddingHorizontal: 12,
+    },
+  });
 
   return (
     <View style={tw`bg-white rounded-xl p-4 mb-2 mx-4 border border-gray-200 border-l-4 border-l-[#2E523A] shadow-md`}>

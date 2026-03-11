@@ -19,7 +19,9 @@ import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navig
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/hBotNav';
 import Snackbar from '../components/commons/Snackbar'; // ✅ keep this (now exists)
-import { Edit, Award, Pencil } from 'lucide-react-native';
+import { Edit, Award, Pencil, HelpCircle } from 'lucide-react-native';
+import { TourGuideProvider, TourGuideZone, useTourGuideController } from 'rn-tourguide';
+import CustomTooltip from '../components/commons/CustomTooltip';
 import { getMyProfile, getMyPoints, updateMyProfile, uploadMyProfileImage } from '../services/profileService';
 import HProfileContributions from '../components/hProfile/hProfileContributions';
 import { HProfileEditForm, type HProfileEditData } from '../components/hProfile/hProfileEdit';
@@ -66,8 +68,22 @@ const formatTooEarly = (payload: any, fallback = 'You can’t update yet.') => {
 };
 
 export default function HProfile() {
+  return (
+    <TourGuideProvider
+      tooltipComponent={CustomTooltip}
+      androidStatusBarVisible={true}
+      backdropColor="rgba(0,0,0,0.5)"
+      preventOutsideInteraction={true}
+    >
+      <HProfileContent />
+    </TourGuideProvider>
+  );
+}
+
+function HProfileContent() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<{ HProfile: HProfileRouteParams }, 'HProfile'>>();
+  const { start, canStart, eventEmitter, getCurrentStep } = useTourGuideController();
 
   const [activeTab, setActiveTab] = useState<TabType>('contributions');
   const fadeAnim = useState(new Animated.Value(0))[0];
@@ -328,10 +344,27 @@ export default function HProfile() {
         },
       ]}
     >
+      {/* Question Icon - Tour Guide Entry Point */}
+      <View style={tw`absolute top-[60px] right-6 z-50`}>
+        <TourGuideZone
+          zone={20}
+          text="Tap here anytime to view this guide again."
+          shape="circle"
+          borderRadius={15}
+        >
+          <TouchableOpacity
+            style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: 'transparent' }}
+            onPress={() => start()}
+          >
+            <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: '700' }}>?</Text>
+          </TouchableOpacity>
+        </TourGuideZone>
+      </View>
+
       <View style={tw`flex-row items-center`}>
         <View style={tw`mr-[18px]`}>
           <View style={tw`relative`}>
-            <View style={tw`w-[118px] h-[107px] rounded-[15px] border-2 border-green-300 bg-white overflow-hidden`}>
+            <View style={tw`w-[118px] h-[107px] rounded-[15px] border-2 border-white bg-white overflow-hidden`}>
               <Image
                 source={profileImageUrl ? { uri: profileImageUrl } : require('../../assets/profile.png')}
                 style={tw`w-full h-full`}
@@ -353,7 +386,7 @@ export default function HProfile() {
               disabled={uploadingAvatar || profileEditing}
               activeOpacity={0.8}
             >
-              <Pencil color="#26cf5f" size={24} />
+              <Pencil color="white" size={24} />
             </TouchableOpacity>
           </View>
         </View>
@@ -367,19 +400,27 @@ export default function HProfile() {
             {userData.email || '—'}
           </Text>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={handleImagePicker}
-            disabled={uploadingAvatar || profileEditing}
-            style={tw.style(
-              `self-start px-[14px] py-2 rounded-xl bg-white border border-white/60`,
-              (uploadingAvatar || profileEditing) && 'opacity-60'
-            )}
+          <TourGuideZone
+            zone={2}
+            text="Click here to change your profile picture."
+            shape="rectangle"
+            borderRadius={12}
+            style={{ alignSelf: 'flex-start' }}
           >
-            <Text style={[tw`text-[#2E523A] text-[12px]`, { fontFamily: 'Inter-SemiBold' }]}>
-              {uploadingAvatar ? 'Uploading…' : 'Change Photo'}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleImagePicker}
+              disabled={uploadingAvatar || profileEditing}
+              style={tw.style(
+                `self-start px-[14px] py-2 rounded-xl bg-white border border-white/60`,
+                (uploadingAvatar || profileEditing) && 'opacity-60'
+              )}
+            >
+              <Text style={[tw`text-[#2E523A] text-[12px]`, { fontFamily: 'Inter-SemiBold' }]}>
+                {uploadingAvatar ? 'Uploading…' : 'Change Photo'}
+              </Text>
+            </TouchableOpacity>
+          </TourGuideZone>
         </View>
       </View>
 
@@ -401,9 +442,18 @@ export default function HProfile() {
       );
     }
 
-    if (activeTab === 'profile') {
-      return (
-        <View style={tw`px-4 pt-2`}>
+    // Always render both tabs for tour guide zones to be available
+    return (
+      <>
+        <View style={activeTab === 'contributions' ? {} : { display: 'none' }}>
+          <HProfileContributions
+            fadeAnim={fadeAnim}
+            points={userData.points}
+            totalContributions={userData.totalContributions}
+            currentUsername={userData.username}
+          />
+        </View>
+        <View style={activeTab === 'profile' ? tw`px-4 pt-2` : { display: 'none' }}>
           <HProfileEditForm
             initialData={{
               username: userData.username,
@@ -423,20 +473,11 @@ export default function HProfile() {
             onNotify={(msg, type = 'info') => showSnack(msg, type)}
             usernameLastUpdated={usernameLastUpdated}
             passwordLastUpdated={passwordLastUpdated}
-            profileLastUpdated={profileLastUpdated} // ✅ add
+            profileLastUpdated={profileLastUpdated}
             onPasswordChanged={() => setPasswordLastUpdated(new Date().toISOString())}
           />
         </View>
-      );
-    }
-
-    return (
-      <HProfileContributions
-        fadeAnim={fadeAnim}
-        points={userData.points}
-        totalContributions={userData.totalContributions}
-        currentUsername={userData.username}
-      />
+      </>
     );
   };
 
@@ -449,6 +490,56 @@ export default function HProfile() {
   const [usernameLastUpdated, setUsernameLastUpdated] = useState<string | null>(null);
   const [passwordLastUpdated, setPasswordLastUpdated] = useState<string | null>(null);
   const [profileLastUpdated, setProfileLastUpdated] = useState<string | null>(null); // ✅ add
+
+  // Auto-navigate to appropriate tab based on tour zone
+  useEffect(() => {
+    if (!eventEmitter) return;
+
+    const handleStepChange = (step: any) => {
+      const zone = step?.zone ?? step?.currentStep?.zone ?? step?.order;
+      
+      // Zones 2-5 are on Contributions tab (Change Photo, Points, Contributions kg, Placement)
+      if (zone >= 2 && zone <= 5) {
+        setActiveTab('contributions');
+      }
+      // Zones 7-9 are on Profile tab (Change Username, Change Password, Edit Profile)
+      else if (zone >= 7 && zone <= 9) {
+        setActiveTab('profile');
+      }
+    };
+
+    const handleStart = () => {
+      // When tour starts, go to Contributions tab
+      setActiveTab('contributions');
+    };
+
+    eventEmitter.on('stepChange', handleStepChange);
+    eventEmitter.on('start', handleStart);
+
+    return () => {
+      eventEmitter.off('stepChange', handleStepChange);
+      eventEmitter.off('start', handleStart);
+    };
+  }, [eventEmitter]);
+
+  // Backup: poll current step and switch tabs if needed
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentStep = getCurrentStep?.();
+      if (currentStep) {
+        const zone = (currentStep as any)?.zone ?? (currentStep as any)?.order;
+        
+        // Auto-switch based on zone
+        if (zone >= 2 && zone <= 5 && activeTab !== 'contributions') {
+          setActiveTab('contributions');
+        } else if (zone >= 7 && zone <= 9 && activeTab !== 'profile') {
+          setActiveTab('profile');
+        }
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [getCurrentStep, activeTab]);
 
   return (
     <SafeAreaView style={tw`flex-1 bg-[#F8FAF8]`}>
@@ -480,51 +571,61 @@ export default function HProfile() {
             ]}
             pointerEvents={profileEditing ? 'none' : 'auto'}
           >
-            <TouchableOpacity
-              style={tw.style(
-                `flex-1 items-center py-[10px] flex-row justify-center rounded-lg mx-1`,
-                activeTab === 'contributions' && 'bg-[rgba(46,82,58,0.1)]'
-              )}
-              onPress={() => setActiveTab('contributions')}
-              activeOpacity={0.7}
-              disabled={profileEditing}
-            >
-              <Award
-                size={20}
-                color={activeTab === 'contributions' ? '#2E523A' : '#9E9E9E'}
-                fill={activeTab === 'contributions' ? '#2E523A' : 'none'}
-              />
-              <Text
-                style={[
-                  tw`ml-1.5 text-[14px] text-[#6C8770]`,
-                  { fontFamily: 'Inter-SemiBold', letterSpacing: 0.2 },
-                  activeTab === 'contributions' && tw`text-[#2E523A]`,
-                ]}
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                style={tw.style(
+                  `items-center py-[10px] flex-row justify-center rounded-lg mx-1`,
+                  activeTab === 'contributions' && 'bg-[rgba(46,82,58,0.1)]'
+                )}
+                onPress={() => setActiveTab('contributions')}
+                activeOpacity={0.7}
+                disabled={profileEditing}
               >
-                Contributions
-              </Text>
-            </TouchableOpacity>
+                <Award
+                  size={20}
+                  color={activeTab === 'contributions' ? '#2E523A' : '#9E9E9E'}
+                  fill={activeTab === 'contributions' ? '#2E523A' : 'none'}
+                />
+                <Text
+                  style={[
+                    tw`ml-1.5 text-[14px] text-[#6C8770]`,
+                    { fontFamily: 'Inter-SemiBold', letterSpacing: 0.2 },
+                    activeTab === 'contributions' && tw`text-[#2E523A]`,
+                  ]}
+                >
+                  Contributions
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-            <TouchableOpacity
-              style={tw.style(
-                `flex-1 items-center py-[10px] flex-row justify-center rounded-lg mx-1`,
-                activeTab === 'profile' && 'bg-[rgba(46,82,58,0.1)]'
-              )}
-              onPress={() => setActiveTab('profile')}
-              activeOpacity={0.7}
-              disabled={profileEditing}
+            <TourGuideZone
+              zone={6}
+              text="Tap here to view and edit your profile details."
+              shape="rectangle"
+              borderRadius={8}
+              style={{ flex: 1 }}
             >
-              <Edit size={20} color={activeTab === 'profile' ? '#2E523A' : '#9E9E9E'} />
-              <Text
-                style={[
-                  tw`ml-1.5 text-[14px] text-[#6C8770]`,
-                  { fontFamily: 'Inter-SemiBold', letterSpacing: 0.2 },
-                  activeTab === 'profile' && tw`text-[#2E523A]`,
-                ]}
+              <TouchableOpacity
+                style={tw.style(
+                  `items-center py-[10px] flex-row justify-center rounded-lg mx-1`,
+                  activeTab === 'profile' && 'bg-[rgba(46,82,58,0.1)]'
+                )}
+                onPress={() => setActiveTab('profile')}
+                activeOpacity={0.7}
+                disabled={profileEditing}
               >
-                Profile
-              </Text>
-            </TouchableOpacity>
+                <Edit size={20} color={activeTab === 'profile' ? '#2E523A' : '#9E9E9E'} />
+                <Text
+                  style={[
+                    tw`ml-1.5 text-[14px] text-[#6C8770]`,
+                    { fontFamily: 'Inter-SemiBold', letterSpacing: 0.2 },
+                    activeTab === 'profile' && tw`text-[#2E523A]`,
+                  ]}
+                >
+                  Profile
+                </Text>
+              </TouchableOpacity>
+            </TourGuideZone>
           </Animated.View>
 
           {/* Content */}

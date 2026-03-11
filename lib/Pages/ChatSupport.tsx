@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Image, ScrollView, Animated, Linking, Platform } from 'react-native';
+import { View, Text, Image, ScrollView, Animated, Linking, Platform, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { TourGuideZone, TourGuideProvider, useTourGuideController } from 'rn-tourguide';
+import CustomTooltip from '../components/commons/CustomTooltip';
 import { useNavigation } from '@react-navigation/native';
 import tw from '../utils/tailwind';
 import HBottomNavbar from '../components/hBotNav';
@@ -14,6 +16,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const CLOUD_ANIMATION_DURATION = 15000;
 
 export default function ChatSupport() {
+  return (
+    <TourGuideProvider
+      tooltipComponent={CustomTooltip}
+      androidStatusBarVisible={true}
+      backdropColor="rgba(0,0,0,0.5)"
+      preventOutsideInteraction={true}
+    >
+      <ChatSupportContent />
+    </TourGuideProvider>
+  );
+}
+
+/* 🔽 YOUR ORIGINAL COMPONENT — UNCHANGED */
+function ChatSupportContent() {
   const navigation = useNavigation();
   const cloud1 = useRef(new Animated.Value(-100)).current;
   const cloud2 = useRef(new Animated.Value(-150)).current;
@@ -24,8 +40,9 @@ export default function ChatSupport() {
   const cloud7 = useRef(new Animated.Value(-110)).current;
   const cloud8 = useRef(new Animated.Value(-160)).current;
 
-  const { role } = useMenu(); // 'household' | 'operator' | null
+  const { role } = useMenu();
   const [displayName, setDisplayName] = useState<string>('User');
+  const { start } = useTourGuideController();
 
   useEffect(() => {
     (async () => {
@@ -39,9 +56,7 @@ export default function ChatSupport() {
         const email = u?.Email ?? u?.email ?? '';
         const name = (first || last) ? `${first} ${last}`.trim() : (username || email || 'User');
         setDisplayName(name);
-      } catch (e) {
-        // keep default
-      }
+      } catch (e) {}
     })();
   }, []);
 
@@ -183,42 +198,83 @@ export default function ChatSupport() {
           </Text>
 
           {/* Character Image */}
-          <View style={tw`items-center mb-2`}>
-            <Image
-              source={require('../../assets/lili-headshot.png')}
-              style={{ width: '55%', aspectRatio: 1 }}
-              resizeMode="contain"
-            />
+          <View style={tw`items-center mb-2`}> 
+            <TourGuideZone
+              zone={13}
+              text="Meet Lili — our mascot who helps and guides you through the app."
+              shape="circle"
+              borderRadius={40}
+            >
+              <Image
+                source={require('../../assets/lili-headshot.png')}
+                style={{ width: '55%', aspectRatio: 1 }}
+                resizeMode="contain"
+              />
+            </TourGuideZone>
           </View>
 
           {/* How may I help button */}
           <View style={tw`items-center mb-4`}>
-            <Button
-              title="How may I help?"
-              variant="primary"
-              onPress={handleChatPress}
-              style={[
-                tw`bg-primary rounded-[40px] py-2 px-8 self-center`,
-                {
-                  shadowColor: '#6C8770',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 1,
-                  shadowRadius: 2,
-                  elevation: 4,
-                },
-              ]}
-              textStyle={tw`text-white text-[12px] font-bold font-inter`}
-            />
+            <TourGuideZone
+              zone={14}
+              text="Tap this to start a chat with Lili for guided help."
+              shape="rectangle"
+              borderRadius={8}
+            >
+              <Button
+                title="How may I help?"
+                variant="primary"
+                onPress={handleChatPress}
+                style={[
+                  tw`bg-primary rounded-[40px] py-2 px-8 self-center`,
+                  {
+                    shadowColor: '#6C8770',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 1,
+                    shadowRadius: 2,
+                    elevation: 4,
+                  },
+                ]}
+                textStyle={tw`text-white text-[12px] font-bold font-inter`}
+              />
+            </TourGuideZone>
           </View>
 
           {/* Contact Us */}
-          <Text
-            style={[tw`text-white text-[10px] font-bold text-center font-inter`, { fontFamily: 'Inter' }]}
-            onPress={handleContactPress}
+          <View style={tw`self-center`}> 
+            <TourGuideZone
+              zone={15}
+              text="Contact us via email for further assistance: sibolucc@gmail.com"
+              shape="rectangle"
+              borderRadius={8}
+            >
+              <TouchableOpacity onPress={handleContactPress} activeOpacity={0.8}>
+                <Text
+                  style={[tw`text-white text-[10px] font-bold text-center font-inter px-2`, { fontFamily: 'Inter' }]}
+                >
+                  Contact Us:{' '}
+                  <Text style={[tw`underline font-inter`, { fontFamily: 'Inter' }]}>sibolucc@gmail.com</Text>
+                </Text>
+              </TouchableOpacity>
+            </TourGuideZone>
+          </View>
+        </View>
+
+        {/* Question mark trigger */}
+        <View style={{ position: 'absolute', top: 12, right: 22, zIndex: 50 }}>
+          <TourGuideZone
+            zone={12}
+            text="Tap here anytime to view this guide again."
+            shape="circle"
+            borderRadius={15}
           >
-            Contact Us:{' '}
-            <Text style={[tw`underline font-inter`, { fontFamily: 'Inter' }]}>sibolucc@gmail.com</Text>
-          </Text>
+            <TouchableOpacity
+              style={tw`w-8 h-8 items-center justify-center rounded-full`}
+              onPress={() => start()}
+            >
+              <Text style={tw`text-lg text-white font-bold`}>?</Text>
+            </TouchableOpacity>
+          </TourGuideZone>
         </View>
 
         {/* Cloud Wave Divider */}
@@ -290,10 +346,21 @@ export default function ChatSupport() {
 
         {/* FAQs Section with White Background */}
         <View style={tw`bg-white pt-8 pb-8`}>
-          <Text style={tw`text-[20px] font-bold text-green-light mb-2 font-inter px-6`}>
-            Frequently Asked Questions:
-          </Text>
-          <FAQs items={faqItems} />
+          <TourGuideZone
+            zone={17}
+            text="Frequently Asked Questions — tap any question to see answers."
+            shape="rectangle"
+            borderRadius={8}
+          >
+            <View>
+              <Text style={tw`text-[20px] font-bold text-green-light mb-2 font-inter px-6`}>
+                Frequently Asked Questions:
+              </Text>
+              <View style={{ overflow: 'hidden', maxHeight: 160 }}> 
+                <FAQs items={faqItems} />
+              </View>
+            </View>
+          </TourGuideZone>
 
           {/* ensures last FAQ can scroll above the bottom nav */}
           <BottomNavSpacer />
