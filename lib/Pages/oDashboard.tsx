@@ -29,6 +29,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import { useMaintenance } from '../hooks/useMaintenance'; // ✅ add
+import * as notificationService from '../services/notificationService';
 
 type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
 
@@ -215,7 +216,7 @@ export default function ODashboard() {
         try {
           // TODO: Replace with actual API call to get unread notifications count
           // For now, using a placeholder that should be connected to your notification service
-          const count = 2; // placeholder
+          const count = await notificationService.fetchUnreadCountByType('maintenance');
           if (mounted) {
             setUnreadNotifications(count);
           }
@@ -336,9 +337,9 @@ export default function ODashboard() {
               onPress={() => navigation.navigate('ONotifications')}
             >
               <Bell color="white" size={22} />
-              {/* Unread notifications badge */}
+              {/* Unread notifications badge (top-left, red circle) */}
               {unreadNotifications > 0 && (
-                <View style={tw`absolute top-0 right-0 bg-[#2E8B57] rounded-full min-w-[20px] h-[20px] items-center justify-center`}>
+                <View style={tw`absolute top-0 left-0 bg-[#ef4444] rounded-full min-w-[20px] h-[20px] items-center justify-center px-1`}>
                   <Text style={tw`text-white text-[11px] font-bold`}>
                     {unreadNotifications}
                   </Text>
