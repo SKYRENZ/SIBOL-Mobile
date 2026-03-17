@@ -410,30 +410,32 @@ export default function CommentsSection({
     | { kind: 'attachment'; key: string; createdAt: string; isMine: boolean; url: string; name: string; type?: string | null; senderLabel: string };
 
   const timeline: TimelineItem[] = useMemo(() => {
-    const eventItems: TimelineItem[] = (ticketEvents || []).map(ev => {
-      const title = eventTitle(ev.Event_type);
+    const eventItems: TimelineItem[] = (ticketEvents || [])
+      .filter((ev) => String(ev.Event_type || '').toUpperCase() !== 'MESSAGE')
+      .map(ev => {
+        const title = eventTitle(ev.Event_type);
 
-      const actorDisplay = formatActor(ev.ActorName, ev.ActorRoleName ?? null);
+        const actorDisplay = formatActor(ev.ActorName, ev.ActorRoleName ?? null);
 
-      const isReassigned = ev.Event_type === 'REASSIGNED';
-      const toDisplay =
-        isReassigned && ev.ToActorName
-          ? formatActor(ev.ToActorName, ev.ToActorRoleName ?? null)
-          : null;
+        const isReassigned = ev.Event_type === 'REASSIGNED';
+        const toDisplay =
+          isReassigned && ev.ToActorName
+            ? formatActor(ev.ToActorName, ev.ToActorRoleName ?? null)
+            : null;
 
-      const isCancelRequested = ev.Event_type === 'CANCEL_REQUESTED';
-      const reason = isCancelRequested ? (ev.Notes || '').trim() : null;
+        const isCancelRequested = ev.Event_type === 'CANCEL_REQUESTED';
+        const reason = isCancelRequested ? (ev.Notes || '').trim() : null;
 
-      return {
-        kind: 'event',
-        key: `e-${ev.Event_Id}`,
-        createdAt: ev.Created_At,
-        title,
-        actorDisplay,
-        toDisplay,
-        reason: reason || null,
-      };
-    });
+        return {
+          kind: 'event',
+          key: `e-${ev.Event_Id}`,
+          createdAt: ev.Created_At,
+          title,
+          actorDisplay,
+          toDisplay,
+          reason: reason || null,
+        };
+      });
 
     const remarkItems: TimelineItem[] = (messages || []).map(r => ({
       kind: 'remark',
