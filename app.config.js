@@ -31,7 +31,7 @@ export default {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.sprout.SIBOLmobile",
-      googleServicesFile: "./google-services.json",
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON,
 
       // Add Google Maps API key here so it's written to AndroidManifest on build
       config: {
