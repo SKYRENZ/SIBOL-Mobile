@@ -31,6 +31,7 @@ export default {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.sprout.SIBOLmobile",
+      googleServicesFile: "./google-services.json",
 
       // Add Google Maps API key here so it's written to AndroidManifest on build
       config: {
@@ -57,6 +58,12 @@ export default {
     },
     scheme: "sibol",
     plugins: [
+      [
+        "expo-notifications",
+        {
+          color: "#88AB8E"
+        }
+      ],
       [
         "@react-native-google-signin/google-signin",
         {

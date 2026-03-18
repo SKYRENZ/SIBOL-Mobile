@@ -15,18 +15,17 @@ import Button from '../components/commons/Button';
 import apiClient from '../services/apiClient';
 import Snackbar from '../components/commons/Snackbar';
 import { useSignIn } from '../hooks/signin/useSignIn';
+import { initializePushForCurrentUser } from '../services/pushNotificationService';
 
 type RootStackParamList = {
   Landing: undefined;
   SignIn: undefined;
-  // allow passing prefilled signup fields when coming from SSO
   SignUp: { email?: string; firstName?: string; lastName?: string } | undefined;
   Dashboard: undefined;
-  ODashboard: undefined; // operator (matches App.tsx)
-  HDashboard: undefined; // household (matches App.tsx)
-  // admin pending page accepts optional email
+  ODashboard: undefined;
+  HDashboard: undefined;
   AdminPending: { email?: string } | undefined;
-  ForgotPassword: undefined; // ADD THIS
+  ForgotPassword: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'SignIn'>;
@@ -72,7 +71,7 @@ export default function SignIn({ navigation }: Props) {
   } = useSignIn(navigation);
 
   const handleGoogleSignIn = async () => {
-    if (loading) return; // ✅
+    if (loading) return;
     try {
       setLoading(true);
       console.log('[SignIn] Starting Google sign-in...');
@@ -82,6 +81,9 @@ export default function SignIn({ navigation }: Props) {
       if (result.status === 'success' && result.token) {
         await AsyncStorage.setItem('token', result.token);
         await AsyncStorage.setItem('user', JSON.stringify(result.user));
+
+        // ✅ Register push token AFTER token is saved to AsyncStorage
+        await initializePushForCurrentUser();
 
         if (result.user.role === 'admin') {
           navigation.replace('HDashboard');
@@ -109,6 +111,17 @@ export default function SignIn({ navigation }: Props) {
       setLoading(false);
     }
   };
+
+  // ✅ Wrap handleSignIn to also register push token after successful login
+  const handleEmailSignIn = async () => {
+    if (loading) return;
+    await handleSignIn();
+    // ✅ Call after handleSignIn — token will be in AsyncStorage if login succeeded
+    await initializePushForCurrentUser();
+  };
+
+  // ✅ REMOVED the useEffect that called initializePushForCurrentUser on mount
+  //    Push registration must only happen after the user is authenticated
 
   const styles = useResponsiveStyle(({ isSm }) => ({
     container: {
@@ -156,10 +169,10 @@ export default function SignIn({ navigation }: Props) {
               <TouchableOpacity
                 style={[
                   tw`flex-row items-center justify-center gap-4 py-4.5 px-5 border border-[#CBCAD7] rounded-[10px]`,
-                  loading ? tw`opacity-50` : null, // ✅ visual cue
+                  loading ? tw`opacity-50` : null,
                 ]}
                 onPress={handleGoogleSignIn}
-                disabled={loading} // ✅
+                disabled={loading}
               >
                 <Text style={[tw`text-[#19181F]`, styles.input]}>Sign In with Google</Text>
                 <GoogleIcon />
@@ -183,9 +196,9 @@ export default function SignIn({ navigation }: Props) {
                     placeholder="Enter your email or username"
                     placeholderTextColor="#686677"
                     value={username}
-                    editable={!loading}                 // ✅ disable editing
-                    selectTextOnFocus={!loading}        // ✅ prevents focus selection while disabled
-                    onChangeText={setUsername}  // ✅ let the hook validate
+                    editable={!loading}
+                    selectTextOnFocus={!loading}
+                    onChangeText={setUsername}
                     autoCapitalize="none"
                     onBlur={handleUsernameBlur}
                   />
@@ -208,10 +221,10 @@ export default function SignIn({ navigation }: Props) {
                       placeholder="Enter your password"
                       placeholderTextColor="#686677"
                       value={password}
-                      editable={!loading}                 // ✅ disable editing
-                      selectTextOnFocus={!loading}        // ✅ prevents focus selection while disabled
+                      editable={!loading}
+                      selectTextOnFocus={!loading}
                       onChangeText={text => {
-                        if (loading) return;              // ✅ extra safety
+                        if (loading) return;
                         setPassword(text);
                         if (!text || text.length === 0) {
                           setPasswordError('Password is required');
@@ -262,7 +275,7 @@ export default function SignIn({ navigation }: Props) {
                   title={loading ? 'Signing in…' : 'Sign In'}
                   loading={loading}
                   textStyle={{ fontSize: 20 }}
-                  onPress={() => { if (!loading) handleSignIn(); }}
+                  onPress={handleEmailSignIn} // ✅ changed from handleSignIn to handleEmailSignIn
                 />
 
                 <TouchableOpacity

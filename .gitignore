@@ -33,6 +33,8 @@ yarn-error.*
 # local env files
 .env*.local
 .env
+/sibol-d7410-firebase-adminsdk-fbsvc-ea1e784a91.json
+/google-services.json
 
 # typescript
 *.tsbuildinfo
