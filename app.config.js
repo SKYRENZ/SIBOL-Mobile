@@ -4,7 +4,7 @@ export default {
   expo: {
     name: "SIBOL",
     slug: "SIBOL-mobile",
-    owner: "laira_027",
+    owner: "sibol",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
