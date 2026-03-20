@@ -10,7 +10,7 @@ import type { MobileNotification } from '../services/notificationService';
 
 type TabType = 'Read' | 'Unread';
 type FilterOption = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
-type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
+type FilterTab = 'Requested' | 'Pending' | 'For Verification' | 'Completed' | 'Canceled' | 'Cancel Requested';
 
 type RootStackParamList = {
   ORequest: { initialTab?: FilterTab; openRequestId?: string; navAt?: number };
@@ -46,9 +46,10 @@ export default function ONotifications(props: any) {
 
   const eventToTab = (eventType?: string): FilterTab => {
     const e = String(eventType ?? '').toUpperCase();
-    if (e === 'COMPLETED') return 'Done';
-    if (e === 'CANCELLED' || e === 'CANCEL_REQUESTED') return 'Canceled';
-    if (e === 'FOR_VERIFICATION') return 'For review';
+    if (e === 'COMPLETED') return 'Completed';
+    if (e === 'CANCELLED') return 'Canceled';
+    if (e === 'CANCEL_REQUESTED') return 'Cancel Requested';
+    if (e === 'FOR_VERIFICATION') return 'For Verification';
     return 'Pending'; // ACCEPTED, REASSIGNED, ONGOING, fallback
   };
 

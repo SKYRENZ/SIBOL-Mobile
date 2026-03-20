@@ -1,21 +1,22 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import tw from '../utils/tailwind';
 import NotificationCard, { NotificationData } from '../components/NotificationCard';
 import BottomNavbar from '../components/hBotNav';
 import HistoryFilter from '../components/HistoryFilter';
 import * as notificationService from '../services/notificationService';
 import type { MobileNotification } from '../services/notificationService';
-import { useFocusEffect } from '@react-navigation/native';
 
 type TabType = 'Read' | 'Unread';
 type FilterOption = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
 export default function HNotifications(props: any) {
+  const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<TabType>('Unread');
   const [tabHistory, setTabHistory] = useState<TabType[]>([]);
   const [filterValue, setFilterValue] = useState<FilterOption>('all');
-  
+
   // Replace sample state with fetched notifications
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
 
@@ -48,15 +49,34 @@ export default function HNotifications(props: any) {
   );
 
   // update unread count and mark read locally when pressed
-  const handleNotificationPress = async (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+  const handleNotificationPress = async (notification: NotificationData) => {
+    setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, isRead: true } : n)));
     try {
-      const item = notifications.find((n) => n.id === id);
-      // only call backend if it wasn't already read
-      if (item && !item.isRead) {
-        await notificationService.markAsRead(id, 'system');
+      if (!notification.isRead) {
+        await notificationService.markAsRead(notification.id, 'system');
       }
     } catch (e) { /* ignore */ }
+
+    // Navigate based on notification type
+    const text = `${notification.title ?? ''} ${notification.message ?? ''}`.toUpperCase();
+
+    // Reward Claimed / Redeemed -> history
+    if (text.includes('REWARD_CLAIMED') || text.includes('REWARD_REDEEMED') || text.includes('CLAIMED') || text.includes('REDEEMED')) {
+      navigation.navigate('HHistory');
+      return;
+    }
+
+    // Reward Updated / Restocked / Eligible / New Reward -> rewards screen
+    if (text.includes('REWARD_UPDATED') || text.includes('REWARD_RESTOCKED') || text.includes('REWARD_ELIGIBLE') || text.includes('NEW REWARD') || text.includes('UPDATED') || text.includes('RESTOCKED') || text.includes('ELIGIBLE')) {
+      navigation.navigate('HRewards');
+      return;
+    }
+
+    // Leaderboard -> dashboard
+    if (notification.type === 'leaderboard' || text.includes('LEADERBOARD')) {
+      navigation.navigate('HDashboard', { focusLeaderboard: true });
+      return;
+    }
   };
 
   // Filter notifications based on active tab and date filter
@@ -191,7 +211,8 @@ export default function HNotifications(props: any) {
               <NotificationCard
                 key={notification.id}
                 notification={notification}
-                onPress={() => handleNotificationPress(notification.id)}
+                disableAutoNavigate
+                onPress={() => handleNotificationPress(notification)}
               />
             ))
           )}
