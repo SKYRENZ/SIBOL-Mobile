@@ -18,7 +18,6 @@ import BottomNavbar from '../components/hBotNav';
 import QRMessage from '../components/QRMessage';
 import Leaderboard from '../components/Leaderboard';
 import tw from '../utils/tailwind';
-import Container from '../components/primitives/Container';
 import { Bell } from 'lucide-react-native';
 import { CameraWrapper } from '../components/CameraWrapper';
 import { decodeQrFromImage } from '../utils/qrDecoder';
@@ -64,6 +63,7 @@ function HDashboardContent() {
   const [isProcessingScan, setIsProcessingScan] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [leaderboardKey, setLeaderboardKey] = useState(0); // ✅ Key to force leaderboard refresh
 
   // ✅ Add state for QRMessage modal
   const [showQRMessage, setShowQRMessage] = useState(false);
@@ -111,6 +111,8 @@ function HDashboardContent() {
       const data = await getMyPoints();
       setRewardPoints(Number(data.points ?? 0));
       setTotalKg(Number(data.totalContributions ?? 0));
+      // ✅ Trigger leaderboard refresh
+      setLeaderboardKey(prev => prev + 1);
     } catch (err) {
       console.error('[hDashboard] Failed to refresh points', err);
     } finally {
@@ -150,6 +152,9 @@ function HDashboardContent() {
       setShowQRMessage(true);
       if (typeof result?.totalPoints === 'number') setRewardPoints(result.totalPoints);
       if (typeof result?.totalContributions === 'number') setTotalKg(result.totalContributions);
+
+      // ✅ Trigger leaderboard refresh
+      setLeaderboardKey(prev => prev + 1);
 
       // ✅ Only close scanner on success
       setShowScanner(false);
@@ -238,6 +243,8 @@ function HDashboardContent() {
     const sub = DeviceEventEmitter.addListener('sibol:scanSuccess', (result: any) => {
       if (typeof result?.totalPoints === 'number') setRewardPoints(result.totalPoints);
       if (typeof result?.totalContributions === 'number') setTotalKg(result.totalContributions);
+      // ✅ Trigger leaderboard refresh
+      setLeaderboardKey(prev => prev + 1);
     });
     return () => sub.remove();
   }, []);
@@ -276,7 +283,55 @@ function HDashboardContent() {
   return (
     <SafeAreaView style={[tw`flex-1 bg-white`, isSm ? tw`pt-[55px]` : tw`pt-[70px]`]}>
       <View style={tw`flex-1`}>
-        <Container style={tw`shrink-0`}>
+        {/* ✅ Refresh overlay */}
+        {isRefreshing && (
+          <View style={tw`absolute inset-0 bg-white bg-opacity-90 items-center justify-center z-50`}>
+            <ActivityIndicator size="large" color="#2E523A" />
+            <Text style={tw`text-[#2E523A] font-semibold text-base mt-2`}>Refreshing...</Text>
+          </View>
+        )}
+
+        {/* ✅ Camera Modal with Processing Overlay */}
+        <Modal visible={showScanner} animationType="slide" onRequestClose={handleCloseScanner}>
+          <View style={tw`flex-1 bg-black`}>
+            <CameraWrapper
+              ref={cameraRef}
+              onCapture={handleCapture}
+              setSnackbar={setSnackbar}
+              isProcessingScan={isProcessingScan}
+              active={showScanner}
+            />
+
+            <Snackbar visible={snackbar.visible} message={snackbar.message} type={snackbar.type} onDismiss={handleErrorDismiss} />
+
+            {isProcessingScan && (
+              <View style={tw`absolute inset-0 bg-black bg-opacity-75 items-center justify-center`}>
+                <ActivityIndicator size="large" color="#fff" />
+                <Text style={tw`text-white text-lg mt-4`}>Processing QR code...</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              onPress={handleCloseScanner}
+              style={tw`absolute top-12 right-6 bg-white px-4 py-2 rounded-full z-50`}
+              disabled={isProcessingScan}
+            >
+              <Text style={tw`text-[14px] font-semibold text-black`}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </Modal>
+
+        {/* ✅ QR Message Modal (Success/Error) */}
+        <QRMessage
+          visible={showQRMessage}
+          type={qrMessageType}
+          points={qrMessageData.points}
+          total={qrMessageData.total}
+          message={qrMessageData.message}
+          onClose={() => setShowQRMessage(false)}
+        />
+
+        <ScrollView ref={scrollViewRef} showsVerticalScrollIndicator={false} contentContainerStyle={tw`pb-0`}>
           {/* Header */}
           <View style={[isSm ? tw`mx-4 mb-4` : tw`mx-6 mb-6`]}>
             <View style={tw`flex-row justify-between items-center`}>
@@ -541,72 +596,17 @@ function HDashboardContent() {
 <View
   style={tw`w-[305px] self-center border-b border-[#2E523A] opacity-30 mb-6 mt-4`}
 />
-</Container>
 
-        {/* ✅ Refresh overlay */}
-        {isRefreshing && (
-          <View style={tw`absolute inset-0 bg-white bg-opacity-90 items-center justify-center z-50`}>
-            <ActivityIndicator size="large" color="#2E523A" />
-            <Text style={tw`text-[#2E523A] font-semibold text-base mt-2`}>Refreshing...</Text>
-          </View>
-        )}
-
-        {/* ✅ Camera Modal with Processing Overlay */}
-        <Modal visible={showScanner} animationType="slide" onRequestClose={handleCloseScanner}>
-          <View style={tw`flex-1 bg-black`}>
-            <CameraWrapper
-              ref={cameraRef}
-              onCapture={handleCapture}
-              setSnackbar={setSnackbar}
-              isProcessingScan={isProcessingScan}
-              active={showScanner}
+        {/* Leaderboard */}
+        <TourGuideZone zone={6} text="See your overall ranking among household users." borderRadius={15}>
+            <Leaderboard
+              key={leaderboardKey}
             />
+        </TourGuideZone>
 
-            <Snackbar visible={snackbar.visible} message={snackbar.message} type={snackbar.type} onDismiss={handleErrorDismiss} />
-
-            {isProcessingScan && (
-              <View style={tw`absolute inset-0 bg-black bg-opacity-75 items-center justify-center`}>
-                <ActivityIndicator size="large" color="#fff" />
-                <Text style={tw`text-white text-lg mt-4`}>Processing QR code...</Text>
-              </View>
-            )}
-
-            <TouchableOpacity
-              onPress={handleCloseScanner}
-              style={tw`absolute top-12 right-6 bg-white px-4 py-2 rounded-full z-50`}
-              disabled={isProcessingScan}
-            >
-              <Text style={tw`text-[14px] font-semibold text-black`}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </Modal>
-
-        {/* ✅ QR Message Modal (Success/Error) */}
-        <QRMessage
-          visible={showQRMessage}
-          type={qrMessageType}
-          points={qrMessageData.points}
-          total={qrMessageData.total}
-          message={qrMessageData.message}
-          onClose={() => setShowQRMessage(false)}
-        />
-
-        <ScrollView ref={scrollViewRef} showsVerticalScrollIndicator={false} contentContainerStyle={tw`pb-0`}> {/* changed from pb-[80px] */}
-          <TourGuideZone zone={6} text="See your overall ranking among household users." borderRadius={15}>
-              <Leaderboard
-                brgyName="Brgy. 176-E"
-                entries={[
-                  { rank: 1, name: 'Jacelyn Caratao', points: 120 },
-                  { rank: 2, name: 'Laurenz Listangco', points: 100 },
-                  { rank: 3, name: 'Karl Miranda', points: 95 },
-                ]}
-                userRank={1}
-              />
-          </TourGuideZone>
-
-          {/* spacer so content can scroll above bottom nav */}
-          <BottomNavSpacer />
-        </ScrollView>
+        {/* spacer so content can scroll above bottom nav */}
+        <BottomNavSpacer />
+      </ScrollView>
       </View>
 
       <View style={tw`absolute bottom-0 left-0 right-0 bg-white`}>
