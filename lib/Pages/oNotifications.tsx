@@ -1,58 +1,81 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import tw from '../utils/tailwind';
-import NotificationCard, { NotificationData } from '../components/NotificationCard';
+import NotificationCard from '../components/NotificationCard';
 import BottomNavbar from '../components/oBotNav';
 import HistoryFilter from '../components/HistoryFilter';
+import * as notificationService from '../services/notificationService';
+import type { MobileNotification } from '../services/notificationService';
 
 type TabType = 'Read' | 'Unread';
 type FilterOption = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
+type FilterTab = 'Pending' | 'For review' | 'Done' | 'Canceled';
+
+type RootStackParamList = {
+  ORequest: { initialTab?: FilterTab; openRequestId?: string; navAt?: number };
+};
 
 export default function ONotifications(props: any) {
+  const navigation = useNavigation<any>(); // useNavigation<NativeStackNavigationProp<RootStackParamList>>() if you want strict typing
   const [activeTab, setActiveTab] = useState<TabType>('Unread');
   const [tabHistory, setTabHistory] = useState<TabType[]>([]);
   const [filterValue, setFilterValue] = useState<FilterOption>('all');
-  
-  // Sample notification data - in a real app, this would come from an API or state management
-  const [notifications, setNotifications] = useState<NotificationData[]>([
-    {
-      id: '1',
-      type: 'schedule',
-      title: 'You missed your schedule',
-      message: 'You can reschedule or alert your waste collector to collect your waste',
-      time: '9:00 A.M',
-      isRead: false,
-    },
-    {
-      id: '2',
-      type: 'schedule',
-      title: 'You missed your schedule',
-      message: 'You can reschedule or alert your waste collector to collect your waste',
-      time: '9:00 A.M',
-      isRead: false,
-    },
-    {
-      id: '3',
-      type: 'schedule',
-      title: 'You missed your schedule',
-      message: 'You can reschedule or alert your waste collector to collect your waste',
-      time: '9:00 A.M',
-      isRead: false,
-    }
-  ]);
+  const [notifications, setNotifications] = useState<MobileNotification[]>([]);
 
-  // Handle notification click - move from Unread to Read
-  const handleNotificationPress = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((notif) =>
-        notif.id === id ? { ...notif, isRead: true } : notif
-      )
-    );
+  useFocusEffect(
+    React.useCallback(() => {
+      let mounted = true;
+      (async () => {
+        try {
+          const rows = await notificationService.fetchNotifications({ type: 'maintenance', limit: 200 });
+          if (mounted) setNotifications(rows);
+        } catch (err) {
+          console.error('load operator notifications failed', err);
+        }
+      })();
+      return () => { mounted = false; };
+    }, [])
+  );
+
+  const extractRequestId = (n: MobileNotification): string | undefined => {
+    const source = `${n.title ?? ''} ${n.message ?? ''}`;
+    const m = source.match(/request\s*#\s*(\d+)/i);
+    return m?.[1];
   };
 
-  // Filter notifications based on active tab
+  const eventToTab = (eventType?: string): FilterTab => {
+    const e = String(eventType ?? '').toUpperCase();
+    if (e === 'COMPLETED') return 'Done';
+    if (e === 'CANCELLED' || e === 'CANCEL_REQUESTED') return 'Canceled';
+    if (e === 'FOR_VERIFICATION') return 'For review';
+    return 'Pending'; // ACCEPTED, REASSIGNED, ONGOING, fallback
+  };
+
+  const handleNotificationPress = async (notification: MobileNotification) => {
+    // mark local state read
+    setNotifications(prev =>
+      prev.map(n => (n.id === notification.id ? { ...n, isRead: true } : n))
+    );
+
+    // mark backend read
+    try {
+      if (!notification.isRead) {
+        await notificationService.markAsRead(notification.id, 'maintenance');
+      }
+    } catch {}
+
+    // navigate operator to the relevant request view
+    const openRequestId = extractRequestId(notification);
+    navigation.navigate('ORequest', {
+      initialTab: eventToTab(notification.eventType),
+      openRequestId,
+      navAt: Date.now(),
+    });
+  };
+
   const getFilteredNotifications = () => {
-    let filtered: NotificationData[];
+    let filtered: MobileNotification[];
     
     switch (activeTab) {
       case 'Read':
@@ -156,8 +179,9 @@ export default function ONotifications(props: any) {
             filteredNotifications.map((notification) => (
               <NotificationCard
                 key={notification.id}
-                notification={notification}
-                onPress={() => handleNotificationPress(notification.id)}
+                notification={notification as any}
+                disableAutoNavigate
+                onPress={() => handleNotificationPress(notification)}
               />
             ))
           )}

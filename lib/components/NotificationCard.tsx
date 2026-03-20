@@ -18,9 +18,10 @@ export interface NotificationData {
 interface NotificationCardProps {
   notification: NotificationData;
   onPress: () => void;
+  disableAutoNavigate?: boolean;
 }
 
-export default function NotificationCard({ notification, onPress }: NotificationCardProps) {
+export default function NotificationCard({ notification, onPress, disableAutoNavigate = false }: NotificationCardProps) {
   const navigation = useNavigation<any>();
 
   const getIcon = () => {
@@ -50,12 +51,9 @@ export default function NotificationCard({ notification, onPress }: Notification
   };
 
   const handlePress = useCallback(() => {
-    try {
-      // first perform parent onPress (mark as read / local state update)
-      if (typeof onPress === 'function') onPress();
-    } catch (e) {
-      /* ignore */
-    }
+    try { onPress?.(); } catch {}
+
+    if (disableAutoNavigate) return;
 
     // determine navigation target based on event text / type
     const text = `${notification.title ?? ''} ${notification.message ?? ''}`.toUpperCase();
@@ -80,7 +78,7 @@ export default function NotificationCard({ notification, onPress }: Notification
 
     // fallback: open notifications list (stay)
     navigation.navigate('HNotifications' as any);
-  }, [notification, onPress, navigation]);
+  }, [notification, onPress, navigation, disableAutoNavigate]);
 
   const icon = getIcon();
 

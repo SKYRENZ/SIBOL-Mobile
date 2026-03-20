@@ -4,6 +4,7 @@ import apiClient from './apiClient';
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { FileSystemUploadType } from 'expo-file-system/legacy';
+import { unregisterPushOnLogout } from './pushNotificationService';
 
 export type User = { Account_id?: number; Username?: string; Roles?: number; [k: string]: any };
 export type AuthResponse = { token?: string; accessToken?: string; user?: User; [k: string]: any };
@@ -137,6 +138,13 @@ export async function registerWithAttachment(payload: RegisterWithAttachmentPayl
 // ✅ ADD: Sign out function
 export async function logout() {
   try {
+    // Try backend unregister first while auth token still exists.
+    try {
+      await unregisterPushOnLogout();
+      } catch (e) {
+        console.warn('[push] unregister on logout failed, continuing', e);
+    }
+
     // Clear local storage
     await AsyncStorage.removeItem('token');
     await AsyncStorage.removeItem('user');
@@ -146,6 +154,7 @@ export async function logout() {
     
     // Optionally call backend logout endpoint if you have one
     // await post('/api/auth/logout', {});
+    
   } catch (err) {
     console.error('❌ Logout failed:', err);
     throw err;

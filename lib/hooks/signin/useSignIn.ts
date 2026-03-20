@@ -2,6 +2,7 @@ import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { login as apiLogin } from '../../services/authService';
 import apiClient from '../../services/apiClient';
+import { initializePushForCurrentUser } from '../../services/pushNotificationService';
 
 export function useSignIn(navigation: any) {
   const ROLE_OPERATOR = 3;
@@ -105,6 +106,10 @@ export function useSignIn(navigation: any) {
         index: 0,
         routes: [{ name: dest }],
       });
+
+      // Initialize push notifications for the current user
+      await initializePushForCurrentUser();
+
     } catch (err: any) {
       const platformMsg = 'Your account does not have access to this platform.';
       if (

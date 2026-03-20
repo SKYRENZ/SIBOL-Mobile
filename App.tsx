@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { SafeAreaProvider } from 'react-native-safe-area-context'; // ✅ add
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import HDashboard from './lib/Pages/hDashboard';
 import LandingPage from './lib/Pages/LandingPage';
 import SignIn from './lib/Pages/SignIn';
@@ -33,10 +33,31 @@ import HProfile from './lib/Pages/hProfile';
 import HProfileEdit from './lib/components/hProfile/hProfileEdit';
 import HMap from './lib/Pages/hMap';
 import ScanProvider from './lib/components/ScanProvider';
+import { useEffect } from 'react';
+import { attachPushListeners, initializePushForCurrentUser } from './lib/services/pushNotificationService';
+import * as Notifications from 'expo-notifications';
+
+// ✅ All required NotificationBehavior properties included
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,   // controls foreground alert (older API)
+    shouldShowBanner: true,  // controls foreground banner (newer API)
+    shouldShowList: true,    // controls notification list/tray
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  useEffect(() => {
+    initializePushForCurrentUser();
+
+    const detach = attachPushListeners();
+    return () => detach();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <ScanProvider>

@@ -218,33 +218,33 @@ export default function TicketTimelineCard({
   }, [expanded, remarks.length, events.length]);
 
   const timeline: TimelineItem[] = useMemo(() => {
-    const eventItems: TimelineItem[] = (events || []).map(ev => {
-      const title = eventTitle(ev.Event_type);
-      const actorDisplay = formatActor(ev.ActorName, ev.ActorRoleName ?? null);
+    const eventItems: TimelineItem[] = (events || [])
+      .filter((ev) => String(ev.Event_type || '').toUpperCase() !== 'MESSAGE')
+      .map(ev => {
+        const title = eventTitle(ev.Event_type);
+        const actorDisplay = formatActor(ev.ActorName, ev.ActorRoleName ?? null);
 
-      const isReassigned = ev.Event_type === 'REASSIGNED';
-      const toDisplay =
-        isReassigned && ev.ToActorName
-          ? formatActor(ev.ToActorName, ev.ToActorRoleName ?? null)
-          : null;
+        const isReassigned = ev.Event_type === 'REASSIGNED';
+        const toDisplay =
+          isReassigned && ev.ToActorName
+            ? formatActor(ev.ToActorName, ev.ToActorRoleName ?? null)
+            : null;
 
-      const isCancelRequested = ev.Event_type === 'CANCEL_REQUESTED';
-      const reason = isCancelRequested ? (ev.Notes || '').trim() : null;
+        const isCancelRequested = ev.Event_type === 'CANCEL_REQUESTED';
+        const reason = isCancelRequested ? (ev.Notes || '').trim() : null;
 
-      return {
-        kind: 'event',
-        key: `e-${ev.Event_Id}`,
-        createdAt: ev.Created_At,
-        eventType: ev.Event_type,
-        title,
-        actorDisplay,
-        toDisplay,
-        reason: reason || null,
-
-        // ✅ IMPORTANT: do NOT show notes for REASSIGNED (or any non-cancel-requested event)
-        notes: null,
-      };
-    });
+        return {
+          kind: 'event',
+          key: `e-${ev.Event_Id}`,
+          createdAt: ev.Created_At,
+          eventType: ev.Event_type,
+          title,
+          actorDisplay,
+          toDisplay,
+          reason: reason || null,
+          notes: null,
+        };
+      });
 
     const remarkItems: TimelineItem[] = (remarks || []).map(r => ({
       kind: 'remark',
