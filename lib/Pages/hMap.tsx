@@ -182,7 +182,7 @@ const HMap = () => {
 
   const focusedContainer = useMemo(() => {
     if (!focusedContainerId) return null;
-    return containers.find((c) => String(c.id ?? c.container_id) === String(focusedContainerId)) ?? null;
+    return containers.find((c) => String(c.id) === String(focusedContainerId)) ?? null;
   }, [containers, focusedContainerId]);
 
   const activeContainer = focusedContainer ?? nearestContainer;
@@ -226,7 +226,7 @@ const HMap = () => {
   };
 
   const handleFocusContainer = (c: WasteContainer) => {
-    const id = c.id ?? c.container_id ?? `${c.latitude}-${c.longitude}`;
+    const id = c.id ?? `${c.latitude}-${c.longitude}`;
     setFocusedContainerId(id);
     setRoutePath(null);
     const lat = Number(c.latitude);
@@ -374,7 +374,7 @@ const HMap = () => {
               {containers.map((c, idx) => {
                 const label = c.name || `Container ${idx + 1}`;
                 return (
-                  <View key={String(c.id ?? c.container_id ?? idx)} style={tw`flex-row items-center py-3 border-b border-gray-100`}> 
+                  <View key={String(c.id ?? idx)} style={tw`flex-row items-center py-3 border-b border-gray-100`}> 
                     <View style={tw`flex-1 pr-2`}>
                       <Text style={tw`text-sm font-semibold text-primary`}>{label}</Text>
                       {!!c.fullAddress && <Text style={tw`text-[11px] text-gray-500 mt-1`}>{c.fullAddress}</Text>}

@@ -279,7 +279,7 @@ export default function OWasteCollectionMap({
           const lat = Number(c.latitude);
           const lon = Number(c.longitude);
           if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-          const key = String(c.id ?? c.container_id ?? `${lat}-${lon}-${i}`);
+          const key = String(c.id ?? `${lat}-${lon}-${i}`);
           return (
           <Marker
             key={key}
@@ -289,7 +289,7 @@ export default function OWasteCollectionMap({
             tracksViewChanges={false}
           >
             <View style={styles.markerWrap}>
-              <WasteIcon size={28} />
+              <WasteIcon size={28} color="#2E523A" />
             </View>
             <Callout tooltip>
               <View style={styles.callout}>
@@ -314,7 +314,14 @@ export default function OWasteCollectionMap({
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: '#fff' },
-  markerWrap: { alignItems: 'center', justifyContent: 'center' },
+  markerWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#2E523A',
+  },
   markerIcon: { width: 32, height: 32, tintColor: '#2E523A' },
   callout: { width: 180, padding: 8, backgroundColor: '#fff', borderRadius: 8, elevation: 3 },
   calloutTitle: { fontWeight: '700', color: '#2E523A', marginBottom: 4 },
