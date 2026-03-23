@@ -3,13 +3,14 @@ import { View, Text, TouchableOpacity, ScrollView, Image, Alert } from 'react-na
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ added
-import { ChevronDown, Settings, Wifi, FileSearch } from 'lucide-react-native';
+import { useProcessAlert } from '../components/ProcessAlertProvider';
+import { ChevronDown, Settings, Wifi, FileSearch, AlertCircle } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
 import OProcessSensors from '../components/oProcessSensors';
 import OProcessDetails from '../components/oProcessDetails';
 import OInputWaste from '../components/oInputWastemachine';
 import { useNavigation } from '@react-navigation/native';
-import { createWasteInput } from '../services/wasteInputService';
+import { createWasteInput, getWasteInputsByMachineId } from '../services/wasteInputService';
 import { fetchMachines, Machine } from '../services/machineService';
 
 type MainTabType = 'Maintenance' | 'Additive' | 'Process';
@@ -21,14 +22,19 @@ export default function OProcess() {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [machinesLoading, setMachinesLoading] = useState(false);
   const [selectedMachineId, setSelectedMachineId] = useState<number | null>(null);
+  const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
+  const [inputWasteModalVisible, setInputWasteModalVisible] = useState(false);
+  const [savingWaste, setSavingWaste] = useState(false);
+  const [hasInputToday, setHasInputToday] = useState<boolean | null>(null);
+  const [checkingInputToday, setCheckingInputToday] = useState(false);
+  const [hasSensorAlerts, setHasSensorAlerts] = useState(false);
+  const { setHasProcessAlert } = useProcessAlert();
+  const navigation = useNavigation<any>();
+
   const selectedMachine = useMemo(() => {
     if (!selectedMachineId) return null;
     return machines.find((m) => m.machine_id === selectedMachineId) ?? null;
   }, [machines, selectedMachineId]);
-  const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
-  const [inputWasteModalVisible, setInputWasteModalVisible] = useState(false);
-  const [savingWaste, setSavingWaste] = useState(false);
-  const navigation = useNavigation<any>();
 
   useEffect(() => {
     let mounted = true;
@@ -56,6 +62,45 @@ export default function OProcess() {
     };
   }, []);
 
+  useEffect(() => {
+    if (selectedMachineId) {
+      checkIfInputToday();
+    }
+  }, [selectedMachineId]);
+
+  const checkIfInputToday = async () => {
+    if (!selectedMachineId) return;
+    
+    setCheckingInputToday(true);
+    try {
+      const inputs = await getWasteInputsByMachineId(selectedMachineId);
+      if (inputs && inputs.length > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const hasTodayInput = inputs.some((input: any) => {
+          const inputDate = new Date(input.created_at);
+          inputDate.setHours(0, 0, 0, 0);
+          return inputDate.getTime() === today.getTime();
+        });
+        
+        setHasInputToday(hasTodayInput);
+      } else {
+        setHasInputToday(false);
+      }
+    } catch (err) {
+      console.error('Failed to check today input:', err);
+      setHasInputToday(null);
+    } finally {
+      setCheckingInputToday(false);
+    }
+  };
+
+  useEffect(() => {
+    const shouldShow = (!checkingInputToday && hasInputToday === false) || hasSensorAlerts;
+    setHasProcessAlert(shouldShow);
+  }, [checkingInputToday, hasInputToday, hasSensorAlerts, setHasProcessAlert]);
+
   const handleMainTabChange = (tab: string) => {
     if (tab === 'Maintenance') {
       navigation.navigate('OMaintenance');
@@ -73,9 +118,27 @@ export default function OProcess() {
 
     switch (tabName) {
       case 'Process Panel':
-        return <Settings color={iconColor} size={iconSize} strokeWidth={1.5} />;
+        return (
+          <View style={tw`relative`}>
+            <Settings color={iconColor} size={iconSize} strokeWidth={1.5} />
+            {!checkingInputToday && hasInputToday === false && (
+              <View style={tw`absolute -top-1 -right-1 bg-red-500 rounded-full w-5 h-5 items-center justify-center`}>
+                <AlertCircle color="white" size={12} strokeWidth={2} />
+              </View>
+            )}
+          </View>
+        );
       case 'Process Sensors and Alerts':
-        return <Wifi color={iconColor} size={iconSize} strokeWidth={1.5} />;
+        return (
+          <View style={tw`relative`}>
+            <Wifi color={iconColor} size={iconSize} strokeWidth={1.5} />
+            {hasSensorAlerts && (
+              <View style={tw`absolute -top-1 -right-1 bg-red-500 rounded-full w-5 h-5 items-center justify-center`}>
+                <AlertCircle color="white" size={12} strokeWidth={2} />
+              </View>
+            )}
+          </View>
+        );
       case 'Process Details':
         return <FileSearch color={iconColor} size={iconSize} strokeWidth={1.5} />;
       default:
@@ -91,6 +154,8 @@ export default function OProcess() {
     setSavingWaste(true);
     try {
       await createWasteInput(payload.machineId, Number(payload.weightTotal));
+      // Refresh the today input check after successful save
+      checkIfInputToday();
     } catch (err: any) {
       const msg = err?.message ?? 'Failed to save waste input.';
       Alert.alert('Save failed', String(msg));
@@ -174,7 +239,12 @@ export default function OProcess() {
         );
 
       case 'Process Sensors and Alerts':
-        return <OProcessSensors machineId={selectedMachineId} />;
+        return (
+          <OProcessSensors
+            machineId={selectedMachineId}
+            onAlertStatusChange={setHasSensorAlerts}
+          />
+        );
 
       case 'Process Details':
         return <OProcessDetails machineId={selectedMachineId} machineName={selectedMachine?.Name} />;
@@ -196,6 +266,9 @@ export default function OProcess() {
             tabs={['Maintenance', 'Additive', 'Process']}
             activeTab={selectedMainTab}
             onTabChange={handleMainTabChange}
+            indicators={{
+              'Process': (!checkingInputToday && hasInputToday === false) || hasSensorAlerts
+            }}
           />
         </View>
 

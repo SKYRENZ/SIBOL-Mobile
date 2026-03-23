@@ -10,6 +10,7 @@ import {
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ add
+import { useProcessAlert } from '../components/ProcessAlertProvider';
 import { MaterialIcons } from '@expo/vector-icons';
 import Tabs from '../components/commons/Tabs';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -30,6 +31,7 @@ interface MaintenanceRequest {
 
 export default function OMaintenance() {
   const [selectedTab, setSelectedTab] = useState<TabType>('Maintenance');
+  const { hasProcessAlert } = useProcessAlert();
 
   // --- merged: keep both dropdown + connection state
   const [selectedMachine, setSelectedMachine] = useState('SIBOL Machine 1');
@@ -134,6 +136,7 @@ export default function OMaintenance() {
             <Tabs
               tabs={['Maintenance', 'Additive', 'Process']}
               activeTab={selectedTab}
+              indicators={{ Process: hasProcessAlert }}
               onTabChange={(val) => {
                 if (val === 'Additive') {
                   navigation.navigate('OAdditive');

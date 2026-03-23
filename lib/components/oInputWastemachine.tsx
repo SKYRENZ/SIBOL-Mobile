@@ -11,8 +11,9 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { X } from 'lucide-react-native';
+import { X, Clock, AlertCircle } from 'lucide-react-native';
 import Button from './commons/Button';
+import { getWasteInputsByMachineId } from '../services/wasteInputService';
 
 interface OInputWasteProps {
   visible: boolean;
@@ -37,6 +38,8 @@ export default function OInputWaste({
   const [weightTotal, setWeightTotal] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [lastInput, setLastInput] = useState<any>(null);
+  const [loadingLastInput, setLoadingLastInput] = useState(false);
 
   useEffect(() => {
     if (!visible) {
@@ -49,6 +52,33 @@ export default function OInputWaste({
       setMachineId(machineIdProp);
     }
   }, [machineIdProp]);
+
+  useEffect(() => {
+    if (visible && machineId) {
+      fetchLastInput();
+    }
+  }, [visible, machineId]);
+
+  const fetchLastInput = async () => {
+    setLoadingLastInput(true);
+    try {
+      const inputs = await getWasteInputsByMachineId(machineId);
+      if (inputs && inputs.length > 0) {
+        // Sort by date descending and get the most recent
+        const sorted = inputs.sort((a: any, b: any) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setLastInput(sorted[0]);
+      } else {
+        setLastInput(null);
+      }
+    } catch (err) {
+      console.error('Failed to fetch last input:', err);
+      setLastInput(null);
+    } finally {
+      setLoadingLastInput(false);
+    }
+  };
 
   const resetForm = () => {
     setMachineId('');
@@ -81,6 +111,46 @@ export default function OInputWaste({
       day: 'numeric',
       year: 'numeric',
     });
+  };
+
+  const formatLastInputDisplay = () => {
+    if (!lastInput) return null;
+    
+    const inputDate = new Date(lastInput.created_at);
+    const today = new Date();
+    const isToday = inputDate.toDateString() === today.toDateString();
+    
+    let dateStr = '';
+    if (isToday) {
+      dateStr = `Today at ${inputDate.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      })}`;
+    } else {
+      dateStr = inputDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: inputDate.getFullYear() === today.getFullYear() ? undefined : 'numeric'
+      });
+    }
+    
+    return {
+      date: dateStr,
+      weight: lastInput.weight,
+      timeAgo: getTimeAgo(inputDate)
+    };
+  };
+
+  const getTimeAgo = (date: Date) => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    if (diffHours > 0) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    return 'Just now';
   };
 
   const validateAndSave = async () => {
@@ -141,6 +211,33 @@ export default function OInputWaste({
                   <Text style={styles.heading}>Input waste</Text>
                   
                   <Text style={styles.dateText}>{formatDateDisplay()}</Text>
+
+                  {/* Last Input Reminder */}
+                  <View style={styles.reminderContainer}>
+                    {loadingLastInput ? (
+                      <View style={styles.reminderItem}>
+                        <Clock color="#88AB8E" size={16} strokeWidth={1.5} />
+                        <Text style={styles.reminderText}>Loading last input...</Text>
+                      </View>
+                    ) : lastInput ? (
+                      <View style={styles.reminderItem}>
+                        <Clock color="#88AB8E" size={16} strokeWidth={1.5} />
+                        <View style={styles.reminderContent}>
+                          <Text style={styles.reminderText}>
+                            Last: {formatLastInputDisplay()?.weight}kg - {formatLastInputDisplay()?.date}
+                          </Text>
+                          <Text style={styles.reminderSubText}>
+                            {formatLastInputDisplay()?.timeAgo}
+                          </Text>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.reminderItem}>
+                        <AlertCircle color="#C65C5C" size={16} strokeWidth={1.5} />
+                        <Text style={styles.reminderTextWarning}>No previous input found</Text>
+                      </View>
+                    )}
+                  </View>
 
                   <View style={styles.fieldContainer}>
                     <Text style={styles.label}>Machine ID</Text>
@@ -282,5 +379,39 @@ const styles = StyleSheet.create({
   },
   button: {
     minHeight: 34,
+  },
+  reminderContainer: {
+    backgroundColor: 'rgba(136, 171, 142, 0.08)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 20,
+    borderLeftWidth: 3,
+    borderLeftColor: '#88AB8E',
+  },
+  reminderItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reminderContent: {
+    marginLeft: 8,
+    flex: 1,
+  },
+  reminderText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6C8770',
+    flexShrink: 1,
+  },
+  reminderSubText: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: '#88AB8E',
+    marginTop: 2,
+  },
+  reminderTextWarning: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#C65C5C',
+    marginLeft: 8,
   },
 });
