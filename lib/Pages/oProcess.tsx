@@ -1,17 +1,27 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  Alert,
+  Modal,
+  TouchableWithoutFeedback,
+} from 'react-native';
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ added
 import { useProcessAlert } from '../components/ProcessAlertProvider';
-import { ChevronDown, Settings, Wifi, FileSearch, AlertCircle } from 'lucide-react-native';
+import { ChevronDown, Settings, Wifi, FileSearch, AlertCircle, X } from 'lucide-react-native';
 import Tabs from '../components/commons/Tabs';
 import OProcessSensors from '../components/oProcessSensors';
 import OProcessDetails from '../components/oProcessDetails';
 import OInputWaste from '../components/oInputWastemachine';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { createWasteInput, getWasteInputsByMachineId } from '../services/wasteInputService';
-import { fetchMachines, Machine } from '../services/machineService';
+import { fetchMachines, fetchOperatorMachines, Machine } from '../services/machineService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type MainTabType = 'Maintenance' | 'Additive' | 'Process';
 type ProcessTabType = 'Process Panel' | 'Process Sensors and Alerts' | 'Process Details';
@@ -23,6 +33,7 @@ export default function OProcess() {
   const [machinesLoading, setMachinesLoading] = useState(false);
   const [selectedMachineId, setSelectedMachineId] = useState<number | null>(null);
   const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
+  const [machineModalVisible, setMachineModalVisible] = useState(false);
   const [inputWasteModalVisible, setInputWasteModalVisible] = useState(false);
   const [savingWaste, setSavingWaste] = useState(false);
   const [hasInputToday, setHasInputToday] = useState<boolean | null>(null);
@@ -42,13 +53,50 @@ export default function OProcess() {
     (async () => {
       setMachinesLoading(true);
       try {
-        const rows = await fetchMachines();
-        if (!mounted) return;
-        setMachines(rows || []);
-        if (rows?.length && !selectedMachineId) {
-          setSelectedMachineId(rows[0].machine_id);
+        // Get current operator ID
+        const rawUser = await AsyncStorage.getItem('user');
+        let operatorId: number | null = null;
+        
+        if (rawUser) {
+          const user = JSON.parse(rawUser);
+          console.log('User data from AsyncStorage:', user);
+          operatorId = Number(user?.Account_id ?? user?.AccountId ?? user?.id);
+          console.log('Extracted operator ID:', operatorId);
+        } else {
+          console.log('No user data found in AsyncStorage');
         }
-      } catch {
+
+        // Fetch machines based on operator
+        let machineData: Machine[] = [];
+        if (operatorId && Number.isFinite(operatorId)) {
+          console.log('Fetching machines for operator:', operatorId);
+          try {
+            machineData = await fetchOperatorMachines(operatorId);
+            console.log('Operator machines fetched:', machineData);
+            
+            // If no machines found for operator, try all machines as fallback
+            if (!machineData || machineData.length === 0) {
+              console.log('No machines found for operator, fetching all machines as fallback');
+              machineData = await fetchMachines();
+              console.log('All machines fetched:', machineData);
+            }
+          } catch (operatorError) {
+            console.log('Error fetching operator machines, falling back to all machines:', operatorError);
+            machineData = await fetchMachines();
+          }
+        } else {
+          console.log('No valid operator ID, fetching all machines');
+          // Fallback to all machines if no operator ID found
+          machineData = await fetchMachines();
+        }
+        
+        if (!mounted) return;
+        setMachines(machineData || []);
+        if (machineData?.length && !selectedMachineId) {
+          setSelectedMachineId(machineData[0].machine_id);
+        }
+      } catch (error) {
+        console.log('Error in machine fetching:', error);
         if (!mounted) return;
         setMachines([]);
       } finally {
@@ -68,24 +116,66 @@ export default function OProcess() {
     }
   }, [selectedMachineId]);
 
+  // Refresh input status when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (selectedMachineId) {
+        checkIfInputToday();
+      }
+    }, [selectedMachineId])
+  );
+
   const checkIfInputToday = async () => {
     if (!selectedMachineId) return;
     
     setCheckingInputToday(true);
     try {
+      // Get current operator ID
+      const rawUser = await AsyncStorage.getItem('user');
+      let operatorId: number | null = null;
+      
+      if (rawUser) {
+        const user = JSON.parse(rawUser);
+        operatorId = Number(user?.Account_id ?? user?.AccountId ?? user?.id);
+        console.log('Checking input today for operator:', operatorId, 'machine:', selectedMachineId);
+      }
+
       const inputs = await getWasteInputsByMachineId(selectedMachineId);
+      console.log('All inputs for machine:', inputs);
+      
       if (inputs && inputs.length > 0) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        const hasTodayInput = inputs.some((input: any) => {
-          const inputDate = new Date(input.created_at);
-          inputDate.setHours(0, 0, 0, 0);
-          return inputDate.getTime() === today.getTime();
+        // Filter inputs by current operator if operator ID is available
+        const operatorInputs = operatorId 
+          ? inputs.filter((input: any) => {
+              const inputAccountId = Number(input.Account_id);
+              console.log('Input account ID:', inputAccountId, 'operator ID:', operatorId, 'match:', inputAccountId === operatorId);
+              return inputAccountId === operatorId;
+            })
+          : inputs;
+        
+        console.log('Operator inputs:', operatorInputs);
+        
+        const hasTodayInput = operatorInputs.some((input: any) => {
+          // Check multiple date fields for compatibility
+          const dateFields = [input.created_at, input.Input_datetime, input.Created_at];
+          const inputDate = dateFields.find(field => field) ? new Date(dateFields.find(field => field)!) : null;
+          
+          if (inputDate) {
+            inputDate.setHours(0, 0, 0, 0);
+            const isToday = inputDate.getTime() === today.getTime();
+            console.log('Input date:', inputDate.toDateString(), 'is today:', isToday);
+            return isToday;
+          }
+          return false;
         });
         
+        console.log('Has input today:', hasTodayInput);
         setHasInputToday(hasTodayInput);
       } else {
+        console.log('No inputs found for machine');
         setHasInputToday(false);
       }
     } catch (err) {
@@ -154,8 +244,8 @@ export default function OProcess() {
     setSavingWaste(true);
     try {
       await createWasteInput(payload.machineId, Number(payload.weightTotal));
-      // Refresh the today input check after successful save
-      checkIfInputToday();
+      // Refresh the today input check after successful save and wait for completion
+      await checkIfInputToday();
     } catch (err: any) {
       const msg = err?.message ?? 'Failed to save waste input.';
       Alert.alert('Save failed', String(msg));
@@ -273,37 +363,21 @@ export default function OProcess() {
         </View>
 
         <TouchableOpacity
-          style={tw`bg-primary rounded-md px-4 py-2 flex-row items-center justify-between self-start mb-6`}
-          onPress={() => setMachineDropdownOpen(!machineDropdownOpen)}
+          style={tw`bg-primary rounded-md px-4 py-3 flex-row items-center justify-between self-start mb-6`}
+          onPress={() => setMachineModalVisible(true)}
         >
-          <Text style={tw`text-white font-bold text-[10px] mr-2`}>
-            {selectedMachine?.Name ?? (machinesLoading ? 'Loading machines...' : 'Select machine')}
-          </Text>
-          <ChevronDown color="white" size={12} strokeWidth={2} />
-        </TouchableOpacity>
-
-        {machineDropdownOpen && (
-          <View style={tw`bg-white border border-[#E5E7EB] rounded-lg px-2 py-2 mb-4 shadow`}>
-            {machinesLoading ? (
-              <Text style={tw`text-xs text-gray-500 px-2 py-1`}>Loading...</Text>
-            ) : machines.length === 0 ? (
-              <Text style={tw`text-xs text-gray-500 px-2 py-1`}>No machines found</Text>
-            ) : (
-              machines.map((m) => (
-                <TouchableOpacity
-                  key={m.machine_id}
-                  style={tw`px-2 py-2 rounded-md`}
-                  onPress={() => {
-                    setSelectedMachineId(m.machine_id);
-                    setMachineDropdownOpen(false);
-                  }}
-                >
-                  <Text style={tw`text-xs text-[#2E523A] font-semibold`}>{m.Name}</Text>
-                </TouchableOpacity>
-              ))
+          <View style={tw`flex-1`}>
+            <Text style={tw`text-white font-bold text-[11px]`}>
+              {selectedMachine?.Name ?? (machinesLoading ? 'Loading...' : 'Select machine')}
+            </Text>
+            {selectedMachine && (
+              <Text style={tw`text-white/80 text-[9px] mt-1`}>
+                {selectedMachine.IsOnline ? '🟢 Online' : '🔴 Offline'} • {selectedMachine.Status || 'Active'}
+              </Text>
             )}
           </View>
-        )}
+          <ChevronDown color="white" size={12} strokeWidth={2} />
+        </TouchableOpacity>
 
         <View style={tw`flex-row justify-between mb-2`}>
           {(['Process Panel', 'Process Sensors and Alerts', 'Process Details'] as ProcessTabType[]).map(
@@ -360,7 +434,76 @@ export default function OProcess() {
         onSave={handleInputWasteSave}
         loading={savingWaste}
         machineId={selectedMachineId ? String(selectedMachineId) : ''}
+        machineName={selectedMachine?.Name}
       />
+
+      {/* Machine Selection Modal */}
+      <Modal
+        visible={machineModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMachineModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setMachineModalVisible(false)}>
+          <View style={tw`flex-1 bg-black/35 justify-center items-center px-6`}>
+            <TouchableWithoutFeedback>
+              <View style={tw`bg-white rounded-2xl w-full max-w-sm p-6 shadow-lg`}>
+                {/* Header */}
+                <View style={tw`flex-row justify-between items-center mb-6`}>
+                  <Text style={tw`text-[#2E523A] text-xl font-bold`}>Select Machine</Text>
+                  <TouchableOpacity
+                    onPress={() => setMachineModalVisible(false)}
+                    style={tw`p-2`}
+                  >
+                    <X color="#88AB8E" size={20} strokeWidth={2} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Machine List */}
+                <ScrollView style={tw`max-h-80`} showsVerticalScrollIndicator={false}>
+                  {machinesLoading ? (
+                    <Text style={tw`text-center text-gray-500 py-4`}>Loading machines...</Text>
+                  ) : machines.length === 0 ? (
+                    <Text style={tw`text-center text-gray-500 py-4`}>No machines assigned to you</Text>
+                  ) : (
+                    machines.map((machine) => (
+                      <TouchableOpacity
+                        key={machine.machine_id}
+                        style={[
+                          tw`p-4 rounded-xl border-2 mb-3`,
+                          selectedMachineId === machine.machine_id
+                            ? tw`border-[#88AB8E] bg-[#88AB8E]/10`
+                            : tw`border-gray-200 bg-white`
+                        ]}
+                        onPress={() => {
+                          setSelectedMachineId(machine.machine_id);
+                          setMachineModalVisible(false);
+                        }}
+                      >
+                        <View style={tw`flex-row justify-between items-start`}>
+                          <View style={tw`flex-1`}>
+                            <Text style={tw`text-[#2E523A] font-semibold text-base mb-1`}>
+                              {machine.Name}
+                            </Text>
+                            <Text style={tw`text-gray-600 text-sm`}>
+                              {machine.IsOnline ? '🟢 Online' : '🔴 Offline'} • {machine.Status || 'Active'}
+                            </Text>
+                          </View>
+                          {selectedMachineId === machine.machine_id && (
+                            <View style={tw`w-6 h-6 rounded-full bg-[#88AB8E] items-center justify-center`}>
+                              <Text style={tw`text-white text-xs font-bold`}>✓</Text>
+                            </View>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }

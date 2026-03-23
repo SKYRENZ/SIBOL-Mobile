@@ -2,14 +2,14 @@ import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import tw from '../utils/tailwind';
 import { useNavigation } from '@react-navigation/native';
-import { Menu, FileText, Home as HomeIcon, Map as MapIcon, ArrowLeft } from 'lucide-react-native';
+import { Menu, FileText, Home as HomeIcon, List, ArrowLeft } from 'lucide-react-native';
 import { useMenu } from './MenuProvider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface BottomNavbarProps {
   // allow 'Chat' as well so pages like ChatSupport can pass currentPage="Chat"
-  currentPage?: 'Menu' | 'Request' | 'Home' | 'Map' | 'Back' | 'Chat';
+  currentPage?: 'Menu' | 'Request' | 'Home' | 'Logs' | 'Back' | 'Chat';
   onRefresh?: () => void;
   onBack?: () => Promise<boolean> | boolean;
 }
@@ -52,8 +52,8 @@ export default function BottomNavbar({ currentPage, onRefresh, onBack }: BottomN
       case 'Home':
         navigation.navigate('ODashboard' as never);
         break;
-      case 'Map':
-        navigation.navigate('OMap' as never);
+      case 'Logs':
+        (navigation.navigate as any)('OProfile', { showLogs: true });
         break;
       case 'Back': {
         // allow page to intercept Back (e.g., unwind local tab history)
@@ -109,9 +109,9 @@ export default function BottomNavbar({ currentPage, onRefresh, onBack }: BottomN
           <Text style={labelStyle}>Home</Text>
         </View>
 
-        <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Map')}>
-          <MapIcon color="white" size={22} />
-          <Text style={labelStyle}>Map</Text>
+        <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Logs')}>
+          <List color="white" size={22} />
+          <Text style={labelStyle}>Logs</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Back')}>
