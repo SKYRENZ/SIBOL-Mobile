@@ -2,7 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import tw from '../utils/tailwind';
 import { useNavigation } from '@react-navigation/native';
-import { Menu, FileText, Home as HomeIcon, Map as MapIcon, ArrowLeft } from 'lucide-react-native';
+import { Menu, FileText, Home as HomeIcon, Map, ArrowLeft } from 'lucide-react-native';
 import { useMenu } from './MenuProvider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -110,7 +110,7 @@ export default function BottomNavbar({ currentPage, onRefresh, onBack }: BottomN
         </View>
 
         <TouchableOpacity style={tw`items-center flex-1`} onPress={() => handleNavigation('Map')}>
-          <MapIcon color="white" size={22} />
+          <Map color="white" size={22} />
           <Text style={labelStyle}>Map</Text>
         </TouchableOpacity>
 

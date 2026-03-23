@@ -2,6 +2,7 @@ import { get } from './apiClient';
 
 export type WasteContainer = {
   id: number;
+  container_id?: number;
   name: string;
   areaName: string;
   fullAddress?: string;
@@ -51,7 +52,7 @@ function normalizeContainer(r: any): WasteContainer | null {
     return n === null ? false : n === 1;
   })();
 
-  return { id, name, areaName, fullAddress, status, statusLabel, currentKg, hasWeightData, latitude, longitude, raw: r };
+  return { id, container_id: toNumber(r?.container_id) || undefined, name, areaName, fullAddress, status, statusLabel, currentKg, hasWeightData, latitude, longitude, raw: r };
 }
 
 export async function listWasteContainers(): Promise<WasteContainer[]> {

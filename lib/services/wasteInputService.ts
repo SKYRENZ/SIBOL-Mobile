@@ -41,3 +41,29 @@ export async function getWasteInputsByMachineId(machineId: number | string) {
   if (Array.isArray(data)) return data;
   return [];
 }
+
+export async function getWasteInputsByAccountId(accountId?: number | string) {
+  let resolvedAccountId: number | undefined;
+
+  if (accountId !== undefined && accountId !== null && String(accountId).trim() !== '') {
+    const n = Number(accountId);
+    if (Number.isFinite(n)) resolvedAccountId = n;
+  } else {
+    try {
+      const rawUser = await AsyncStorage.getItem('user');
+      if (rawUser) {
+        const user = JSON.parse(rawUser);
+        const id = Number(user?.Account_id ?? user?.AccountId ?? user?.id);
+        if (Number.isFinite(id)) resolvedAccountId = id;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!resolvedAccountId) return [];
+  const data = await get(`/api/waste-inputs/account/${resolvedAccountId}`);
+  if (data && Array.isArray((data as any).data)) return (data as any).data;
+  if (Array.isArray(data)) return data;
+  return [];
+}

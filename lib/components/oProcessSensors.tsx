@@ -7,7 +7,7 @@ interface Alert {
   id: string;
   title: string;
   date: string;
-  severity: 'error' | 'warning';
+  severity: 'error' | 'warning' | 'info';
 }
 
 interface SensorMetric {
@@ -19,9 +19,10 @@ interface SensorMetric {
 
 interface Props {
   machineId: number | null;
+  onAlertStatusChange?: (hasAlert: boolean) => void;
 }
 
-const OProcessSensors: React.FC<Props> = ({ machineId }) => {
+const OProcessSensors: React.FC<Props> = ({ machineId, onAlertStatusChange }) => {
   const [reading, setReading] = useState<S3SensorReading | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -57,40 +58,40 @@ const OProcessSensors: React.FC<Props> = ({ machineId }) => {
     };
   }, [machineId]);
 
-  const alerts: Alert[] = [
-    {
-      id: '1',
-      title: 'All systems normal on Stage 3',
-      date: '9/6/2025',
-      severity: 'warning',
-    },
-    {
-      id: '2',
-      title: 'pH level stable on Stage 3',
-      date: '9/6/2025',
-      severity: 'warning',
-    },
-  ];
-
   const sensorMetrics: SensorMetric[] = useMemo(() => {
     if (!reading) return [];
     return [
       {
         label: 'pH Level',
         value: reading.Ph_Sensor != null ? reading.Ph_Sensor.toFixed(2) : 'N/A',
-        status: 'Normal',
+        status:
+          reading.Ph_Sensor != null
+            ? reading.Ph_Sensor < 6.5 || reading.Ph_Sensor > 7.5
+              ? 'Warning'
+              : 'Normal'
+            : 'Unknown',
         percentage: reading.Ph_Sensor != null ? (reading.Ph_Sensor / 14) * 100 : 0,
       },
       {
         label: 'Temperature',
         value: reading.Temp_Sensor != null ? `${reading.Temp_Sensor.toFixed(1)}°C` : 'N/A',
-        status: 'Normal',
+        status:
+          reading.Temp_Sensor != null
+            ? reading.Temp_Sensor < 35 || reading.Temp_Sensor > 60
+              ? 'Warning'
+              : 'Normal'
+            : 'Unknown',
         percentage: reading.Temp_Sensor != null ? (reading.Temp_Sensor / 100) * 100 : 0,
       },
       {
         label: 'Pressure',
         value: reading.Pressure_Sensor != null ? reading.Pressure_Sensor.toFixed(1) : 'N/A',
-        status: 'Normal',
+        status:
+          reading.Pressure_Sensor != null
+            ? reading.Pressure_Sensor < 20 || reading.Pressure_Sensor > 80
+              ? 'Warning'
+              : 'Normal'
+            : 'Unknown',
         percentage:
           reading.Pressure_Sensor != null
             ? Math.min((reading.Pressure_Sensor / 100) * 100, 100)
@@ -99,7 +100,12 @@ const OProcessSensors: React.FC<Props> = ({ machineId }) => {
       {
         label: 'Methane',
         value: reading.Methane_Sensor != null ? reading.Methane_Sensor.toFixed(1) : 'N/A',
-        status: 'Normal',
+        status:
+          reading.Methane_Sensor != null
+            ? reading.Methane_Sensor < 20 || reading.Methane_Sensor > 60
+              ? 'Warning'
+              : 'Normal'
+            : 'Unknown',
         percentage:
           reading.Methane_Sensor != null
             ? Math.min((reading.Methane_Sensor / 100) * 100, 100)
@@ -107,6 +113,53 @@ const OProcessSensors: React.FC<Props> = ({ machineId }) => {
       },
     ];
   }, [reading]);
+
+  const alerts: Alert[] = useMemo(() => {
+    if (!reading) {
+      return [
+        {
+          id: '0',
+          title: 'No sensor data available',
+          date: new Date().toLocaleDateString(),
+          severity: 'info',
+        },
+      ];
+    }
+
+    const issues: Alert[] = [];
+
+    sensorMetrics.forEach((metric, idx) => {
+      if (metric.status === 'Warning') {
+        issues.push({
+          id: `warn-${idx}`,
+          title: `${metric.label} is outside normal range (${metric.value})`,
+          date: new Date().toLocaleDateString(),
+          severity: 'warning',
+        });
+      }
+    });
+
+    if (issues.length > 0) {
+      return issues;
+    }
+
+    return [
+      {
+        id: '0',
+        title: 'All systems normal on Stage 3',
+        date: new Date().toLocaleDateString(),
+        severity: 'info',
+      },
+    ];
+  }, [reading, sensorMetrics]);
+
+  const hasAlert = alerts.some((alert) => alert.severity === 'warning' || alert.severity === 'error');
+
+  useEffect(() => {
+    if (typeof onAlertStatusChange === 'function') {
+      onAlertStatusChange(hasAlert);
+    }
+  }, [hasAlert, onAlertStatusChange]);
 
   const AlertCard: React.FC<{ alert: Alert }> = ({ alert }) => {
     const isError = alert.severity === 'error';

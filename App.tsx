@@ -33,6 +33,7 @@ import HProfile from './lib/Pages/hProfile';
 import HProfileEdit from './lib/components/hProfile/hProfileEdit';
 import HMap from './lib/Pages/hMap';
 import ScanProvider from './lib/components/ScanProvider';
+import { ProcessAlertProvider } from './lib/components/ProcessAlertProvider';
 import { useEffect } from 'react';
 import { attachPushListeners, initializePushForCurrentUser } from './lib/services/pushNotificationService';
 import * as Notifications from 'expo-notifications';
@@ -63,8 +64,9 @@ export default function App() {
       <ScanProvider>
         <ResponsiveProvider>
           <NavigationContainer>
-            <MenuProvider>
-              <Stack.Navigator
+            <ProcessAlertProvider>
+              <MenuProvider>
+                <Stack.Navigator
                 initialRouteName="SignIn"
                 screenOptions={{ headerShown: false }}
               >
@@ -98,7 +100,8 @@ export default function App() {
               </Stack.Navigator>
               <StatusBar style="auto" />
             </MenuProvider>
-          </NavigationContainer>
+          </ProcessAlertProvider>
+        </NavigationContainer>
         </ResponsiveProvider>
       </ScanProvider>
     </SafeAreaProvider>

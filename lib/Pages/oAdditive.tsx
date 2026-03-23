@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, Modal, TouchableWithoutFeedba
 import tw from '../utils/tailwind';
 import BottomNavbar from '../components/oBotNav';
 import BottomNavSpacer from '../components/commons/BottomNavSpacer'; // ✅ add
+import { useProcessAlert } from '../components/ProcessAlertProvider';
 import { ChevronDown } from 'lucide-react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Plus } from 'lucide-react-native';
@@ -35,6 +36,7 @@ const formatDate = (isoDate: string) => {
 export default function OAdditive() {
   const [selectedTab, setSelectedTab] = useState<TabType>('Additive');
   const [selectedMachine, setSelectedMachine] = useState('');
+  const { hasProcessAlert } = useProcessAlert();
   const [machineDropdownOpen, setMachineDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState<{ x: number; y: number; width: number; height: number }>({ x: 0, y: 0, width: 0, height: 0 });
   const buttonRef = useRef<View>(null);
@@ -143,6 +145,7 @@ export default function OAdditive() {
             <Tabs
               tabs={['Maintenance', 'Additive', 'Process']}
               activeTab={selectedTab}
+              indicators={{ Process: hasProcessAlert }}
               onTabChange={(val) => {
                 if (val === 'Maintenance') {
                   navigation.navigate('OMaintenance');
