@@ -15,6 +15,8 @@ import {
 
 import { createCollection, NormalizedArea } from '../services/wasteCollectionService';
 import { listWasteContainers, WasteContainer } from '../services/wasteContainerService';
+import { logCollection } from '../services/collectionLogService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snackbar from './commons/Snackbar';
 
 interface Props {
@@ -226,6 +228,24 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
         }
       }
       await createCollection(containerPayload, numericWeight);
+
+      // Enhanced logging: Log collection with operator details
+      try {
+        const operatorId = await AsyncStorage.getItem('userId');
+        if (operatorId) {
+          await logCollection({
+            area_id: typeof containerPayload === 'number' ? containerPayload : matchedContainer?.id || 0,
+            operator_id: parseInt(operatorId),
+            container_id: matchedContainer?.raw?.container_id,
+            weight: numericWeight,
+            collection_method: 'manual',
+            notes: `Collected from ${matchedContainer?.label || container}`,
+          });
+        }
+      } catch (logError) {
+        console.warn('Failed to log collection details:', logError);
+        // Don't fail the main operation if logging fails
+      }
 
       if (onSave) onSave({ container: containerPayload, weight: numericWeight });
       onClose();

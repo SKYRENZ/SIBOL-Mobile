@@ -377,7 +377,7 @@ function OMapContent({ navigation }: any) {
       </View>
 
       <View style={styles.bottomNavWrapper}>
-        <BottomNavbar />
+        <BottomNavbar currentPage="Map" />
       </View>
 
       <OWasteInput visible={showWasteModal} onClose={() => setShowWasteModal(false)} />

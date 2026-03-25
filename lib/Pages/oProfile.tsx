@@ -10,13 +10,14 @@ import {
   Alert,
   Pressable,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import tw from '../utils/tailwind';
 import { Pencil } from 'lucide-react-native';
 import BottomNavbar from '../components/oBotNav';
 import AreaCovered from '../components/AreaCovered';
+import OperatorLogs from '../components/OperatorLogs';
 import Button from '../components/commons/Button';
 import Snackbar from '../components/commons/Snackbar';
 import OProfileEditForm, { OProfileEditData } from '../components/oProfile/oProfileEdit';
@@ -34,9 +35,17 @@ const formatTooEarly = (payload: any, fallback = 'You can’t update yet.') => {
 
 export default function OProfile() {
   const navigation = useNavigation();
+  const route = useRoute();
   const [activeTab, setActiveTab] = useState<'personal' | 'area'>('personal');
   const [showNavigationModal, setShowNavigationModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+
+  // Check if navigation should show Logs tab
+  useEffect(() => {
+    if ((route.params as any)?.showLogs) {
+      setActiveTab('area');
+    }
+  }, [route.params]);
 
   const [profileEditing, setProfileEditing] = useState(false);
 
@@ -371,7 +380,7 @@ export default function OProfile() {
                     : tw`text-[#6C8770]`
                 ]}
               >
-                Area Covered
+                Logs
               </Text>
             </TouchableOpacity>
           </View>
@@ -433,7 +442,7 @@ export default function OProfile() {
               onPasswordChanged={() => setPasswordLastUpdated(new Date().toISOString())}
             />
           ) : (
-            <AreaCovered />
+            <OperatorLogs />
           )}
         </View>
       </ScrollView>
