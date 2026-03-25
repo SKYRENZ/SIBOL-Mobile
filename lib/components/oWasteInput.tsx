@@ -22,83 +22,83 @@ import Snackbar from './commons/Snackbar';
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onSave?: (payload: { area: string | number; weight: number }) => void;
+  onSave?: (payload: { container: string | number; weight: number }) => void;
 }
 
 export default function oWasteInput({ visible, onClose, onSave }: Props) {
-  const [area, setArea] = useState('');
-  const [selectedAreaId, setSelectedAreaId] = useState<number | null>(null);
+  const [container, setContainer] = useState('');
+  const [selectedContainerId, setSelectedContainerId] = useState<number | null>(null);
   const [weight, setWeight] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [snack, setSnack] = useState({ visible: false, message: '', type: 'error' as 'error' | 'success' | 'info' });
   const [currentSensorKg, setCurrentSensorKg] = useState<number | null>(null);
 
   // suggestions
-  const [areasList, setAreasList] = useState<NormalizedArea[]>([]);
+  const [containersList, setContainersList] = useState<NormalizedArea[]>([]);
   const [suggestions, setSuggestions] = useState<NormalizedArea[]>([]);
-  const [loadingAreas, setLoadingAreas] = useState(false);
+  const [loadingContainers, setLoadingContainers] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const SUGGESTION_LIMIT = 6;
 
   useEffect(() => {
     if (!visible) {
       setError(null);
-      setArea('');
+      setContainer('');
       setWeight('');
       setSuggestions([]);
-      setSelectedAreaId(null);
+      setSelectedContainerId(null);
     }
   }, [visible]);
 
-  // load areas list from waste containers
+  // load containers list
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      setLoadingAreas(true);
+      setLoadingContainers(true);
       try {
         const containers = await listWasteContainers();
-        const list = normalizeContainersToAreas(containers);
+        const list = normalizeContainersToContainers(containers);
         if (!mounted) return;
-        setAreasList(list);
-        console.debug('[oWasteInput] loaded areas count:', list.length, 'sample:', list.slice(0,10).map(i => ({ id: i.id, label: i.label })));
+        setContainersList(list);
+        console.debug('[oWasteInput] loaded containers count:', list.length, 'sample:', list.slice(0,10).map(i => ({ id: i.id, label: i.label })));
         if (list.length > 0) {
           try {
             const sampleRaw = list[0].raw;
-            console.debug('[oWasteInput] sample area raw keys:', sampleRaw ? Object.keys(sampleRaw).slice(0,20) : 'no raw', sampleRaw && typeof sampleRaw === 'object' ? sampleRaw : undefined);
+            console.debug('[oWasteInput] sample container raw keys:', sampleRaw ? Object.keys(sampleRaw).slice(0,20) : 'no raw', sampleRaw && typeof sampleRaw === 'object' ? sampleRaw : undefined);
           } catch (e) {
             // ignore logging errors
           }
         }
       } catch (e) {
-        console.error('[oWasteInput] failed to load areas', e);
+        console.error('[oWasteInput] failed to load containers', e);
       } finally {
-        setLoadingAreas(false);
+        setLoadingContainers(false);
       }
     };
     load();
     return () => { mounted = false; };
   }, [visible]);
 
-  const onChangeArea = (text: string) => {
-    setArea(text);
-    setSelectedAreaId(null); // typing clears selection
+  const onChangeContainer = (text: string) => {
+    setContainer(text);
+    setSelectedContainerId(null); // typing clears selection
     setWeight('');
     setCurrentSensorKg(null);
     setError(null);
 
     const q = text.trim().toLowerCase();
     if (!q) {
-      setSuggestions(areasList.slice(0, SUGGESTION_LIMIT));
+      setSuggestions(containersList.slice(0, SUGGESTION_LIMIT));
       setShowSuggestions(true);
       return;
     }
 
     // prefix match on normalized label first
-    let matches = areasList.filter(a => a.label.toLowerCase().startsWith(q));
+    let matches = containersList.filter(a => a.label.toLowerCase().startsWith(q));
 
     // substring fallback
     if (matches.length === 0) {
-      matches = areasList.filter(a => a.label.toLowerCase().includes(q));
+      matches = containersList.filter(a => a.label.toLowerCase().includes(q));
     }
 
     setSuggestions(matches.slice(0, SUGGESTION_LIMIT));
@@ -106,16 +106,16 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
   };
 
   const selectSuggestion = (s: NormalizedArea) => {
-    setArea(s.label);
-    setSelectedAreaId(Number(s.id));
+    setContainer(s.label);
+    setSelectedContainerId(Number(s.id));
     setSuggestions([]);
     setShowSuggestions(false);
     setError(null);
-    // try to auto-fill weight from the area's raw container data (with debug)
+    // try to auto-fill weight from the container's raw data (with debug)
     try {
       const raw = (s as any).raw;
       const { value: found, key: matchedKey } = extractWeightFromRaw(raw, { debug: true });
-      console.debug('[oWasteInput] selectSuggestion raw matchedKey:', matchedKey, 'found:', found, 'areaId:', s.id);
+      console.debug('[oWasteInput] selectSuggestion raw matchedKey:', matchedKey, 'found:', found, 'containerId:', s.id);
       if (found !== null && found !== undefined) {
         const num = Number(found);
         if (!Number.isNaN(num)) {
@@ -134,12 +134,12 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
     }
   };
 
-  // When the user leaves the Area input, if it matches an existing area label exactly,
+  // When the user leaves the Container input, if it matches an existing container label exactly,
   // select it and auto-fill weight from its raw data.
-  const onAreaBlur = () => {
-    const q = area.trim().toLowerCase();
+  const onContainerBlur = () => {
+    const q = container.trim().toLowerCase();
     if (!q) return;
-    const exact = areasList.find(a => a.label.trim().toLowerCase() === q);
+    const exact = containersList.find(a => a.label.trim().toLowerCase() === q);
     if (exact) selectSuggestion(exact);
   };
 
@@ -183,8 +183,8 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
   const handleSave = async () => {
     setError(null);
 
-    if (!area || !area.toString().trim()) {
-      setError('Please enter/select an area.');
+    if (!container || !container.toString().trim()) {
+      setError('Please enter/select a container.');
       return;
     }
 
@@ -201,17 +201,17 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
     }
 
     try {
-      // If user selected a suggestion, submit the numeric id; otherwise submit the typed area (service will resolve)
-      const areaPayload: string | number = selectedAreaId ?? area.trim();
+      // If user selected a suggestion, submit the numeric id; otherwise submit the typed container (service will resolve)
+      const containerPayload: string | number = selectedContainerId ?? container.trim();
 
       // Prevent manual save when container has no weight data:
-      // find the normalized area entry (by id or label)
-      let matchedArea: NormalizedArea | undefined;
-      if (typeof areaPayload === 'number') matchedArea = areasList.find(a => a.id === areaPayload);
-      else matchedArea = areasList.find(a => a.label.trim().toLowerCase() === String(areaPayload).trim().toLowerCase());
+      // find the normalized container entry (by id or label)
+      let matchedContainer: NormalizedArea | undefined;
+      if (typeof containerPayload === 'number') matchedContainer = containersList.find(a => a.id === containerPayload);
+      else matchedContainer = containersList.find(a => a.label.trim().toLowerCase() === String(containerPayload).trim().toLowerCase());
 
-      if (matchedArea) {
-        const hasSensor = !!(matchedArea.raw && (matchedArea.raw.has_weight_data === true || matchedArea.raw.current_kg !== undefined));
+      if (matchedContainer) {
+        const hasSensor = !!(matchedContainer.raw && (matchedContainer.raw.has_weight_data === true || matchedContainer.raw.current_kg !== undefined));
         if (!hasSensor) {
           // operator entering manual weight while container has no sensor data — show snackbar and block
           setSnack({ visible: true, message: 'Container has no weight sensor data — cannot submit manual measurement.', type: 'error' });
@@ -219,7 +219,7 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
         }
 
         // If sensor exists, deny submissions greater than the sensor reading.
-        const sensorVal = matchedArea.raw && (matchedArea.raw.current_kg !== undefined ? Number(matchedArea.raw.current_kg) : null);
+        const sensorVal = matchedContainer.raw && (matchedContainer.raw.current_kg !== undefined ? Number(matchedContainer.raw.current_kg) : null);
         if (sensorVal !== null && !Number.isNaN(sensorVal)) {
           if (numericWeight > sensorVal) {
             setSnack({ visible: true, message: `Entered weight exceeds current sensor reading (${sensorVal} kg). Submission blocked.`, type: 'error' });
@@ -227,19 +227,19 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
           }
         }
       }
-      await createCollection(areaPayload, numericWeight);
+      await createCollection(containerPayload, numericWeight);
 
       // Enhanced logging: Log collection with operator details
       try {
         const operatorId = await AsyncStorage.getItem('userId');
         if (operatorId) {
           await logCollection({
-            area_id: typeof areaPayload === 'number' ? areaPayload : matchedArea?.id || 0,
+            area_id: typeof containerPayload === 'number' ? containerPayload : matchedContainer?.id || 0,
             operator_id: parseInt(operatorId),
-            container_id: matchedArea?.raw?.container_id,
+            container_id: matchedContainer?.raw?.container_id,
             weight: numericWeight,
             collection_method: 'manual',
-            notes: `Collected from ${matchedArea?.label || area}`,
+            notes: `Collected from ${matchedContainer?.label || container}`,
           });
         }
       } catch (logError) {
@@ -247,11 +247,11 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
         // Don't fail the main operation if logging fails
       }
 
-      if (onSave) onSave({ area: areaPayload, weight: numericWeight });
+      if (onSave) onSave({ container: containerPayload, weight: numericWeight });
       onClose();
       // reset
-      setArea('');
-      setSelectedAreaId(null);
+      setContainer('');
+      setSelectedContainerId(null);
       setWeight('');
     } catch (err: any) {
       console.error('Failed to submit waste input', err);
@@ -261,7 +261,7 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
 
   // whether the Save button should be enabled
   const canSave = () => {
-    if (!area || !area.toString().trim()) return false;
+    if (!container || !container.toString().trim()) return false;
     if (!weight) return false;
     const numeric = Number(weight);
     if (Number.isNaN(numeric)) return false;
@@ -286,11 +286,11 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
               <View style={styles.card}>
                 <Text style={styles.heading}>Collect waste near you</Text>
 
-                <Text style={styles.label}>Area</Text>
+                <Text style={styles.label}>Container</Text>
                 <TextInput
-                  value={area}
-                  onChangeText={onChangeArea}
-                  placeholder="Petunia St."
+                  value={container}
+                  onChangeText={onChangeContainer}
+                  placeholder="Container A - Main St."
                   placeholderTextColor="#9aa89a"
                   style={styles.input}
                   returnKeyType="done"
@@ -298,14 +298,14 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
                   autoCapitalize="words"
                   onFocus={() => {
                     setShowSuggestions(true);
-                    if (!area.trim()) {
-                      setSuggestions(areasList.slice(0, SUGGESTION_LIMIT));
+                    if (!container.trim()) {
+                      setSuggestions(containersList.slice(0, SUGGESTION_LIMIT));
                     }
                   }}
-                  onBlur={onAreaBlur}
+                  onBlur={onContainerBlur}
                 />
 
-                {loadingAreas ? (
+                {loadingContainers ? (
                   <ActivityIndicator size="small" style={{ marginTop: 8 }} />
                 ) : showSuggestions && suggestions.length > 0 ? (
                   <View style={{ maxHeight: 160, borderWidth: 1, borderColor: '#e6efe6', borderRadius: 8, marginTop: 8 }}>
@@ -365,33 +365,19 @@ export default function oWasteInput({ visible, onClose, onSave }: Props) {
   );
 }
 
-function normalizeContainersToAreas(containers: WasteContainer[]): NormalizedArea[] {
-  const map = new Map<number, NormalizedArea>();
-  containers.forEach((c) => {
-    const areaId = Number(c?.raw?.area_id ?? c?.raw?.Area_id);
-    const label = String(c.areaName || c.name || '').trim();
-    if (!label) return;
-    if (Number.isFinite(areaId)) {
-      if (!map.has(areaId)) {
-        // include sensor flags/values into raw so UI can access them
-        const rawWithFlags = Object.assign({}, c.raw ?? {});
-        // backend-normalized fields on the WasteContainer
-        if ((c as any).currentKg !== undefined) rawWithFlags.current_kg = (c as any).currentKg;
-        if ((c as any).hasWeightData !== undefined) rawWithFlags.has_weight_data = (c as any).hasWeightData;
-        map.set(areaId, { id: areaId, label, raw: rawWithFlags });
-      }
-    }
+function normalizeContainersToContainers(containers: WasteContainer[]): NormalizedArea[] {
+  return containers.map((c) => {
+    const label = String(c.name || c.areaName || `Container ${c.id}`).trim();
+    const rawWithFlags = Object.assign({}, c.raw ?? {});
+    // backend-normalized fields on the WasteContainer
+    if ((c as any).currentKg !== undefined) rawWithFlags.current_kg = (c as any).currentKg;
+    if ((c as any).hasWeightData !== undefined) rawWithFlags.has_weight_data = (c as any).hasWeightData;
+    return {
+      id: c.id ?? c.raw?.id,
+      label,
+      raw: rawWithFlags,
+    };
   });
-
-  const items = Array.from(map.values());
-  if (items.length) return items;
-
-  return containers
-    .map((c, idx) => ({
-      id: c.id ?? idx,
-      label: String(c.areaName || c.name || `Area ${idx + 1}`),
-      raw: Object.assign({}, c.raw ?? {}, { current_kg: (c as any).currentKg, has_weight_data: (c as any).hasWeightData }),
-    }));
 }
 
 const styles = StyleSheet.create({

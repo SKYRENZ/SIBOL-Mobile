@@ -234,7 +234,7 @@ export default function HWasteCollectionMap({
           const lat = Number(c.latitude);
           const lon = Number(c.longitude);
           if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-          const key = String(c.id ?? c.container_id ?? `${lat}-${lon}-${i}`);
+          const key = String(c.id ?? `${lat}-${lon}-${i}`);
           return (
             <Marker
               key={key}
@@ -242,7 +242,7 @@ export default function HWasteCollectionMap({
               tracksViewChanges={false}
             >
               <View style={styles.markerWrap}>
-                <WasteIcon size={28} />
+                <WasteIcon size={28} color="#2E523A" />
               </View>
               <Callout>
                 <View style={tw`min-w-40 py-1`}>
@@ -270,5 +270,12 @@ export default function HWasteCollectionMap({
 }
 
 const styles = StyleSheet.create({
-  markerWrap: { alignItems: 'center', justifyContent: 'center' },
+  markerWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#2E523A',
+  },
 });

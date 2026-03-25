@@ -210,7 +210,7 @@ function OMapContent({ navigation }: any) {
 
   const focusedContainer = useMemo(() => {
     if (!focusedContainerId) return null;
-    return containers.find((c) => String(c.id ?? c.container_id) === String(focusedContainerId)) ?? null;
+    return containers.find((c) => String(c.id) === String(focusedContainerId)) ?? null;
   }, [containers, focusedContainerId]);
 
   const activeContainer = focusedContainer ?? nearestContainer;
@@ -259,7 +259,7 @@ function OMapContent({ navigation }: any) {
   };
 
   const handleFocusContainer = (c: WasteContainer) => {
-    const id = c.id ?? c.container_id ?? `${c.latitude}-${c.longitude}`;
+    const id = c.id ?? `${c.latitude}-${c.longitude}`;
     setFocusedContainerId(id);
     setRoutePath(null);
   };
@@ -396,7 +396,7 @@ function OMapContent({ navigation }: any) {
               {containers.map((c, idx) => {
                 const label = c.areaName || c.name || `Container ${idx + 1}`;
                 return (
-                  <View key={String(c.id ?? c.container_id ?? idx)} style={styles.modalRow}>
+                  <View key={String(c.id ?? idx)} style={styles.modalRow}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.modalRowTitle}>{label}</Text>
                       {!!c.fullAddress && <Text style={styles.modalRowSub}>{c.fullAddress}</Text>}
